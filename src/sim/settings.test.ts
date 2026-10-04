@@ -27,7 +27,6 @@ describe('settings', () => {
     const s = initialState(1, config)
     expect(s.possession.shots).toBe(5)
     expect(s.credits[s.match.builder!]).toBe(55)
-    expect(config.openingCredits).toBe(55)
     expect(config.rounds).toBe(3)
     expect(config.refundRate).toBe(4)
   })

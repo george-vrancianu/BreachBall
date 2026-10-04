@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { defaultConfig as c, step, type SimState } from '../../sim/step'
 import { buildState, funded, hseg, siegeBuild } from '../../sim/testkit'
 import { kickoffSpot } from '../../sim/pitch'
-import { distToSegment, isLegal, structureCost, wallSegments } from '../../sim/wall'
+import { distToSegment, isLegal, wallSegments } from '../../sim/wall'
 import { rules } from '../../config/rules'
 import { piecesFor, planStrategy, STRATEGIES, strategyCards } from './strategies'
 
@@ -40,17 +40,48 @@ describe('Strategies', () => {
     }
   })
 
-  it('Fortress is the fifth Strategy, spends nearly the whole opening budget and leaves the Kick-off spot clear', () => {
-    const fortress = STRATEGIES[4]
-    expect(fortress.id).toBe('fortress')
+  it('Fortress spends nearly the whole opening budget, and its card shows the plan\'s net cost, whole', () => {
+    const fortress = STRATEGIES.find((st) => st.id === 'fortress')!
     for (const owner of [1, 2] as const) {
-      const pieces = piecesFor(fortress, owner)
-      const cost = pieces.reduce((n, p) => n + structureCost(p), 0)
-      expect(cost).toBeGreaterThanOrEqual(35)
-      expect(cost).toBeLessThanOrEqual(c.openingCredits)
+      const s = funded(buildState(owner), owner, c.openingCredits)
+      const plan = planStrategy(s, owner, fortress, c)
+      expect(plan.cost).toBeGreaterThanOrEqual(c.openingCredits - 5)
+      expect(plan.cost).toBeLessThanOrEqual(c.openingCredits)
+      const card = strategyCards(s, owner, c).find((k) => k.id === 'fortress')!
+      expect(card).toMatchObject({ cost: plan.cost, placed: card.total, disabled: false })
+    }
+  })
+
+  it.each(STRATEGIES.map((st) => [st.name, st] as const))('%s leaves a path from the Kick-off spot to the halfway line and from there to the goal mouth, for both players', (_, st) => {
+    for (const owner of [1, 2] as const) {
+      const segs = piecesFor(st, owner).flatMap(wallSegments)
+      const { pitchWidth: W, pitchHeight: H, halfHeight, goalLeft, goalRight } = rules
+      const clear = c.ballRadius + rules.wallHalf
+      const [y0, y1] = owner === 1 ? [halfHeight, H] : [0, halfHeight]
+      const goalY = owner === 1 ? H : 0
+      const step = 0.5
+      const free = (x: number, y: number) => x >= c.ballRadius && x <= W - c.ballRadius && segs.every((g) => distToSegment(g, { x, y }) > clear)
+      const key = (x: number, y: number) => `${x},${y}`
+      // 4-connected flood over the owner's half in 0.5 steps from `starts`; true when it reaches a cell satisfying `goal`.
+      const reaches = (starts: { x: number; y: number }[], goal: (x: number, y: number) => boolean) => {
+        const seen = new Set(starts.map((p) => key(p.x, p.y)))
+        const queue = [...starts]
+        for (let p = queue.shift(); p; p = queue.shift()) {
+          if (goal(p.x, p.y)) return true
+          for (const [dx, dy] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
+            const [x, y] = [p.x + dx, p.y + dy]
+            if (y < y0 || y > y1 || seen.has(key(x, y)) || !free(x, y)) continue
+            seen.add(key(x, y))
+            queue.push({ x, y })
+          }
+        }
+        return false
+      }
+      const halfway = Array.from({ length: W / step + 1 }, (_, i) => ({ x: i * step, y: halfHeight })).filter((p) => free(p.x, p.y))
       const spot = kickoffSpot(owner)
-      const clear = pieces.every((p) => wallSegments(p).every((seg) => distToSegment(seg, spot) > c.ballRadius + rules.wallHalf))
-      expect(clear).toBe(true)
+      expect(free(spot.x, spot.y)).toBe(true)
+      expect(reaches([spot], (_x, y) => y === halfHeight)).toBe(true)
+      expect(reaches(halfway, (x, y) => y === goalY && x >= goalLeft && x <= goalRight)).toBe(true)
     }
   })
 

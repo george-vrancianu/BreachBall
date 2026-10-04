@@ -314,6 +314,7 @@ describe('Siege build timeout', () => {
   })
 
   it('with too few wall points the fallback is a tower', () => {
+    // 0 is below the slider's minimum: the branch is defensive.
     const cfg = { ...timed, credits: 0 }
     const { s } = idle(initialState(1, cfg), TICKS, cfg)
     expect(owned(s, first)).toMatchObject([{ kind: 'tower' }])
@@ -321,6 +322,7 @@ describe('Siege build timeout', () => {
   })
 
   it('the fallback piece mirrors across the halfway line and always places, for either seat, wall or tower', () => {
+    // 0 wall points is below the slider's minimum: the tower branch is defensive.
     for (const credits of [timed.credits, 0]) {
       const cfg = { ...timed, credits }
       const second = opponent(first)

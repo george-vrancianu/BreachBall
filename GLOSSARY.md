@@ -77,7 +77,7 @@ Placing Defence pieces in play, in Rounds, by the shooter before the round's fir
 _Avoid_: Mid-game build, quick build
 
 **Strategy**:
-A ready-made defence layout offered in the build dock's tray, drawn as a card with a preview of the builder's half and its net cost. Tapping one clears this turn's own pieces (refunded in full) and places the layout a piece a tick through the normal placing rules; a piece that does not fit or cannot be paid for is skipped. Each declares its **core**, the number of leading pieces that form its essential shape and fit one round's Credits per round, so a full-budget Strategy tapped in a later, poorer round still drops its core. Authored on Player 1's half and point-reflected for Player 2.
+A ready-made defence layout offered in the build dock's tray, drawn as a card with a preview of the builder's half and its net cost. Tapping one clears this turn's own pieces (refunded in full) and places the layout a piece a tick through the normal placing rules; a piece that does not fit or cannot be paid for is skipped. Each declares its core, the number of leading pieces that form its essential shape and fit one round's Credits per round, so a full-budget Strategy tapped in a later, poorer round still drops its core. Authored on Player 1's half and point-reflected for Player 2.
 _Avoid_: Preset, template, formation, plan (the tile's short label is Plans)
 
 **Map view**:
@@ -109,7 +109,7 @@ The third family of actions, beside Offence and Defence: actions that cripple th
 _Avoid_: Sabotage, debuff, special
 
 **Credits**:
-The single resource every Offence, Defence and Subterfuge item is bought with, each item at its own price. A player gets a grant each round and keeps unspent Credits for the rest of the match.
+The single resource every Offence, Defence and Subterfuge item is bought with, each item at its own price. A player's round-1 build turn holds the Opening Credits; every later build turn adds a grant, and unspent Credits are kept for the rest of the match.
 _Avoid_: Build points, power-up points, resources, energy (and Wall points in Rounds; see below)
 
 **Opening Credits**:
@@ -117,7 +117,7 @@ The Credits each player's round-1 build turn holds in Rounds, instead of (not on
 _Avoid_: Start points, starting credits
 
 **Wall points**:
-Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). Siege has no Credits economy, so it never says Credits.
+Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). Siege has no Credits economy, so it never says Credits. It shares the Rounds wall price: 1 wall point per unit.
 _Avoid_: Credits (in Siege), build points
 
 **Refund**:
