@@ -160,7 +160,7 @@ export const visual = {
     slopPx: 8,
     /** Within this many screen px of any canvas edge the aim is cancel-armed: releasing cancels, moving back out re-arms. */
     edgeCancelPx: 24,
-    /** The Ghost: the ball's predicted path while aiming, drawn as dots from the ball's edge that fade toward the end and drift forward. World units throughout. */
+    /** The Ghost: the ball's predicted path while aiming, drawn as dots from the Comet's tip that fade toward the end and drift forward. World units throughout. */
     ghost: {
       /** `gap` between dots along the path; `radius` and `alpha` run from the first dot's value to the last's. */
       dots: { gap: 1.35, radius: [0.33, 0.16], alpha: [0.9, 0.15] },
@@ -172,7 +172,35 @@ export const visual = {
       chargedScale: 2,
       badge: { size: 1.6, offset: 1.6, weight: 700 },
     },
-    /** Each tier's colour, by name: the Ghost and the hold ring. */
+    /**
+     * The Comet: the direction indicator while aiming, a tapered spear from the ball's edge along the shot with an ink arrowhead and chevrons running along it.
+     * Screen px throughout (divided by the aim's `pxPerUnit`), so it looks the same at any zoom. The Ghost's dots start at its tip.
+     */
+    comet: {
+      /** The spear's length, from the ball's edge to the arrowhead: `base + perPower * power`, the power normalised from the weakest tier's lowest to the strongest's highest. */
+      length: { base: 34, perPower: 120 },
+      /** The gap between the ball's edge and the spear's base. */
+      gapPx: 2,
+      /** The spear's half-width at its base: `base + perPower * power`, the power taken across its own tier's range (0 at the bottom, 1 at the top). */
+      width: { base: 9, perPower: 5 },
+      /** The spear's sides curve in through a point `at` of its length, `width` of its base half-width from the centre line. */
+      bend: { at: 0.6, width: 0.5 },
+      /** The fill, base to tip: transparent, then the tier colour at `mid` along it with alpha `midAlpha`, then ink with alpha `tipAlpha`. */
+      gradient: { mid: 0.55, midAlpha: 0.55, tipAlpha: 0.95, ink },
+      /** The glow around the spear in its colour: blur radius. */
+      glowPx: 14,
+      /** The solid arrowhead past the spear's end: half its width, its length and its colour. */
+      head: { widthPx: 9, lengthPx: 13, color: ink },
+      /**
+       * The chevrons running from the base toward the tip: `count` of them, evenly spaced, each lap taking `1 / (speed + perPower * power)` seconds (power across its tier's range);
+       * their travel from `startPx` past the ball's edge to `endPx` short of the spear's end; arm length shrinking from `sizePx[0]` to `sizePx[1]` as they go; stroke width, colour,
+       * and alpha peaking at `alpha` midway, fading in and out at the ends.
+       */
+      chevrons: { count: 3, speed: 0.5, perPower: 1.8, startPx: 6, endPx: 4, sizePx: [6, 4], widthPx: 2.5, color: dark, alpha: 0.75 },
+      /** A splash tier's dashed preview of its Splash radius around the ball: dash and gap lengths, line width and alpha, in its tier colour. */
+      splash: { dashPx: [4, 5], widthPx: 1.5, alpha: 0.5 },
+    },
+    /** Each tier's colour, by name: the Comet, the Ghost, the Splash preview and the hold ring. */
     tierColors: { Touch: '#4ade80', Power: '#f87171' } satisfies Record<TierName, string>,
     /** Cancel-armed: the Ghost greys out and an ✕ (half-size `size`, world units) sits on the ball. */
     cancel: { color: '#9ca3af', size: 1.2, width: 0.35 },
