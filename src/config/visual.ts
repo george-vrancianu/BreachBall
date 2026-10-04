@@ -28,8 +28,11 @@ export const visual = {
     hudReservePx: 120,
     smoothingS: 0.15,
     bg: dark,
+    /** The main view's frame on the map: dashed outline (dash and gap, px), with solid corner brackets (arm length and line width, px). */
     mapOutline: white,
     mapOutlinePx: 2,
+    mapDashPx: [8, 6],
+    mapBracket: { armPx: 16, linePx: 4 },
     /** A shot of at least `minPower` shakes the view by `max * power` px, decaying over `ms`. */
     shake: { ms: 200, max: 4, minPower: 0.3, freqX: 0.11, freqY: 0.137 },
   },
@@ -143,7 +146,9 @@ export const visual = {
     /** The Defence circle and its piece column (px): the primary circle and its border, the piece circles, their label pills and the gap between them; how long the circle pulses when a hold has nothing to offer, how far it swells (scale), the piece column's z-index (above the HUD rows it may open across), the font sizes of circle, piece and pill (px), and the pill's offset from its piece, side padding and border (px). */
     defence: { circlePx: 60, borderPx: 3, itemPx: 56, pillPx: 32, gap: 10, pulseMs: 300, pulseScale: 1.18, columnZ: 10, circleFontPx: 24, itemFontPx: 20, pillFontPx: 13, pillOffsetPx: 8, pillPadPx: 12, pillBorderPx: 2, itemBorderPx: 2, shadowPx: { y: 2, blur: 8 } },
     /** Move point dots: size and ring in px; a refund buzzes `vibration` ms, a refund that cannot happen buzzes `denied`. */
-    refund: { dotPx: 12, ringPx: 2, gap: 4, vibration: 20, denied: [15, 40, 15] }, shadow: '#0008', gap: 8 },
+    refund: { dotPx: 12, ringPx: 2, gap: 4, vibration: 20, denied: [15, 40, 15] }, shadow: '#0008', gap: 8,
+    /** The minimap chip (px): the chip and its thumbnail, the chip's border and radius, its inset from the band's corner and its tap area; the frame's fill over the thumbnail, the fog's fill, and the map view's hint pill (height, side padding, border, font size). */
+    minimap: { chipW: 30, chipH: 74, thumbW: 21, thumbH: 70, borderPx: 2, radiusPx: 6, insetPx: 8, hitPx: 44, frame: 'rgba(232,234,240,0.12)', fog: 'rgba(11,15,26,0.7)', pill: { heightPx: 36, padPx: 18, borderPx: 2, fontPx: 13 } } },
   /** The Title screen: the dot grid's cell and dot (px), the Play and Online pills' heights, the ghost circles' size, and the widest the pills grow. */
   titleScreen: { gridPx: 26, dotPx: 1.3, playPx: 64, onlinePx: 56, ghostPx: 48, pillMaxPx: 300, halo: tokens.halo },
   /** The Attract loop on the Title screen, in the hero's SVG units (the ring is r150): the pieces' sizes, how many circle at once and how fast, the shot's timing, the ricochet cheat and the effects' lengths. */

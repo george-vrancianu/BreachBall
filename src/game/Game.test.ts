@@ -163,6 +163,29 @@ describe('Game', () => {
     expect(order).toEqual(['camera.update', 'driver.update', 'mark', 'draw'])
   })
 
+  it('the minimap thumbnail tracks the live camera', () => {
+    const onView = vi.fn()
+    const game = make(onView)
+    const t = performance.now()
+    frame(t)
+    const before = onView.mock.lastCall![0].minimap.frame
+    // The opening turn card holds the camera on the ball.
+    game.actions.dismiss()
+    frame(t + 5000)
+    game.camera.pan(20)
+    frame(t + 5016)
+    const after = onView.mock.lastCall![0].minimap.frame
+    expect(after.top).toBeGreaterThan(before.top)
+    expect(after.height).toBe(before.height)
+  })
+
+  it('the map camera fits above the HUD band the main camera keeps clear', () => {
+    const game = make()
+    game.actions.map(true)
+    frame(performance.now())
+    expect(game.mapCam.reserve).toEqual(game.camera.reserve)
+  })
+
   it('draws the open map with the main camera\'s shake', () => {
     const game = make()
     const t = performance.now()
