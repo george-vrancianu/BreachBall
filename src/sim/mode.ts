@@ -1,5 +1,5 @@
 import { rules } from '../config/rules'
-import { type PlayerId, type Point } from './pitch'
+import { kickoffSpot, type PlayerId, type Point } from './pitch'
 import { coinFlip, firstBuilder, startingPossession, type GameModeName, type Match, type RoundsMatch, type SiegeMatch } from './match'
 import { opponent, type Possession } from './possession'
 import type { SimConfig, SimEvent } from './step'
@@ -66,8 +66,6 @@ export type GameMode<M extends Match = Match> = {
   winner(m: M, ctx: ModeContext, c: SimConfig): PlayerId | null
 }
 
-const center: Point = { x: rules.pitchWidth / 2, y: rules.halfHeight }
-
 /** Ends the current round (`scorer` null = shot cap, scoreless) and sets up the next; the step function ends the match if `winner` says so. */
 function endRound(m: RoundsMatch, scorer: PlayerId | null, c: SimConfig): ModeResult<RoundsMatch> {
   const score = scorer ? { ...m.score, [scorer]: m.score[scorer] + 1 } : m.score
@@ -76,7 +74,7 @@ function endRound(m: RoundsMatch, scorer: PlayerId | null, c: SimConfig): ModeRe
   return {
     match: { ...m, score, round, roundShots: 0, builder: firstBuilder(m.seed, round) },
     possession: startingPossession(shooter, c),
-    ball: { ...center },
+    ball: kickoffSpot(shooter),
     events: [{ type: 'round-ended', round: m.round, scorer }],
   }
 }
@@ -106,13 +104,13 @@ export const rounds: GameMode<RoundsMatch> = {
   winner: (m, _ctx, c) => (m.round > c.rounds && m.score[1] !== m.score[2] ? (m.score[1] > m.score[2] ? 1 : 2) : null),
 }
 
-/** Siege: one opening build (Rounds ordering), no score, no shot cap; a goal hands the conceder ball-in-hand at the center; a player with no structures left loses. */
+/** Siege: one opening build (Rounds ordering), no score, no shot cap; a goal hands the conceder a Kick-off after the defence turn; a player with no structures left loses. */
 export const siege: GameMode<SiegeMatch> = {
   start: (seed, c) => ({ match: { mode: 'siege', seed, winner: null, builder: firstBuilder(seed, 1), choosing: null, opening: true }, possession: startingPossession(coinFlip(seed, 1), c) }),
   onShotFired: (m) => m,
   onShotConsumed: () => null,
-  // The scorer owes a defence choice; step holds play until it is made. The conceder's ball-in-hand is set up here, once, and stays unusable while `choosing`.
-  onGoal: (m, scorer, _ctx, c) => ({ match: { ...m, choosing: scorer }, possession: startingPossession(opponent(scorer), c), ball: { ...center }, events: [] }),
+  // The scorer owes a defence choice; step holds play until it is made. The conceder's Kick-off is set up here, once, and stays unusable while `choosing`.
+  onGoal: (m, scorer, _ctx, c) => ({ match: { ...m, choosing: scorer }, possession: startingPossession(opponent(scorer), c), ball: kickoffSpot(opponent(scorer)), events: [] }),
   // Nothing chosen in time takes the no-input option.
   choiceTimeout: () => 'repair',
   onDefenceChoice: (m, player, choice, ctx) => {

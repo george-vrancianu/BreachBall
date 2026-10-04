@@ -15,7 +15,7 @@ function recorder() {
     {
       get: (_t, k: string) => {
         if (k === 'setLineDash') return (d: number[]) => void (dash = d)
-        if (['stroke', 'fill', 'fillRect', 'arc'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
+        if (['stroke', 'fill', 'fillRect', 'arc', 'fillText', 'translate'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
         return state[k] ?? (() => {})
       },
       set: (_t, k: string, v) => ((state[k] = v), true),
@@ -105,5 +105,125 @@ describe('Pitch markings', () => {
       expect(calls.indexOf(snapDots(calls)[0])).toBeGreaterThan(kinds.lastIndexOf(ground))
       expect(calls.lastIndexOf(snapDots(calls).at(-1)!)).toBeLessThan(calls.findIndex((c) => c.fn === 'stroke'))
     })
+  })
+})
+
+describe('Boost ring and Bullseye', () => {
+  const arcsAt = (calls: Call[], radius: number) => calls.filter((c) => c.fn === 'arc' && c.args[2] === radius)
+  const fills = (pitch: Pitch, radius: number) => {
+    const { ctx, calls } = recorder()
+    pitch.draw(ctx)
+    return arcsAt(calls, radius)
+  }
+
+  it('draws the Bullseye ring at the rules radius and the Boost ring at the Centre zone radius', () => {
+    const { ctx, calls } = recorder()
+    new Pitch().draw(ctx)
+    expect(arcsAt(calls, rules.boost.bullseye.radius).length).toBeGreaterThan(0)
+    expect(arcsAt(calls, rules.boost.ring.radius).length).toBeGreaterThan(0)
+    expect(rules.boost.ring.radius).toBe(rules.centreZoneRadius)
+  })
+
+  it('tints each zone in its own colour', () => {
+    const [ring] = fills(new Pitch(), rules.boost.ring.radius)
+    const [bullseye] = fills(new Pitch(), rules.boost.bullseye.radius)
+    expect([ring.fillStyle, bullseye.fillStyle]).toEqual([visual.pitch.boost.colors.ring, visual.pitch.boost.colors.bullseye])
+  })
+
+  it('pulses the tint slowly, but not under reduced motion', () => {
+    const alphaAt = (reduced: boolean, ms: number) => {
+      const p = new Pitch()
+      p.reduced = reduced
+      p.update(ms / 1000)
+      return fills(p, rules.boost.ring.radius)[0].alpha
+    }
+    const quarter = visual.pitch.boost.pulse.periodMs / 4
+    expect(alphaAt(false, quarter)).toBeCloseTo(visual.pitch.boost.alpha + visual.pitch.boost.pulse.alphaSwing)
+    expect(alphaAt(true, quarter)).toBe(visual.pitch.boost.alpha)
+  })
+
+  it('tints the zone holding a Charged ball stronger, and only that one', () => {
+    const p = new Pitch()
+    p.reduced = true
+    p.charge = { zone: 'bullseye', factor: rules.boost.bullseye.factor }
+    expect(fills(p, rules.boost.bullseye.radius)[0].alpha).toBe(visual.pitch.boost.litAlpha)
+    expect(fills(p, rules.boost.ring.radius)[0].alpha).toBe(visual.pitch.boost.alpha)
+  })
+
+  it('animates an arrival for its time, flashing the zone and growing a ring out of it', () => {
+    const p = new Pitch()
+    p.reduced = true
+    p.arrive('ring')
+    expect(p.arrivalCount).toBe(1)
+    expect(fills(p, rules.boost.ring.radius)[0].alpha).toBe(visual.pitch.boost.arrive.flashAlpha)
+    p.update((visual.pitch.boost.arrive.ms - 1) / 1000)
+    expect(p.arrivalCount).toBe(1)
+    p.update(0.002)
+    expect(p.arrivalCount).toBe(0)
+  })
+})
+
+describe('Bullseye credit', () => {
+  const { credit } = visual.pitch.boost
+  const bullseyeFlash = (p: Pitch) => {
+    const { ctx, calls } = recorder()
+    p.draw(ctx)
+    return calls.filter((c) => c.fn === 'arc' && c.args[2] === rules.boost.bullseye.radius)[0].alpha as number
+  }
+  /** The y the "+Credits" label is drawn at, or undefined when none is. */
+  const labelY = (p: Pitch) => {
+    const { ctx, calls } = recorder()
+    p.draw(ctx)
+    const i = calls.findIndex((c) => c.fn === 'fillText' && String(c.args[0]).startsWith('+'))
+    return i < 0 ? undefined : (calls[i - 1].args[1] as number)
+  }
+
+  it('flashes the Bullseye and floats the Credits up in the shooter\'s colour, for its time', () => {
+    const p = new Pitch()
+    p.credit(2, 2)
+    expect(p.creditCount).toBe(1)
+    const { ctx, calls } = recorder()
+    p.draw(ctx)
+    expect(calls.filter((c) => c.fn === 'arc' && c.args[2] === rules.boost.bullseye.radius)[0].alpha).toBe(credit.flashAlpha)
+    expect(calls.filter((c) => c.fn === 'fillText').map((c) => [c.args[0], c.fillStyle])).toContainEqual(['+2', visual.player.colors[2]])
+    p.update((credit.ms - 1) / 1000)
+    expect(p.creditCount).toBe(1)
+    p.update(0.002)
+    expect(p.creditCount).toBe(0)
+  })
+  it('fades the flash over its time', () => {
+    const p = new Pitch()
+    p.credit(1, 2)
+    p.update(credit.ms / 2000)
+    expect(bullseyeFlash(p)).toBeLessThan(credit.flashAlpha)
+    expect(bullseyeFlash(p)).toBeGreaterThan(visual.pitch.boost.alpha)
+  })
+  it('floats the label up the screen: toward -y for Player 1, +y for Player 2 whose canvas is rotated', () => {
+    for (const [flipped, sign] of [[false, -1], [true, 1]] as const) {
+      const p = new Pitch()
+      p.flipped = flipped
+      p.credit(1, 2)
+      const start = labelY(p)!
+      p.update(credit.ms / 2000)
+      expect(Math.sign(labelY(p)! - start)).toBe(sign)
+      expect(Math.sign(start - rules.halfHeight)).toBe(sign)
+    }
+  })
+  it('clears the pending credits on reset', () => {
+    const p = new Pitch()
+    p.credit(1, 2)
+    p.reset()
+    expect(p.creditCount).toBe(0)
+    expect(bullseyeFlash(p)).toBe(visual.pitch.boost.alpha)
+    expect(labelY(p)).toBeUndefined()
+  })
+  it('under reduced motion keeps the flash (fading) but floats nothing', () => {
+    const p = new Pitch()
+    p.reduced = true
+    p.credit(1, 2)
+    expect(bullseyeFlash(p)).toBe(credit.flashAlpha)
+    p.update(credit.ms / 2000)
+    expect(bullseyeFlash(p)).toBeLessThan(credit.flashAlpha)
+    expect(labelY(p)).toBeUndefined()
   })
 })

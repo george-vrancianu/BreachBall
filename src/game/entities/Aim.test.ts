@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import { defaultConfig, step, type SimState } from '../../sim/step'
 import { buildState, playState, hseg } from '../../sim/testkit'
@@ -36,6 +37,16 @@ describe('Aim Ghost', () => {
     a.aim = { tier: 0, ghost, ...aim }
     return a.ghost
   }
+
+  it('redraws the path when the charge changes, not from a stale cache', () => {
+    const state = shooting()
+    const a = new Aim()
+    a.sync(state, defaultConfig)
+    a.aim = { tier: 0, ghost: { until: 'rest', scale: 1 }, dir: { x: 1, y: 0 }, power: 0.2 }
+    const plain = a.ghost
+    a.sync({ ...state, charge: { zone: 'bullseye', factor: rules.boost.bullseye.factor } }, defaultConfig)
+    expect(a.ghost).not.toEqual(plain)
+  })
 
   it('is the predicted path from the ball to its first contact', () => {
     const g = ghostOf(touch)!

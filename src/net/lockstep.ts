@@ -30,7 +30,7 @@ export function lockstep(send: (f: Frame) => void, me: PlayerId, delay = 6) {
     return rest
   }
   return {
-    /** Queue this peer's input for the next frame it sends. */
+    /** Queue this peer's input for the next frame it sends. Does not de-duplicate: submit once per user action, not once per frame while stalled. */
     submit(i: SimInput) {
       pending = { ...pending, ...i }
     },

@@ -7,6 +7,7 @@ import type { Structure } from '../sim/wall'
 import { Aim } from './entities/Aim'
 import { Ball } from './entities/Ball'
 import { Camera } from './entities/Camera'
+import { Pitch } from './entities/Pitch'
 import { Structures } from './entities/Structures'
 import { Tower } from './entities/Tower'
 import { routeEvents } from './events'
@@ -16,7 +17,7 @@ const wall: Structure = { id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 0 
 const tower: Structure = { id: 2, kind: 'tower', owner: 2, power: 'repulsor', at: { gx: 5, gy: 10 }, hp: 3 }
 
 function setup(objects: Structure[]) {
-  const t = { camera: new Camera(54), structures: new Structures(), ball: new Ball(), aim: new Aim(), vibrate: vi.fn() }
+  const t = { camera: new Camera(54), structures: new Structures(), ball: new Ball(), aim: new Aim(), pitch: new Pitch(), vibrate: vi.fn() }
   t.structures.sync(objects)
   t.aim.sync({ ...playState(), ball: t.ball.state }, defaultConfig)
   const route = (events: SimEvent[], left: Structure[], reduced = false) => routeEvents(events, t, left, reduced)
@@ -24,6 +25,45 @@ function setup(objects: Structure[]) {
 }
 
 describe('routeEvents', () => {
+  it('a shot that comes to rest Charged pops the ball badge and sends a ring out of the zone', () => {
+    const w = setup([])
+    w.route([{ type: 'charged', zone: 'bullseye', factor: 2, at }], [])
+    expect(w.pitch.arrivalCount).toBe(1)
+    expect(w.ball.badgeScale).toBe(visual.ball.charged.popScale)
+  })
+
+  it('a Bullseye pass-through flashes the zone and floats the Credits, also under reduced motion', () => {
+    for (const reduced of [false, true]) {
+      const w = setup([])
+      w.route([{ type: 'bullseye-credited', player: 1, credits: 2 }], [], reduced)
+      expect(w.pitch.creditCount).toBe(1)
+    }
+  })
+
+  it('shows no arrival animation under reduced motion', () => {
+    const w = setup([])
+    w.route([{ type: 'charged', zone: 'bullseye', factor: 2, at }], [], true)
+    expect(w.pitch.arrivalCount).toBe(0)
+    expect(w.ball.badgeScale).toBe(1)
+  })
+
+  it('a Charged shot brightens the ball trail until the ball stops', () => {
+    const w = setup([])
+    const trailWidth = (b: Ball) => {
+      const widths: number[] = []
+      const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: (_t, k, v) => (k === 'lineWidth' && widths.push(v), true) }) as unknown as CanvasRenderingContext2D
+      b.draw(ctx)
+      return widths[0]
+    }
+    w.ball.sync({ pos: at, vel: { x: 0, y: -30 }, rolled: 0 })
+    w.route([{ type: 'shot-fired', player: 1, from: at, dir: { x: 0, y: -1 }, power: 0.5, tier: 0, charge: 1.5 }], [])
+    expect(trailWidth(w.ball)).toBe(visual.ball.charged.trailWidth)
+    w.ball.sync({ pos: at, vel: { x: 0, y: 0 }, rolled: 0 })
+    w.ball.update(0.016)
+    w.ball.sync({ pos: at, vel: { x: 0, y: -30 }, rolled: 0 })
+    expect(trailWidth(w.ball)).toBe(visual.ball.trailWidth)
+  })
+
   it('a destroyed wall shatters: it leaves the sim but its child stays for the shatter', () => {
     const w = setup([wall])
     w.route([{ type: 'wall-destroyed', wall, at }], [])

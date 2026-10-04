@@ -1,7 +1,12 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
-import { halfSpan, type PlayerId } from '../../sim/pitch'
+import { centreSpot, halfSpan, type BoostZone, type Charge, type PlayerId } from '../../sim/pitch'
+import { boostColor, boostLabel } from '../boost'
 import { Entity } from './Entity'
+import { drawLabel } from './label'
+
+/** The Boost zones, outer first so the Bullseye draws over the ring. */
+const zones: BoostZone[] = ['ring', 'bullseye']
 
 /** One goal end: its line's y, the direction into the pitch (+1 down the canvas) and the owner. P2 defends the top, P1 the bottom. */
 const ends = [
@@ -16,6 +21,57 @@ const dashed = (dashPx: readonly number[]): number[] => dashPx.map((d) => d * vi
 export class Pitch extends Entity {
   /** Whose build turn it is, if any. */
   builder?: PlayerId
+  /** The ball's charge, null when not Charged: the zone holding a Charged ball is tinted stronger. */
+  charge: Charge | null = null
+  /** Turns the labels upright for Player 2's view. */
+  flipped = false
+  /** Reduced motion: no pulse. */
+  reduced = false
+  private arrivals: { zone: BoostZone; born: number }[] = []
+  private credits: { player: PlayerId; credits: number; born: number }[] = []
+
+  /** A shot came to rest in a zone: it flashes and a ring grows out from it for `visual.pitch.boost.arrive.ms`. */
+  arrive(zone: BoostZone): void {
+    this.arrivals.push({ zone, born: this.clock })
+  }
+
+  /** The ball entered the Bullseye from outside and earned `player` `credits`: the Bullseye flashes and a "+credits" in their colour floats up from it for `visual.pitch.boost.credit.ms`. */
+  credit(player: PlayerId, credits: number): void {
+    this.credits.push({ player, credits, born: this.clock })
+  }
+
+  /** Credit animations still running. */
+  get creditCount(): number {
+    return this.credits.length
+  }
+
+  /** The alpha of something born at `born` that flashes at `from` and fades out over `ms`. */
+  private fade(from: number, born: number, ms: number): number {
+    return from * (1 - (this.clock - born) / ms)
+  }
+
+  /** Whether something born at `born` is still animating for `ms`. */
+  private alive(born: number, ms: number): boolean {
+    return this.clock - born < ms
+  }
+
+  /** Arrivals still animating. */
+  get arrivalCount(): number {
+    return this.arrivals.length
+  }
+
+  /** A new match: no arrivals, no charge. */
+  reset(): void {
+    this.arrivals = []
+    this.credits = []
+    this.charge = null
+  }
+
+  override update(dt: number): void {
+    super.update(dt)
+    this.arrivals = this.arrivals.filter((a) => this.alive(a.born, visual.pitch.boost.arrive.ms))
+    this.credits = this.credits.filter((c) => this.alive(c.born, visual.pitch.boost.credit.ms))
+  }
 
   protected override render(ctx: CanvasRenderingContext2D): void {
     const { pitchWidth: w, pitchHeight: h, halfHeight, board } = rules
@@ -33,24 +89,29 @@ export class Pitch extends Entity {
     ctx.stroke()
     for (const end of ends) this.drawEnd(ctx, end)
 
-    // Centre line, circle, inner ring and dot.
-    const r = rules.centreZoneRadius
+    // The Boost ring and Bullseye tints go under the centre line.
+    this.drawBoostFills(ctx)
+    // Centre line, circle, the Bullseye's outline and dot.
     ctx.lineWidth = v.centre.widthPx * u
     this.halfwayLine(ctx)
     ctx.stroke()
     ctx.beginPath()
-    ctx.arc(w / 2, halfHeight, r, 0, 2 * Math.PI)
+    ctx.arc(w / 2, halfHeight, rules.centreZoneRadius, 0, 2 * Math.PI)
     ctx.stroke()
-    ctx.lineWidth = v.centre.innerWidthPx * u
-    ctx.setLineDash(dashed(v.centre.innerDashPx))
+    ctx.lineWidth = v.centre.bullseyeWidthPx * u
+    ctx.setLineDash(dashed(v.centre.bullseyeDashPx))
     ctx.beginPath()
-    ctx.arc(w / 2, halfHeight, r * v.centre.innerRatio, 0, 2 * Math.PI)
+    ctx.arc(w / 2, halfHeight, rules.boost.bullseye.radius, 0, 2 * Math.PI)
     ctx.stroke()
     ctx.setLineDash([])
     ctx.fillStyle = v.line
     ctx.beginPath()
     ctx.arc(w / 2, halfHeight, v.centre.dotRadiusPx * u, 0, 2 * Math.PI)
     ctx.fill()
+
+    this.drawBoostLabels(ctx)
+    this.drawArrivals(ctx)
+    this.drawCredits(ctx)
 
     // Quarter marks on both sidelines.
     ctx.lineWidth = v.quarter.widthPx * u
@@ -65,6 +126,68 @@ export class Pitch extends Entity {
     }
 
     if (this.builder) this.drawBuildEdge(ctx, this.builder)
+  }
+
+  /** The alpha of the `zone` tint: steady, pulsing slowly (none under reduced motion), stronger while it holds a Charged ball, flashing on an arrival. */
+  private zoneAlpha(zone: BoostZone): number {
+    const { alpha, litAlpha, pulse, arrive, credit } = visual.pitch.boost
+    const swing = this.reduced ? 0 : pulse.alphaSwing * Math.sin((2 * Math.PI * this.clock) / pulse.periodMs)
+    const lit = this.charge?.zone === zone
+    const flash = this.arrivals.reduce((a, r) => (r.zone === zone ? Math.max(a, this.fade(arrive.flashAlpha, r.born, arrive.ms)) : a), 0)
+    const credited = zone === 'bullseye' ? this.credits.reduce((a, c) => Math.max(a, this.fade(credit.flashAlpha, c.born, credit.ms)), 0) : 0
+    return Math.max(lit ? litAlpha : alpha + swing, flash, credited)
+  }
+
+  /** The Boost ring's disc, then the Bullseye's over it, each tinted its own colour. */
+  private drawBoostFills(ctx: CanvasRenderingContext2D): void {
+    const at = centreSpot()
+    for (const zone of zones) {
+      ctx.globalAlpha = this.zoneAlpha(zone)
+      ctx.fillStyle = visual.pitch.boost.colors[zone]
+      ctx.beginPath()
+      ctx.arc(at.x, at.y, rules.boost[zone].radius, 0, 2 * Math.PI)
+      ctx.fill()
+    }
+    ctx.globalAlpha = 1
+  }
+
+  /** "x1.5" and "x2" below the centre spot, each inside its own zone. */
+  private drawBoostLabels(ctx: CanvasRenderingContext2D): void {
+    const { label, colors } = visual.pitch.boost
+    const at = centreSpot()
+    for (const zone of zones) {
+      const { radius, factor } = rules.boost[zone]
+      drawLabel(ctx, boostLabel(factor), { x: at.x, y: at.y + radius * label[`${zone}At`] }, { size: label.px * visual.pitch.unit, weight: label.weight, color: colors[zone], alpha: label.alpha, flipped: this.flipped })
+    }
+  }
+
+  /** Each arrival's ring, growing out from its zone and fading. */
+  private drawArrivals(ctx: CanvasRenderingContext2D): void {
+    const { arrive } = visual.pitch.boost
+    const at = centreSpot()
+    for (const a of this.arrivals) {
+      const t = (this.clock - a.born) / arrive.ms
+      const { zone } = a
+      ctx.globalAlpha = 1 - t
+      ctx.beginPath()
+      ctx.arc(at.x, at.y, rules.boost[zone].radius * (1 + arrive.grow * t), 0, 2 * Math.PI)
+      ctx.strokeStyle = boostColor(zone)
+      ctx.lineWidth = arrive.widthPx * visual.pitch.unit
+      ctx.stroke()
+    }
+    ctx.globalAlpha = 1
+  }
+
+  /** Each credit's "+Credits", rising from the Bullseye in the shooter's colour and fading (up the screen, so down the canvas for Player 2); none under reduced motion (the flash stays). */
+  private drawCredits(ctx: CanvasRenderingContext2D): void {
+    if (this.reduced) return
+    const { credit } = visual.pitch.boost
+    const at = centreSpot()
+    const dir = this.flipped ? 1 : -1
+    for (const c of this.credits) {
+      const t = (this.clock - c.born) / credit.ms
+      drawLabel(ctx, `+${c.credits}`, { x: at.x, y: at.y + dir * (rules.boost.bullseye.radius + credit.rise * t) }, { size: credit.px * visual.pitch.unit, weight: credit.weight, color: visual.player.colors[c.player], alpha: 1 - t, flipped: this.flipped })
+    }
   }
 
   private drawDots(ctx: CanvasRenderingContext2D): void {

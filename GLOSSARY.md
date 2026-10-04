@@ -29,7 +29,7 @@ The game mode where a match is a series of rounds, each with its own build phase
 _Avoid_: Classic, standard mode
 
 **Siege**:
-The game mode with no score and no rounds: each player builds once, then play continues, a goal handing the conceder ball-in-hand at the pitch center.
+The game mode with no score and no rounds: each player builds once, then play continues, a goal handing the conceder a Kick-off.
 _Avoid_: Endless mode, sandbox
 
 **Game mode**:
@@ -37,7 +37,7 @@ The set of rules that owns a match's match-level transitions: how it starts, wha
 _Avoid_: Variant, ruleset
 
 **Defence turn**:
-The scorer's reward for a goal in Siege: after the GOAL banner they choose how to improve their defence (Repair or Rearrange) before the conceder gets ball-in-hand. An own goal gives it to the opponent of the shooter. Online, the build timer covers the choice and any Rearrange together; an unanswered choice becomes Repair.
+The scorer's reward for a goal in Siege: after the GOAL banner they choose how to improve their defence (Repair or Rearrange) before the conceder kicks off. An own goal gives it to the opponent of the shooter. Online, the build timer covers the choice and any Rearrange together; an unanswered choice becomes Repair.
 _Avoid_: Bonus turn, power-up
 
 **Repair**:
@@ -105,7 +105,7 @@ Siege's build balance: what its one opening build is paid in, spent on walls (Si
 _Avoid_: Credits (in Siege), build points
 
 **Refund**:
-Trading an unspent Move point for Credits during your own possession, before a shot. It is a bet that the remaining shots are enough: refunding the last Move point hands the opponent ball-in-hand, as running out of shots does.
+Trading an unspent Move point for Credits during your own possession, before a shot. It is a bet that the remaining shots are enough: refunding the last Move point hands the opponent a Centre-spot restart, as running out of shots does.
 _Avoid_: Convert, cash in, sell
 
 **Offence**:
@@ -125,7 +125,7 @@ The length a wall is measured in and priced by: every unit costs the same Credit
 _Avoid_: Segment, cell (for wall length), tile
 
 **Centre zone**:
-The no-build circle around the centre spot that walls and towers must stay wholly outside, beside the goal no-build zone and the own-half rule.
+The no-build circle around the centre spot that walls and towers must stay wholly outside, beside the goal no-build zone and the own-half rule. It has the same radius as the Boost ring, but it is a build rule, not a shot rule.
 _Avoid_: Kick-off circle, centre ring (that is the Attract loop's), middle zone
 
 **Goal no-build zone**:
@@ -155,3 +155,27 @@ _Avoid_: Mana bar, economy bar, credit meter
 **Jam**:
 The first Subterfuge item: the opponent's next possession starts with one Move point fewer.
 _Avoid_: Freeze, stun
+
+**Kick-off**:
+How a possession starts at match start, after every goal (the conceder kicks) and at every new Rounds round: the ball sits fixed on the centre-line x, `rules.kickoffGap` out from the kicker's own goal line. There is no placement (ADR-0006).
+_Avoid_: Ball-in-hand (for a kick-off), serve
+
+**Centre-spot restart**:
+How the opponent gets the ball after a non-goal hand-over (two shot-clock expiries in a row, running out of Move points on your own half, or refunding the last Move point): fixed on the centre spot, with no placement. It never Charges the ball (ADR-0006).
+_Avoid_: Drop ball, ball-in-hand (for a restart)
+
+**Ball-in-hand**:
+Placing the ball anywhere on your own half before shooting. Only a Steal gives it (ADR-0006).
+_Avoid_: Free kick
+
+**Boost ring**:
+The circle around the centre spot, with the same radius as the Centre zone. A shot that comes to rest with the ball's centre inside it Charges the ball ×1.5.
+_Avoid_: Centre zone (that is the no-build rule), hot zone, power zone
+
+**Bullseye**:
+The small circle (radius 2) at the centre spot, inside the Boost ring. A shot that comes to rest in it Charges the ball ×2, and in Rounds a ball entering it from outside earns the shooter 2 Credits, once per shot, however the shot ends.
+_Avoid_: Inner ring, inner circle
+
+**Charged**:
+A ball resting in the Boost ring or Bullseye because a shot came to rest there. The next shot fired from it, by whoever holds possession and in either Tier, has its speed multiplied (×1.5 or ×2, no cap), and the Ghost shows that. A burned shot keeps the charge; a hand-over or restart moves the ball and loses it.
+_Avoid_: Boosted, powered

@@ -76,7 +76,8 @@ describe('defence turn under the build timer', () => {
     const done = run(r, TICKS - 31, timed).s
     expect(done.match).toMatchObject({ builder: null, choosing: null })
     expect(done.clock.left).toBe(timed.shotClock * timed.tickHz)
-    expect(done.possession).toMatchObject({ shooter: 2, inHand: true })
+    expect(done.possession).toMatchObject({ shooter: 2, inHand: false })
+    expect(done.ball.pos).toEqual({ x: 20, y: 5 })
   })
 
   it('without a build timer the choice waits indefinitely', () => {

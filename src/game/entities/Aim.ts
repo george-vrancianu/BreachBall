@@ -1,11 +1,13 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
-import type { Point } from '../../sim/pitch'
+import type { Charge, Point } from '../../sim/pitch'
 import { predictPath } from '../../sim/predict'
 import { splashOf } from '../../sim/splash'
 import type { SimConfig, SimState } from '../../sim/step'
 import type { GestureView } from '../input/gesture'
+import { boostColor, boostLabel } from '../boost'
 import { Entity } from './Entity'
+import { drawLabel } from './label'
 
 /** The aim in progress, as far as the Ghost needs it: `dir` and `power` once the shooter is dragging, the ghost config in effect; `cancel` while cancel-armed. */
 export type AimLine = Pick<GestureView, 'tier' | 'dir' | 'power' | 'ghost' | 'cancel'>
@@ -34,6 +36,8 @@ function cut(points: Point[], scale: number): Point[] {
 /** The aim's Ghost (the ball's predicted path) and the expanding Splash ring of a fired Power shot. */
 export class Aim extends Entity {
   aim?: AimLine
+  /** Turns the Charged badge upright for Player 2's view. */
+  flipped = false
   private state?: SimState
   private config?: SimConfig
   private rings: { origin: Point; radius: number; born: number }[] = []
@@ -67,13 +71,26 @@ export class Aim extends Entity {
     const { aim, state, config } = this
     if (!aim?.dir || aim.power === undefined || !state || !config) return undefined
     const { tier, dir, power, ghost } = aim
-    const key = JSON.stringify([tier, dir, power, ghost, state.ball.pos, state.possession.shooter])
+    const key = JSON.stringify([tier, dir, power, ghost, state.ball.pos, state.possession.shooter, state.charge])
     const p = this.predicted
     if (p?.key === key && p.objects === state.objects) return p.points
     const path = predictPath(state, { player: state.possession.shooter, tier, dir, power }, config, ghost.until)
     const points = cut(path.points, ghost.scale)
     this.predicted = { key, objects: state.objects, points }
     return points
+  }
+
+  /** The ball's charge, null when not Charged: the Ghost is drawn wider and badged. */
+  get charge(): Charge | null {
+    return this.state?.charge ?? null
+  }
+
+  private drawBadge(ctx: CanvasRenderingContext2D, ghost: Point[], { zone, factor }: Charge): void {
+    const { size, offset, weight } = visual.aim.ghost.badge
+    const [a, b] = [ghost.at(-2) ?? ghost[0], ghost.at(-1)!]
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
+    const at = { x: b.x + ((b.x - a.x) / len) * offset, y: b.y + ((b.y - a.y) / len) * offset }
+    drawLabel(ctx, boostLabel(factor), at, { size, weight, color: boostColor(zone), flipped: this.flipped })
   }
 
   /** While cancel is armed: an ✕ on the ball, and the Ghost drawn in the same grey. */
@@ -100,8 +117,11 @@ export class Aim extends Entity {
       ghost.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
       ctx.lineCap = ctx.lineJoin = 'round'
       ctx.strokeStyle = ghostColor
-      ctx.lineWidth = visual.aim.ghost.width
+      const { charge } = this
+      ctx.lineWidth = charge ? visual.aim.ghost.chargedWidth : visual.aim.ghost.width
       ctx.stroke()
+      // A Charged ball's Ghost carries its factor at the tip, past the last point along the path's end direction.
+      if (charge && !cancel) this.drawBadge(ctx, ghost, charge)
     }
     if (cancel) {
       const { size, width } = visual.aim.cancel

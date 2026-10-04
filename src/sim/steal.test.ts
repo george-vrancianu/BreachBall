@@ -48,6 +48,12 @@ describe('steal trigger', () => {
     expect(events).toContainEqual({ type: 'possession-changed', shooter: 1, inHand: true })
     expect(s.clock.expiries).toBe(0)
   })
+  it('keeps ball-in-hand: the owner can place the ball where they like (ADR-0006)', () => {
+    const { s } = run(shot(place(steal()).state, 2), 30)
+    const r = step(s, { placeBall: { player: 1, at: { x: 12, y: 90 } } }, defaultConfig)
+    expect(r.state.ball.pos).toEqual({ x: 12, y: 90 })
+    expect(r.state.possession.inHand).toBe(false)
+  })
   it('a steal on the 30th shot ends the round scoreless', () => {
     const s = shot(place(steal()).state, 2)
     const { events, s: after } = run({ ...s, match: { ...roundsMatch(s), roundShots: defaultConfig.shotCap } }, 30)

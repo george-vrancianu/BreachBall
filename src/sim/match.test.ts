@@ -28,11 +28,11 @@ describe('goals', () => {
     const r = step(shotAt(0.5, -60, { ball: { pos: { x: 3, y: 2 }, vel: { x: 0, y: -60 }, rolled: 0 } }), {}, c)
     expect(roundsMatch(r.state).score).toEqual({ 1: 0, 2: 0 })
   })
-  it('hands the conceder ball-in-hand, a fresh counter and the next round', () => {
+  it('hands the conceder a Kick-off, a fresh counter and the next round', () => {
     const r = step(shotAt(0.5, -60), {}, c)
     expect(roundsMatch(r.state).round).toBe(2)
-    expect(r.state.possession).toEqual({ shooter: 2, shots: 3, inHand: true, live: false })
-    expect(r.state.ball.pos).toEqual(mid)
+    expect(r.state.possession).toEqual({ shooter: 2, shots: 3, inHand: false, live: false })
+    expect(r.state.ball.pos).toEqual({ x: 20, y: 5 })
     expect(r.state.ball.vel).toEqual({ x: 0, y: 0 })
     expect(r.events).toContainEqual({ type: 'round-ended', round: 1, scorer: 1 })
   })
@@ -47,7 +47,7 @@ describe('shot cap', () => {
   it('ends a scoreless round once the 30th shot has come to rest', () => {
     const r = step(resting(1, 30), {}, c)
     expect(r.state.match).toMatchObject({ round: 2, score: { 1: 0, 2: 0 }, roundShots: 0 })
-    expect(r.state.possession).toMatchObject({ shooter: coinFlip(1, 2), inHand: true, live: false })
+    expect(r.state.possession).toMatchObject({ shooter: coinFlip(1, 2), inHand: false, live: false })
     expect(r.events).toContainEqual({ type: 'round-ended', round: 1, scorer: null })
   })
   it('counts a shot burned on clock expiry, and the 30th burned shot ends the round', () => {
@@ -73,8 +73,8 @@ describe('coin flip', () => {
     expect(coinFlip(7, 3)).toBe(coinFlip(7, 3))
     expect(new Set(Array.from({ length: 20 }, (_, i) => coinFlip(i, 1)))).toEqual(new Set([1, 2]))
   })
-  it('decides round 1 ball-in-hand from the seed', () => {
-    expect(playState(5).possession).toMatchObject({ shooter: coinFlip(5, 1), inHand: true })
+  it('decides who kicks off round 1 from the seed', () => {
+    expect(playState(5).possession).toMatchObject({ shooter: coinFlip(5, 1), inHand: false })
   })
 })
 

@@ -40,13 +40,13 @@ describe('Subterfuge: Jam', () => {
     const p = s.possession.shooter
     const cast = step(s, jam(p), c).state
     const handed = step(cast, { refund: { player: p, count: s.possession.shots } }, c)
-    expect(handed.state.possession).toEqual({ shooter: opponent(p), shots: c.shots - 1, inHand: true, live: false })
+    expect(handed.state.possession).toEqual({ shooter: opponent(p), shots: c.shots - 1, inHand: false, live: false })
     expect(handed.state.subterfuge.queued[opponent(p)]).toBeNull()
     expect(handed.events).toContainEqual({ type: 'subterfuge-landed', player: opponent(p), item: 'jam' })
     // The opponent hands back with a refund: the caster's next possession is whole again.
     const placed = { ...handed.state, possession: { ...handed.state.possession, inHand: false } }
     const back = step(placed, { refund: { player: opponent(p), count: c.shots - 1 } }, c)
-    expect(back.state.possession).toEqual({ shooter: p, shots: c.shots, inHand: true, live: false })
+    expect(back.state.possession).toEqual({ shooter: p, shots: c.shots, inHand: false, live: false })
     expect(back.events.some((e) => e.type === 'subterfuge-landed')).toBe(false)
   })
   it('stays queued while the caster keeps the ball, however many shots pass', () => {

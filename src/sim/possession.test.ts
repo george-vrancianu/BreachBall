@@ -38,11 +38,14 @@ describe('possession', () => {
     const r = step(s, {}, c)
     expect(r.state.possession).toEqual({ shooter: 2, shots: 3, inHand: false, live: false })
     expect(r.events).toContainEqual({ type: 'possession-changed', shooter: 2, inHand: false })
+    expect(r.state.ball.pos.y).toBeLessThan(54)
   })
-  it('gives the opponent ball-in-hand with a fresh counter when shots run out', () => {
+  it('gives the opponent a Centre-spot restart with a fresh counter when shots run out', () => {
     const r = miss(base(at(80), 1, 1))
-    expect(r.state.possession).toEqual({ shooter: 2, shots: 3, inHand: true, live: false })
-    expect(r.events).toContainEqual({ type: 'possession-changed', shooter: 2, inHand: true })
+    expect(r.state.possession).toEqual({ shooter: 2, shots: 3, inHand: false, live: false })
+    expect(r.state.ball.pos).toEqual({ x: 20, y: 54 })
+    expect(r.state.ball.vel).toEqual({ x: 0, y: 0 })
+    expect(r.events).toContainEqual({ type: 'possession-changed', shooter: 2, inHand: false })
   })
   it('keeps the shooter and burns a shot when the center is exactly on the halfway line', () => {
     const r = miss(base(at(54)))

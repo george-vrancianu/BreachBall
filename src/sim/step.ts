@@ -1,14 +1,16 @@
 import { rules } from '../config/rules'
-import { goalCrossed, type PlayerId, type Point } from './pitch'
+import { bullseyeEntered, chargeAt, goalCrossed, kickoffSpot, type BoostZone, type Charge, type PlayerId, type Point } from './pitch'
 import type { GameModeName, Match } from './match'
 import { modeFor, modeNamed, type DefenceChoice, type ModeContext } from './mode'
 import { initialPlayers, type Player, type PowerUp } from './player'
 import { rollBall, type Ball } from './ball'
-import { canPlaceBall, handOver, opponent, resolveRest, type Possession } from './possession'
+import { canPlaceBall, centreRestart, handOver, opponent, resolveRest, type Possession } from './possession'
 import { splashDamage, splashOf } from './splash'
 import { damageWall, isLegal, maxHp, structureCost, wallCost, type Structure, type Tower, type TowerPower, type StructureSpec, type Vertex } from './wall'
 
 const ctxOf = (objects: readonly Structure[], possession: Possession, shooter: PlayerId, credits: Record<PlayerId, number>): ModeContext => ({ objects, possession, shooter, credits })
+/** A launch speed (0-1 of maxSpeed) once the ball's `charge` multiplies it. Splash never uses it. */
+const launchSpeed = (power: number, charge: Charge | null, c: SimConfig): number => power * c.maxSpeed * (charge?.factor ?? 1)
 
 /** Whether Done would be accepted for the current builder (the HUD disables the button when not). */
 export function canFinishBuild(s: SimState, config: SimConfig): boolean {
@@ -95,7 +97,11 @@ export type SimEvent =
   /** An illegal placement or demolition was dropped. */
   | { type: 'refused' }
   /** `from` is the ball's position at launch. */
-  | { type: 'shot-fired'; player: PlayerId; from: Point; dir: Point; power: number; tier: number; breaker?: boolean }
+  | { type: 'shot-fired'; player: PlayerId; from: Point; dir: Point; power: number; tier: number; breaker?: boolean; /** The Charged ball's factor, when the shot used one. */ charge?: number }
+  /** The ball entered the Bullseye from outside during `player`'s shot, earning them `credits` (Rounds). */
+  | { type: 'bullseye-credited'; player: PlayerId; credits: number }
+  /** A shot came to rest in the Boost ring or Bullseye: the ball is Charged by `factor` until its next shot or move. */
+  | { type: 'charged'; zone: BoostZone; factor: number; at: Point }
   | { type: 'possession-changed'; shooter: PlayerId; inHand: boolean }
   /** The shooter traded `count` Move points for Credits. */
   | { type: 'refunded'; player: PlayerId; count: number }
@@ -130,6 +136,10 @@ export type SimState = {
   /** Ids placed in the current build turn: they can still be moved, and demolishing them refunds them. */
   built: number[]
   ball: Ball
+  /** The ball's charge, null when not Charged. Set when a shot comes to rest in a ring, spent by the next shot, lost whenever the ball is moved. */
+  charge: Charge | null
+  /** The shot in flight has already earned its Bullseye Credits (once per shot); cleared when a shot fires. */
+  bullseyePaid: boolean
   possession: Possession
   match: Match
   /** Shot clock: ticks left (frozen while a shot is live) and consecutive expiries in this possession. */
@@ -222,7 +232,7 @@ export function initialState(seed = 1, config: SimConfig = defaultConfig): SimSt
   // The first builder's turn opens here, so it gets its grant as every later build turn does in step; the other player holds nothing yet.
   const none = { 1: 0, 2: 0 }
   const credits = { ...none, ...(b && { [b]: mode.onBuildStart(start.match, ctxOf([], start.possession, start.possession.shooter, none), config).credits }) }
-  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: { x: rules.pitchWidth / 2, y: rules.halfHeight }, vel: { x: 0, y: 0 }, rolled: 0 }, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false } }
+  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: kickoffSpot(start.possession.shooter), vel: { x: 0, y: 0 }, rolled: 0 }, charge: null, bullseyePaid: false, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false } }
 }
 
 const spend = (players: SimState['players'], id: PlayerId, power: PowerUp, n = 1): SimState['players'] => ({ ...players, [id]: { ...players[id], inventory: { ...players[id].inventory, [power]: players[id].inventory[power] - n } } })
@@ -277,11 +287,17 @@ export function step(
     } else events.push({ type: 'refused' })
   }
   let ball = state.ball
+  let { charge, bullseyePaid } = state
+  /** Moves the ball to rest on `pos`: a restart, kick-off or placement, which loses its charge. */
+  const moveBall = (b: Ball, pos: Point): Ball => {
+    charge = null
+    return { ...b, pos, vel: { x: 0, y: 0 } }
+  }
   let { possession } = state
   const { placeBall } = input
   if (placeBall) {
     if (!building && !waiting && possession.inHand && placeBall.player === possession.shooter && canPlaceBall(placeBall.player, placeBall.at, objects, config)) {
-      ball = { ...ball, pos: placeBall.at, vel: { x: 0, y: 0 } }
+      ball = moveBall(ball, placeBall.at)
       possession = { ...possession, inHand: false }
     } else events.push({ type: 'refused' })
   }
@@ -297,8 +313,9 @@ export function step(
     // Refunding the last one ends the possession as running out of shots does.
     if (left > 0) possession = { ...possession, shots: left }
     else {
-      const h = handOver(opponent(refund.player), true, config)
+      const h = centreRestart(refund.player, config)
       possession = h.possession
+      ball = moveBall(ball, h.ball)
       events.push(...h.events)
       clock = { left: config.shotClock * config.tickHz, expiries: 0 }
     }
@@ -324,7 +341,7 @@ export function step(
       chose = true
       match = r.match
       if (r.possession) possession = r.possession
-      if (r.ball) ball = { ...ball, pos: r.ball, vel: { x: 0, y: 0 } }
+      if (r.ball) ball = moveBall(ball, r.ball)
       if (r.objects) objects = r.objects
       events.push(...r.events)
     } else events.push({ type: 'refused' })
@@ -344,10 +361,12 @@ export function step(
         if (mode.paysBreaker(match)) credits = { ...credits, [shot.player]: credits[shot.player] - rules.breakerCost }
         else players = spend(players, shot.player, 'breaker')
       }
-      events.push({ type: 'shot-fired', ...shot, from: ball.pos })
+      events.push({ type: 'shot-fired', ...shot, from: ball.pos, ...(charge && { charge: charge.factor }) })
       possession = { ...possession, live: true }
       match = mode.onShotFired(match)
-      const v = shot.power * config.maxSpeed
+      const v = launchSpeed(shot.power, charge, config)
+      charge = null
+      bullseyePaid = false
       ball = { ...ball, vel: { x: shot.dir.x * v, y: shot.dir.y * v } }
       const splash = splashOf(shot.tier, shot.power, config)
       if (splash) {
@@ -370,16 +389,18 @@ export function step(
       consumed = true
       match = mode.onShotFired(match)
       if (clock.expiries >= 1) {
-        const h = handOver(opponent(shooter), true, config)
+        const h = centreRestart(shooter, config)
         possession = h.possession
+        ball = moveBall(ball, h.ball)
         events.push(...h.events)
       } else {
         if (possession.inHand) {
-          ball = { ...ball, pos: { x: rules.pitchWidth / 2, y: rules.halfCentre[shooter] }, vel: { x: 0, y: 0 } }
+          ball = moveBall(ball, { x: rules.pitchWidth / 2, y: rules.halfCentre[shooter] })
           possession = { ...possession, inHand: false }
         }
         const r = resolveRest(possession, ball.pos.y, config)
         possession = r.possession
+        if (r.ball) ball = moveBall(ball, r.ball)
         events.push(...r.events)
         clock = { ...clock, expiries: clock.expiries + 1 }
       }
@@ -399,6 +420,14 @@ export function step(
   }
   const rolled = rollBall(ball, objects, config, breaker, possession.shooter)
   events.push(...rolled.events)
+  // Entering the Bullseye from outside pays the shooter once per shot, however the shot ends; the swept segment keeps a fast ball from skipping it.
+  // The straight start-to-end segment is exact: walls and towers sit more than `centreZoneRadius` from the centre and a ball moves at most `maxSpeed * charge.factor / tickHz` per tick, so no bounce can happen near the Bullseye within one tick.
+  // The `possession.live` guard is defensive.
+  if (possession.live && !bullseyePaid && mode.hasCredits(match) && bullseyeEntered(ball.pos, rolled.ball.pos)) {
+    bullseyePaid = true
+    credits = { ...credits, [possession.shooter]: credits[possession.shooter] + rules.bullseyeCredits }
+    events.push({ type: 'bullseye-credited', player: possession.shooter, credits: rules.bullseyeCredits })
+  }
   let landed = rolled.ball
   const stolen = rolled.events.find((e) => e.type === 'steal-triggered')
   if (stolen) {
@@ -409,12 +438,17 @@ export function step(
   }
   // A Repulsor rearms when the ball rests.
   if (!landed.vel.x && !landed.vel.y && rolled.objects.some((o) => o.kind === 'tower' && o.spent)) rolled.objects = rolled.objects.map((o) => (o.kind === 'tower' && o.spent ? { ...o, spent: false } : o))
+  // The charge a shot earned by coming to rest this tick; announced only if no restart below took it back.
+  let earned: Charge | null = null
   const conceder = goalCrossed(ball.pos, landed.pos)
   if (conceder) events.push({ type: 'goal', scorer: opponent(conceder), at: landed.pos })
   else if (possession.live && !landed.vel.x && !landed.vel.y) {
     consumed = true
+    // Only a shot coming to rest Charges the ball, by where it rests; a restart below moves it and takes the charge back.
+    charge = earned = chargeAt(landed.pos)
     const r = resolveRest(possession, landed.pos.y, config)
     possession = r.possession
+    if (r.ball) landed = moveBall(landed, r.ball)
     events.push(...r.events)
   }
   const ctx = ctxOf(rolled.objects, possession, shooter, credits)
@@ -423,9 +457,10 @@ export function step(
   if (turn) {
     match = turn.match
     if (turn.possession) possession = turn.possession
-    if (turn.ball) landed = { ...landed, pos: turn.ball, vel: { x: 0, y: 0 } }
+    if (turn.ball) landed = moveBall(landed, turn.ball)
     events.push(...turn.events)
   }
+  if (earned && charge === earned) events.push({ type: 'charged', ...charge, at: landed.pos })
   if (conceder || consumed) {
     const winner = mode.winner(match, ctxOf(rolled.objects, possession, shooter, credits), config)
     if (winner && !match.winner) {
@@ -457,5 +492,5 @@ export function step(
   if (expired || fired || ended || (chose && !match.builder) || (state.possession.live && !possession.live) || possession.shooter !== state.possession.shooter) clock = { ...clock, left: config.shotClock * config.tickHz }
   // A goal opens the choice: its window is the build window, set after the resets above.
   if (match.choosing && !state.match.choosing && config.buildTime) clock = { left: config.buildTime * config.tickHz, expiries: 0 }
-  return { state: { ...state, possession, match, clock, tick: state.tick + 1, players, subterfuge, breaker: rolled.breaker && possession.live, objects: rolled.objects, credits, nextId, built, ball: landed }, events }
+  return { state: { ...state, possession, match, clock, tick: state.tick + 1, charge, bullseyePaid, players, subterfuge, breaker: rolled.breaker && possession.live, objects: rolled.objects, credits, nextId, built, ball: landed }, events }
 }

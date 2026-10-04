@@ -45,7 +45,7 @@ describe('offenceCircle', () => {
     expect(offenceCircle(s, p, { armed: false, mine: (q) => q !== p }).available).toBe(false)
   })
   it('is greyed while the ball is in hand', () => {
-    const s = playState()
+    const s = { ...playState(), possession: { ...playState().possession, inHand: true } }
     const m = offenceCircle(s, shooterOf(s), { armed: false, mine: hotSeat })
     expect(m.items[0]!.disabled).toBe(true)
   })
