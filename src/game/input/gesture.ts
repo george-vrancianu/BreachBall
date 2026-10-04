@@ -12,9 +12,10 @@ export type Press = { at: Point; now: number; ball: Point; ballRadiusPx: number;
 /**
  * The aim gesture, a pure state machine over screen-pixel points. `pan` for a press that was not on the ball (or an abandoned aim);
  * `holding` while the pointer stays within the slop of the press, climbing tiers (`held` ms since the press); `aiming` once it has left it, with the tier locked.
+ * `centre` is the ball's on-screen centre at the press: the drag is measured from it, so the gauge's rings line up with the finger.
  * Either is cancel-armed while the pointer is in the edge zone (see `cancelArmed`).
  */
-export type AimGesture = { phase: 'pan' } | { phase: 'holding' | 'aiming'; press: Point; since: number; at: Point; tier: number; held: number; size: Size }
+export type AimGesture = { phase: 'pan' } | { phase: 'holding' | 'aiming'; press: Point; centre: Point; since: number; at: Point; tier: number; held: number; size: Size }
 
 /** An aim without the Breaker flag: `dir` is the way the ball goes, opposite the drag. */
 export type Aim = Omit<Aiming, 'breaker'>
@@ -23,7 +24,7 @@ const tierOf = (i: number): Tier => rules.shot.tiers[i]
 
 export function aimPress({ at, now, ball, ballRadiusPx, canShoot, size }: Press): AimGesture {
   const onBall = Math.hypot(at.x - ball.x, at.y - ball.y) <= Math.max(ballRadiusPx, visual.aim.ballHitPx)
-  return canShoot && onBall ? { phase: 'holding', press: at, since: now, at, tier: 0, held: 0, size } : { phase: 'pan' }
+  return canShoot && onBall ? { phase: 'holding', press: at, centre: ball, since: now, at, tier: 0, held: 0, size } : { phase: 'pan' }
 }
 
 /** The tier climbs while the pointer stays within the slop (each tier at its `holdMs`); the first move past it locks the tier. */
@@ -59,15 +60,18 @@ export function cancelArmed(g: AimGesture): boolean {
 }
 
 /**
- * What the gesture shows: its phase and tier, the tier's control radius in screen px and Ghost config, and the aim once there is one.
+ * What the gesture shows: its phase and tier, the tier's control radius in screen px and Ghost config, and the aim once there is one,
+ * with `pullPx`, the finger's distance from the ball's centre in screen px (not clamped to the control radius).
  * `cancel` while cancel-armed: the aim is still shown (greyed) though none is held.
  */
-export type GestureView = { phase: 'holding' | 'aiming'; tier: number; holdProgress: number; radiusPx: number; ghost: Tier['ghost']; dir?: Point; power?: number; cancel?: true }
+export type GestureView = { phase: 'holding' | 'aiming'; tier: number; holdProgress: number; radiusPx: number; ghost: Tier['ghost']; dir?: Point; power?: number; pullPx?: number; cancel?: true }
 
 export function aimViewOf(g: AimGesture): GestureView | undefined {
   if (g.phase === 'pan') return undefined
   const { radiusPx, ghost } = tierOf(g.tier)
-  return { phase: g.phase, tier: g.tier, holdProgress: holdProgress(g.tier, g.held), radiusPx, ghost, ...dragAim(g), ...(cancelArmed(g) && { cancel: true }) }
+  const aim = dragAim(g)
+  const pull = aim && { pullPx: Math.hypot(g.at.x - g.centre.x, g.at.y - g.centre.y) }
+  return { phase: g.phase, tier: g.tier, holdProgress: holdProgress(g.tier, g.held), radiusPx, ghost, ...aim, ...pull, ...(cancelArmed(g) && { cancel: true }) }
 }
 
 /** What a release does: a pan ends, a release with no aim (within the slop or the edge zone) cancels, anything else fires. */
@@ -84,17 +88,23 @@ export function aimOf(g: AimGesture): Aim | null {
   return cancelArmed(g) ? null : dragAim(g)
 }
 
-/** The aim the drag points at, cancel-armed or not. */
+/** Where a pull of `pullPx` from the ball's centre sits on the tier's scale: 0 at its weak end, 1 at its strong end (the power curve's input, before squaring). */
+export function scaleOf(tier: Tier, pullPx: number): number {
+  const { slopPx } = visual.aim
+  const t = Math.min(1, Math.max(0, (pullPx - slopPx) / (tier.radiusPx - slopPx)))
+  return tier.curve === 'direct' ? t : 1 - t
+}
+
+/** The aim the drag points at, cancel-armed or not, measured from the ball's centre. */
 function dragAim(g: AimGesture): Aim | null {
   if (g.phase !== 'aiming') return null
-  const [dx, dy] = [g.press.x - g.at.x, g.press.y - g.at.y]
+  const [dx, dy] = [g.centre.x - g.at.x, g.centre.y - g.at.y]
   const d = Math.hypot(dx, dy)
   const { slopPx } = visual.aim
   if (d <= slopPx) return null
   const tier = tierOf(g.tier)
-  const t = Math.min(1, (d - slopPx) / (tier.radiusPx - slopPx))
   // Eased: `direct` climbs slowly from the slop edge, `inverted` is the same curve run from the radius in.
-  const e = tier.curve === 'direct' ? t : 1 - t
+  const e = scaleOf(tier, d)
   const [lo, hi] = tier.power
   // Clamped so float drift never leaves the range the sim checks.
   return { dir: { x: dx / d, y: dy / d }, tier: g.tier, power: Math.min(hi, lo + (hi - lo) * e * e) }

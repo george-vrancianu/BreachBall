@@ -9,7 +9,7 @@ import { anchorOf, builderNow, commit, edgeScrollDy, itemDisabled, landedAs, leg
 import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, type AimGesture, type GestureView } from './gesture'
 import { startsAtEdge, swipedIn } from './edgeSwipe'
 
-/** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
+/** The aim view `Game` pushes into the Ball (hold ring), the AimGauge and Aim (Ghost): the gesture's view plus the screen px per world unit. */
 export type AimView = GestureView & { pxPerUnit: number }
 
 /** What lay under a press: an end handle of the selected wall (`handle`, carrying which `end`), the selected structure's body, or another of the builder's own structures. */

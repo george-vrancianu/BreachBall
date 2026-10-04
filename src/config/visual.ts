@@ -1,4 +1,4 @@
-import { rules, type TierName } from './rules'
+import { rules, type Tier, type TierName } from './rules'
 
 const ink = '#e8eaf0'
 const dark = '#0b0f1a'
@@ -148,15 +148,13 @@ export const visual = {
     charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700 }, popMs: 250, popScale: 0.5, trailWidth: 4 },
     /** The Breaker outline. */
     armed: { radius: 1.5, swing: 0.25, periodMs: 120, width: 0.3 },
-    /** The faint control-radius ring while aiming. */
-    control: { color: white, alpha: 0.25, width: 0.15 },
     /** The hold ring, `radiusPx` screen px out, filling while the shooter holds still; reaching a new tier pulses it (up to `grow` larger) over `pulseMs`. */
     hold: { radiusPx: 36, width: 0.3, trackAlpha: 0.25, pulseMs: 300, grow: 0.35 },
   },
   aim: {
     /** A press this close to the ball's centre (or within its on-screen radius, if larger) starts aiming, in screen px. */
     ballHitPx: 28,
-    /** Pointer travel from the press, in screen px, before a drag counts: releasing within it cancels, and full power range starts at its edge. */
+    /** Pointer travel from the press, in screen px, before a drag counts (until then the hold climbs tiers); the drag's distance from the ball's centre must pass it too: releasing within it cancels, and full power range starts at its edge. */
     slopPx: 8,
     /** Within this many screen px of any canvas edge the aim is cancel-armed: releasing cancels, moving back out re-arms. */
     edgeCancelPx: 24,
@@ -200,12 +198,57 @@ export const visual = {
       /** A splash tier's dashed preview of its Splash radius around the ball: dash and gap lengths, line width and alpha, in its tier colour. */
       splash: { dashPx: [4, 5], widthPx: 1.5, alpha: 0.5 },
     },
-    /** Each tier's colour, by name: the Comet, the Ghost, the Splash preview and the hold ring. */
+    /** Each tier's colour, by name: the Comet, the Ghost, the Splash preview, the hold ring and the Gauge. */
     tierColors: { Touch: '#4ade80', Power: '#f87171' } satisfies Record<TierName, string>,
     /** Cancel-armed: the Comet and the Ghost grey out, the Splash preview goes, and an ✕ (half-size `size`, world units) sits on the ball. */
     cancel: { color: '#9ca3af', size: 1.2, width: 0.35 },
     /** The Splash ring of a fired Power shot: expands to the Splash radius over `ms`. */
     splash: { ms: 250, color: cream, width: 0.3 },
+    /**
+     * The control gauge around the ball while aiming (the prototype's `gauge()`), showing only the current tier. Sizes in screen px (converted with the aim's `pxPerUnit`),
+     * alphas 0-1, colours from `tierColors` unless named. The scale runs from the inner cancel circle (radius `slopPx`) out to the limit.
+     */
+    gauge: {
+      /** The end labels, by the tier's curve: the scale's reading near the ball and at the limit. */
+      ends: { direct: { near: 'LOW', limit: 'MAX' }, inverted: { near: 'MAX', limit: 'MIN' } } satisfies Record<Tier['curve'], { near: string; limit: string }>,
+      /** The scale band's alpha at the inner circle and at the limit, by curve: strong where the tier's power is high. */
+      band: { direct: [0.03, 0.3], inverted: [0.5, 0.03] } satisfies Record<Tier['curve'], readonly [number, number]>,
+      /** Dashed tick rings at these shares of the scale: alpha, line width and dash (px). */
+      ticks: { at: [0.25, 0.5, 0.75], alpha: 0.22, widthPx: 1, dashPx: [2, 5] },
+      /** The faint inner cancel circle. */
+      cancel: { color: ink, alpha: 0.25, widthPx: 1.5 },
+      /** The limit ring: line width, glow blur, and its breathing (swing in px, period in ms), which stills as it flares. */
+      limit: { widthPx: 2.5, glowPx: 10, breathePx: 1.5, breatheMs: 2640 },
+      /** Past the limit the limit ring and the knob flare: `rate` is how fast the flare eases in and out (share of the gap closed per second, x dt); at full flare the ring is `widthPx` wider with `glowPx` more blur, and the knob `knobPx` larger. */
+      flare: { rate: 10, widthPx: 2, glowPx: 18, knobPx: 3 },
+      /**
+       * The label chips (end labels and the "TOUCH LIMIT" chip): font size and weight, the near-ball label's smaller size and its gap past the inner circle, side padding, height, border width and alpha, and fill.
+       * `near`, by curve: the near-ball label's text alpha and fill (Touch's LOW is dimmer). The limit chip sits on the ring at `chipDeg` (screen degrees clockwise from right: 135 is lower left).
+       */
+      label: {
+        sizePx: 10, weight: 700, nearSizePx: 8, nearGapPx: 12, padPx: 12, heightPx: 18, borderPx: 1.5, borderAlpha: 0.7, fill: 'rgba(11,15,26,0.8)', chipDeg: 135,
+        near: { direct: { alpha: 0.85, fill: 'rgba(11,15,26,0.6)' }, inverted: { alpha: 1, fill: 'rgba(11,15,26,0.8)' } } satisfies Record<Tier['curve'], { alpha: number; fill: string }>,
+      },
+      /** The lit wedge on the pull side while aiming: half its angle (degrees) and its alpha at the inner circle and at the finger, by curve. */
+      wedge: { halfDeg: 18, direct: [0.08, 0.55], inverted: [0.55, 0.12] } satisfies { halfDeg: number } & Record<Tier['curve'], readonly [number, number]>,
+      /** The ring at the finger's distance: alpha at the scale's weak and strong ends, and line width. */
+      level: { alpha: [0.55, 1], widthPx: 2 },
+      /** A ring rippling from the ball out to the finger's ring, once per period: `slowMs` at the scale's weak end, `fastMs` at its strong end; starting alpha and line width. */
+      ripple: { slowMs: 900, fastMs: 400, alpha: 0.5, widthPx: 1.5 },
+      /** The dashed elastic line from the ball to the knob: colour, alpha, width and dash (px). */
+      elastic: { color: ink, alpha: 0.5, widthPx: 2, dashPx: [4, 4] },
+      /** The knob at the finger: radius, ring width, fill, and the centre dot's radius. */
+      knob: { radiusPx: 9, widthPx: 3, fill: dark, dotPx: 3.5 },
+      /** On reaching a higher tier the gauge morphs to the new tier's radius over `ms`, overshooting (back ease, `overshoot` its strength) as the colour cross-fades. */
+      morph: { ms: 380, overshoot: 1.7 },
+      /** The tier name ("POWER!") popping above the ring on a switch, in the new tier's colour: over `ms` it fades and rises `risePx` from `gapPx` above the ring, its Bungee text (`weight`) growing from `sizePx` by `growPx` over the first `growShare` of it. */
+      pop: { ms: 700, sizePx: 22, weight: 400, growPx: 10, growShare: 1 / 3, gapPx: 26, risePx: 20 },
+      /**
+       * The readout chip beside the knob: `offsetPx` to the knob's screen right (or left, within `edgePx` of the pitch's right edge as the viewer sees it, which on a phone is the screen's) and `dropPx` lower; its size, corner radius, fill, border width and alpha;
+       * the tier name (`namePx`, `nameWeight`, `nameDyPx` from the centre), the percentage (Bungee, `percentPx`, `percentWeight`, `percentDyPx`), and `segments` meter segments (`segWPx` x `segHPx`, `segPitchPx` apart, `segDyPx` down; unlit at `unlitAlpha`).
+       */
+      readout: { offsetPx: 54, dropPx: 2, edgePx: 90, wPx: 80, hPx: 40, radiusPx: 10, fill: 'rgba(11,15,26,0.9)', borderPx: 1.5, borderAlpha: 0.8, namePx: 9, nameWeight: 700, nameDyPx: -10, percentPx: 15, percentWeight: 400, percentDyPx: 5, segments: 8, segWPx: 6, segHPx: 3, segPitchPx: 8, segDyPx: 14, unlitAlpha: 0.18 },
+    },
     /** `tier`: the short buzz on reaching a higher tier while holding. */
     vibration: { shotBase: 10, shotPerPower: 40, goal: [60, 40, 60], tier: 30 },
   },
