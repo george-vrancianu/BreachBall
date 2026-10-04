@@ -3,6 +3,7 @@ import { LocalDriver } from '../game/driver'
 import { Game, type HudView } from '../game/Game'
 import { showConnectScreen } from '../net/connectScreen'
 import { defaultSettings, type Settings } from '../game/view/settings'
+import { DefenceBar } from './hud/DefenceBar'
 import { Shell } from './hud/Shell'
 import { QueuedIcons } from './hud/SubterfugeCircle'
 import { Overlay } from './overlays/Overlay'
@@ -40,7 +41,8 @@ export function App() {
         <canvas ref={canvas} />
         {view && (
           <>
-            <Overlay view={view.overlay} onTap={() => actions().dismiss()} />
+            <Overlay view={view.overlay} flipped={view.flipped} onTap={() => actions().dismiss()} />
+            <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} />
             {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} />}
             <Shell
               hud={view.hud}
@@ -49,14 +51,13 @@ export function App() {
               subterfuge={view.subterfuge}
               confirm={view.confirm}
               mapOpen={view.mapOpen}
+              minimap={view.minimap}
               flipped={view.flipped}
               onMap={() => actions().map()}
               onRecenter={() => actions().recenter()}
               onOffenceArm={(item) => actions().offence.arm(item)}
               onRefund={(n) => actions().refund(n)}
               onConfirm={() => actions().confirmBall()}
-              onMapStretch={() => actions().mapStretch()}
-              onMapClose={() => actions().map(false)}
               onDefenceToggle={() => actions().build.toggle()}
               onDefenceArm={(item) => actions().build.arm(item)}
               onSubterfuge={(item) => actions().subterfuge(item)}

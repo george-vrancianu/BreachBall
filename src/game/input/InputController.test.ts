@@ -35,7 +35,7 @@ const make = (s: SimState, mine: (p: PlayerId) => boolean = () => true) => {
   ctl = new InputController({
     canvas: canvas as unknown as HTMLCanvasElement,
     camera,
-    mapCam: new Camera(rules.mapY, { stretch: true }),
+    mapCam: new Camera(rules.mapY, true),
     state: () => state,
     config: () => c,
     shown: () => 1,
@@ -1224,6 +1224,36 @@ describe('the press model', () => {
       drag(at, { x: 24, y: 70 })
       expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 20, y: 70 }, b: { x: 28, y: 70 } } }])
     })
+  })
+})
+
+describe('the map view', () => {
+  const host = () => (ctl as unknown as { host: { mapCam: Camera; mapOpen: () => boolean; toggleMap: (open?: boolean) => void } }).host
+  const tap = (y: number) => {
+    const at = host().mapCam.toCanvas(canvas as unknown as HTMLCanvasElement, { x: 20, y })
+    canvas.dispatchEvent(Object.assign(new Event('pointerdown'), { offsetX: at.x, offsetY: at.y, clientX: at.x, clientY: at.y, pointerId: 1, pointerType: 'touch', button: 0 }))
+  }
+
+  it('a tap anywhere jumps the camera there and holds it, and the map stays open for more jumps', () => {
+    const toggle = vi.fn()
+    host().mapOpen = () => true
+    host().toggleMap = toggle
+    for (const y of [40, 75, 50]) {
+      tap(y)
+      expect(camera.y).toBeCloseTo(y)
+    }
+    expect(camera.held).toBe(true)
+    expect(toggle).not.toHaveBeenCalled()
+  })
+
+  it('M toggles it and Esc closes it', () => {
+    const toggle = vi.fn()
+    host().toggleMap = toggle
+    key('m')
+    expect(toggle).toHaveBeenLastCalledWith()
+    host().mapOpen = () => true
+    key('Escape')
+    expect(toggle).toHaveBeenLastCalledWith(false)
   })
 })
 

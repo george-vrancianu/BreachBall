@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { visual } from '../../config/visual'
 import type { DefenceCircle as DefenceCircleView, Item } from '../../game/view/defenceCircle'
 import type { ButtonSpec, HudModel } from '../../game/view/hudModel'
+import type { MinimapView } from '../../game/view/minimap'
 import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { PlayerId, PowerUp, SubterfugeItem } from '../../game/Game'
 import { Button, ButtonRow, FONT } from '../ButtonRow'
 import { DefenceCircle } from './DefenceCircle'
+import { Minimap } from './Minimap'
 import { OffenceCircle } from './OffenceCircle'
 import { SubterfugeCircle } from './SubterfugeCircle'
 
@@ -110,6 +112,12 @@ function MoveDots({ left, max, refundable, onRefund }: { left: number; max: numb
   )
 }
 
+/** The map view's pill: taps pass through it to the map. */
+function MapHint() {
+  const { heightPx, padPx, borderPx, fontPx } = visual.hud.minimap.pill
+  return <div style={{ ...FONT, fontSize: fontPx, height: heightPx, lineHeight: `${heightPx - 2 * borderPx}px`, padding: `0 ${padPx}px`, boxSizing: 'border-box', borderRadius: heightPx / 2, border: `${borderPx}px solid ${visual.tokens.ghostBorder}`, background: visual.hud.panel, whiteSpace: 'nowrap' }}>Tap to jump · tap ✕ to close</div>
+}
+
 export type ShellProps = {
   hud: HudModel
   offence: OffenceCircleView
@@ -118,14 +126,15 @@ export type ShellProps = {
   subterfuge?: SubterfugeCircleView
   confirm: boolean
   mapOpen: boolean
+  /** The minimap chip's thumbnail. */
+  minimap: MinimapView
   /** Player 2 is at the bottom of the screen: the stage is turned, so the shell sits at the stage's top. */
   flipped: boolean
+  /** The minimap chip: opens the map view, or closes it. */
   onMap(): void
   onRecenter(): void
   onOffenceArm(item: OffenceItemSpec['item']): void
   onConfirm(): void
-  onMapStretch(): void
-  onMapClose(): void
   onDefenceToggle(): void
   onDefenceArm(item: Item): void
   /** Buy a Subterfuge item. */
@@ -138,17 +147,18 @@ export type ShellProps = {
 }
 
 /** The in-match controls, in one shell at the bottom of the screen and only for the active viewer. Mount inside the rotating stage. Flipped, the rows run in reverse so the Defence circle is always the row nearest the pitch, where its column opens over the pitch and not the HUD. */
-export function Shell({ hud: m, offence, defence, subterfuge, confirm, mapOpen, flipped, onMap, onRecenter, onOffenceArm, onConfirm, onMapStretch, onMapClose, onDefenceToggle, onDefenceArm, onSubterfuge, onRefund, className, style, children }: ShellProps) {
+export function Shell({ hud: m, offence, defence, subterfuge, confirm, mapOpen, minimap, flipped, onMap, onRecenter, onOffenceArm, onConfirm, onDefenceToggle, onDefenceArm, onSubterfuge, onRefund, className, style, children }: ShellProps) {
   const color = visual.player.colors[m.active]
   const { sharedRow } = visual.hud
-  // The power-ups dim to outlines while a circle's column is open over the pitch.
+  // The power-ups dim to outlines while a circle's column is open over the pitch, or the map is.
   const [open, setOpen] = useState({ offence: false, defence: false, subterfuge: false })
   const columnOpen = open.offence || open.defence || open.subterfuge
+  const dimmed = columnOpen || mapOpen
   const dim = visual.tokens.dimOutline
   const row: CSSProperties = { ...FONT, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, pointerEvents: 'auto' }
   const auto: CSSProperties = { pointerEvents: 'auto' }
   const buttons = m.buttons ?? []
-  // One phase button (Done) fits beside Map in the row; Siege's Repair and Rearrange together do not (see the width budget on `visual.hud.sharedRow`), so they sit on their own row above.
+  // One phase button (Done) fits in the row; Siege's Repair and Rearrange together do not (see the width budget on `visual.hud.sharedRow`), so they sit on their own row above.
   const stacked = buttons.length > 1
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, padding: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
@@ -158,7 +168,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, confirm, mapOpen, 
         {subterfuge && <SubterfugeCircle subterfuge={subterfuge} color={color} flipped={flipped} onBuy={onSubterfuge} onOpen={(o) => setOpen((p) => ({ ...p, subterfuge: o }))} />}
       </div>
       {confirm && <ButtonRow specs={[{ label: 'Confirm', onClick: onConfirm }]} style={auto} />}
-      {mapOpen && <ButtonRow specs={[{ label: 'Stretch', onClick: onMapStretch }, { label: 'Close', onClick: onMapClose }]} style={auto} />}
+      {mapOpen && <MapHint />}
       {stacked && <div style={{ ...row, gap: sharedRow.gapPx }}>{buttons.map((b) => <Pill key={b.label} spec={b} />)}</div>}
       <div data-testid="shared-row" style={{ ...row, gap: sharedRow.gapPx, justifyContent: 'flex-start', flexWrap: 'nowrap', alignSelf: 'stretch', minHeight: sharedRow.heightPx, paddingRight: sharedRow.chipPadPx }}>
         <div style={{ textAlign: 'left', flex: '1 1 0', minWidth: 0 }}>
@@ -168,8 +178,6 @@ export function Shell({ hud: m, offence, defence, subterfuge, confirm, mapOpen, 
         <Clock clock={m.clock} />
         <MoveDots left={m.shotsLeft} max={m.shotsMax} refundable={m.refundable} onRefund={onRefund} />
         <Recenter onClick={onRecenter} />
-        {/* The minimap chip (#87) takes the Map button's place. */}
-        <Pill spec={{ label: 'Map', onClick: onMap }} />
         {!stacked && buttons.map((b) => <Pill key={b.label} spec={b} />)}
       </div>
       <div style={{ ...row, gap: 16, color }}>
@@ -177,14 +185,15 @@ export function Shell({ hud: m, offence, defence, subterfuge, confirm, mapOpen, 
         {(Object.keys(ICONS) as (keyof typeof ICONS)[]).map((p) => {
           const n = m.players[m.active].inventory[p]
           return (
-            <div key={p} role="img" aria-label={`${ICONS[p]}${n}`} style={{ ...FONT, position: 'relative', width: 44, height: 44, boxSizing: 'border-box', borderRadius: '50%', border: `2px solid ${columnOpen ? dim : color}`, color: columnOpen ? dim : color, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: n > 0 ? 1 : 0.35 }}>
+            <div key={p} role="img" aria-label={`${ICONS[p]}${n}`} style={{ ...FONT, position: 'relative', width: 44, height: 44, boxSizing: 'border-box', borderRadius: '50%', border: `2px solid ${dimmed ? dim : color}`, color: dimmed ? dim : color, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: n > 0 ? 1 : 0.35 }}>
               {ICONS[p]}
-              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: columnOpen ? dim : color, color: visual.hud.dark, fontSize: 12, textAlign: 'center' }}>{n}</span>
+              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: dimmed ? dim : color, color: visual.hud.dark, fontSize: 12, textAlign: 'center' }}>{n}</span>
             </div>
           )
         })}
       </div>
       {children && <div style={auto}>{children}</div>}
+      <Minimap minimap={minimap} open={mapOpen} color={color} flipped={flipped} onToggle={onMap} />
     </div>
   )
 }

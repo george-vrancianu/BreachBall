@@ -551,11 +551,11 @@ export class InputController {
   private down(e: PointerEvent): void {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const { canvas, camera, mapCam } = this.host
-    // The Map and Close buttons still work; everything else is ignored behind a blocking hold, so a tap there cannot carry into the next player's turn.
+    // The map chip still works; everything else is ignored behind a blocking hold, so a tap there cannot carry into the next player's turn.
     if (this.host.blocked() && !this.host.mapOpen()) return
     if (this.host.mapOpen()) {
+      // A tap jumps the camera there; the map stays open (its chip, M or Esc close it) so the jump shows in the frame.
       camera.pan(mapCam.toWorld(canvas, e.offsetX * this.canvasPx, e.offsetY * this.canvasPx).y - camera.y)
-      this.host.toggleMap(false)
       return
     }
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })

@@ -11,10 +11,11 @@ afterEach(cleanup)
 
 const hud = (over: Partial<HudModel> = {}): HudModel => ({
   players: { 1: { digit: '3', inventory: { breaker: 1, repulsor: 0, steal: 2 } }, 2: { digit: '?', inventory: { breaker: 4, repulsor: 4, steal: 4 } } },
+  defenceBar: { 1: { count: '3', segments: [true, true, true] }, 2: { count: '?', segments: [] } },
   active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, score: null, phase: 'Play', ...over,
 })
 const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
-const props = () => ({ hud: hud(), offence: offence(), confirm: false, mapOpen: false, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onOffenceArm: vi.fn(), onConfirm: vi.fn(), onMapStretch: vi.fn(), onMapClose: vi.fn(), onDefenceToggle: vi.fn(), onDefenceArm: vi.fn(), onSubterfuge: vi.fn(), onRefund: vi.fn() })
+const props = () => ({ hud: hud(), offence: offence(), confirm: false, mapOpen: false, minimap: { frame: { top: 0.5, height: 0.5 } }, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onOffenceArm: vi.fn(), onConfirm: vi.fn(), onDefenceToggle: vi.fn(), onDefenceArm: vi.fn(), onSubterfuge: vi.fn(), onRefund: vi.fn() })
 
 describe('Shell', () => {
   describe('Move point dots', () => {
@@ -123,11 +124,11 @@ describe('Shell', () => {
       expect(row.contains(screen.getByRole('button', { name: 'Recenter' }))).toBe(true)
       expect(row.contains(screen.getByText('12'))).toBe(true)
     })
-    it('moves Siege\'s Repair and Rearrange above the row, which keeps Map and Done', () => {
+    it('moves Siege\'s Repair and Rearrange above the row, which keeps the Move points and Recenter', () => {
       render(<Shell {...props()} hud={hud({ buttons: [{ label: 'Repair', onClick: vi.fn() }, { label: 'Rearrange', onClick: vi.fn() }] })} />)
       const row = screen.getByTestId('shared-row')
       expect(row.contains(screen.getByText('Repair'))).toBe(false)
-      expect(row.contains(screen.getByText('Map'))).toBe(true)
+      expect(row.contains(screen.getByRole('button', { name: 'Recenter' }))).toBe(true)
     })
     it('keeps right padding clear for the minimap chip', () => {
       render(<Shell {...props()} />)
@@ -198,29 +199,83 @@ describe('Shell', () => {
     })
   })
 
-  it('runs map, recenter and phase buttons', () => {
+  it('runs recenter and phase buttons', () => {
     const p = props()
     const repair = vi.fn()
     render(<Shell {...p} hud={hud({ buttons: [{ label: 'Repair', onClick: repair }, { label: 'Rearrange', onClick: () => {} }] })} />)
-    fireEvent.click(screen.getByText('Map'))
     fireEvent.click(screen.getByRole('button', { name: 'Recenter' }))
     fireEvent.click(screen.getByText('Repair'))
-    expect(p.onMap).toHaveBeenCalled()
     expect(p.onRecenter).toHaveBeenCalled()
     expect(repair).toHaveBeenCalled()
     expect(screen.getByText('Rearrange')).toBeTruthy()
   })
 
-  it('shows Confirm, and Stretch and Close while the map is open, only when due', () => {
+  it('shows Confirm only when due', () => {
     const p = props()
     const { rerender } = render(<Shell {...p} />)
     expect(screen.queryByText('Confirm')).toBeNull()
-    expect(screen.queryByText('Close')).toBeNull()
-    rerender(<Shell {...p} confirm mapOpen />)
+    rerender(<Shell {...p} confirm />)
     fireEvent.click(screen.getByText('Confirm'))
-    fireEvent.click(screen.getByText('Stretch'))
-    fireEvent.click(screen.getByText('Close'))
-    expect([p.onConfirm, p.onMapStretch, p.onMapClose].map((f) => f.mock.calls.length)).toEqual([1, 1, 1])
+    expect(p.onConfirm).toHaveBeenCalledTimes(1)
+  })
+
+  describe('minimap chip', () => {
+    it('replaces the Map button: no Stretch, no text Map button', () => {
+      render(<Shell {...props()} mapOpen />)
+      expect(screen.queryByText('Stretch')).toBeNull()
+      expect(screen.queryByText('Map')).toBeNull()
+    })
+
+    it('opens the map, and while open is a filled close chip that closes it', () => {
+      const p = props()
+      const { rerender } = render(<Shell {...p} />)
+      expect(screen.queryByText('Tap to jump · tap ✕ to close')).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Map' }))
+      rerender(<Shell {...p} mapOpen />)
+      const chip = screen.getByRole('button', { name: 'Close map' })
+      expect(chip.textContent).toContain('✕')
+      expect((chip.firstElementChild as HTMLElement).style.background).toBe('rgb(34, 211, 238)')
+      expect(screen.getByText('Tap to jump · tap ✕ to close')).toBeTruthy()
+      fireEvent.click(chip)
+      expect(p.onMap).toHaveBeenCalledTimes(2)
+    })
+
+    it('has a tap area of at least 44px around the 30 x 74 chip', () => {
+      render(<Shell {...props()} />)
+      const chip = screen.getByRole('button', { name: 'Map' })
+      expect([chip.style.width, chip.style.height]).toEqual(['44px', '74px'])
+      expect([(chip.firstElementChild as HTMLElement).style.width, (chip.firstElementChild as HTMLElement).style.height]).toEqual(['30px', '74px'])
+    })
+
+    it('draws the camera frame on the thumbnail where the camera looks', () => {
+      const { rerender } = render(<Shell {...props()} minimap={{ frame: { top: 0.25, height: 0.5 } }} />)
+      const frame = () => screen.getByTestId('thumbnail-frame')
+      expect([frame().style.top, frame().style.height]).toEqual(['17.5px', '35px'])
+      rerender(<Shell {...props()} minimap={{ frame: { top: 0.5, height: 0.5 } }} />)
+      expect(frame().style.top).toBe('35px')
+      expect(screen.queryByTestId('thumbnail-fog')).toBeNull()
+    })
+
+    it('fogs the thumbnail in a blind build', () => {
+      render(<Shell {...props()} minimap={{ frame: { top: 0, height: 0.5 }, fog: { top: 0, height: 0.5 } }} />)
+      expect(screen.getByTestId('thumbnail-fog').style.height).toBe('35px')
+    })
+
+    it('sits at the corner nearest the viewer: bottom-right, or top-left when the stage is turned', () => {
+      const { rerender } = render(<Shell {...props()} />)
+      const at = () => screen.getByRole('button', { name: 'Map' }).style
+      expect([at().bottom, at().top !== '']).toEqual(['8px', false])
+      expect(at().right).not.toBe('')
+      rerender(<Shell {...props()} flipped />)
+      expect([at().top, at().bottom, at().left !== '']).toEqual(['8px', '', true])
+    })
+
+    it('dims the power-up circles while the map is open', () => {
+      render(<Shell {...props()} mapOpen />)
+      const probe = document.createElement('i')
+      probe.style.color = visual.tokens.dimOutline
+      expect(screen.getAllByRole('img', { name: /^[RS]\d/ }).map((b) => b.style.color === probe.style.color)).toEqual([true, true])
+    })
   })
 
   describe('Defence circle', () => {
@@ -478,8 +533,11 @@ describe('Shell', () => {
     const { container } = render(<Shell {...props()} hud={hud({ buttons })} defence={{ building: false, items: [], available: true }} confirm mapOpen><i>extra</i></Shell>)
     const shell = container.firstElementChild as HTMLElement
     expect(shell.style.pointerEvents).toBe('none')
-    expect(shell.children.length).toBe(6)
-    expect([...shell.children].every((c) => (c as HTMLElement).style.pointerEvents === 'auto')).toBe(true)
+    expect(shell.children.length).toBe(7)
+    // The map's hint pill lets taps through to the map.
+    const pill = screen.getByText('Tap to jump · tap ✕ to close')
+    expect([...shell.children].filter((c) => c !== pill).every((c) => (c as HTMLElement).style.pointerEvents === 'auto')).toBe(true)
+    expect(pill.style.pointerEvents).not.toBe('auto')
   })
 
   it('renders children', () => {

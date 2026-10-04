@@ -13,6 +13,6 @@ describe('fadeEdges', () => {
   })
 
   it('fades nothing on the map, which shows the whole pitch', () => {
-    expect(fadeEdges(new Camera(rules.mapY, { stretch: false }), canvas)).toEqual({ top: false, bottom: false })
+    expect(fadeEdges(new Camera(rules.mapY, true), canvas)).toEqual({ top: false, bottom: false })
   })
 })

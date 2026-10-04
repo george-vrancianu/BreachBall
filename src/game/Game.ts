@@ -19,7 +19,9 @@ import { routeEvents } from './events'
 import { reducedMotion, tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
 import { defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
+import { countDestroyed, type Destroyed } from './view/defenceBar'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
+import { minimapOf, type MinimapView } from './view/minimap'
 import { offenceCircle, type OffenceActions, type OffenceCircle } from './view/offenceCircle'
 import { phaseButtons } from './view/phaseButtons'
 import { subterfugeCircle, type SubterfugeCircle } from './view/subterfugeCircle'
@@ -44,6 +46,8 @@ export type HudView = {
   /** The ball-in-hand Confirm button is up. */
   confirm: boolean
   mapOpen: boolean
+  /** The minimap chip's thumbnail: where the main camera looks, live. */
+  minimap: MinimapView
   winner?: PlayerId
   /** The end screen's result line. */
   result: string
@@ -54,7 +58,6 @@ export type GameActions = {
   start(settings: Settings): void
   rematch(): void
   map(open?: boolean): void
-  mapStretch(): void
   recenter(): void
   /** The viewer taps an Offence item: the Breaker toggles armed (the sim charges it only when the shot fires). */
   offence: OffenceActions
@@ -85,22 +88,14 @@ const resultOf = (m: SimState['match'], winner: PlayerId, objects: SimState['obj
   }
 }
 
-const storedStretch = () => {
-  try {
-    return sessionStorage.getItem('mapStretch') === '1'
-  } catch {
-    return false
-  }
-}
-
 /**
  * The game renderer: owns the entity tree, the input controller, the frame loop and a driver. Sim state enters only through `apply`,
  * which routes the tick's events to entity methods; inputs leave through the driver.
  */
 export class Game implements Sink {
   readonly camera = new Camera(0)
-  /** A second camera over the whole pitch for the map overlay; its fit/stretch choice lasts the session. */
-  readonly mapCam = new Camera(rules.mapY, { stretch: storedStretch() })
+  /** A second camera over the whole pitch for the map overlay, always fitted above the HUD band. */
+  readonly mapCam = new Camera(rules.mapY, true)
   readonly pitch = new Pitch()
   readonly structures = new Structures()
   readonly ball = new Ball()
@@ -122,6 +117,8 @@ export class Game implements Sink {
   private dpr = 1
   private dead = false
   private lastView = ''
+  /** The most structures each player has stood this match: the Defence bar keeps a segment for each that falls. */
+  private destroyed: Destroyed = { 1: 0, 2: 0 }
 
   constructor(private canvas: HTMLCanvasElement, makeDriver: DriverFactory, private onView?: (view: HudView) => void) {
     this.driver = makeDriver(this)
@@ -148,13 +145,6 @@ export class Game implements Sink {
       start: (s) => ((this.config = configFrom(s)), this.newMatch()),
       rematch: () => this.newMatch(),
       map: (open) => this.toggleMap(open),
-      mapStretch: () => {
-        const map = this.mapCam.map!
-        map.stretch = !map.stretch
-        try {
-          sessionStorage.setItem('mapStretch', map.stretch ? '1' : '0')
-        } catch {}
-      },
       recenter: () => this.camera.recenter(),
       offence: { arm: (item) => item === 'breaker' && this.input.toggleArm() },
       refund: (count) => {
@@ -200,6 +190,7 @@ export class Game implements Sink {
   /** One sim tick's state and events, from the driver. */
   apply(state: SimState, events: SimEvent[]): void {
     this.state = state
+    this.destroyed = countDestroyed(this.destroyed, events)
     const { camera, input } = this
     this.seeBlind()
     input.settle(state, events.some((ev) => ev.type === 'refused'))
@@ -226,6 +217,7 @@ export class Game implements Sink {
     this.camera.recenter()
     this.camera.y = s.ball.pos.y
     this.lastBuilder = undefined
+    this.destroyed = { 1: 0, 2: 0 }
     this.apply(s, [])
     this.push()
   }
@@ -242,6 +234,7 @@ export class Game implements Sink {
   private fitCamera(): void {
     this.camera.reserve = hudReserve(this.transition.shown, visual.camera.hudReservePx * this.dpr)
     this.camera.fit(this.canvas)
+    this.mapCam.reserve = this.camera.reserve
   }
 
   private toggleMap(open = !this.mapOpen): void {
@@ -319,10 +312,17 @@ export class Game implements Sink {
     this.fog.draw(ctx)
     this.edgeFade.draw(ctx)
     if (this.mapOpen) {
+      // The main view's frame: dashed, with solid corner brackets.
+      const { mapOutline, mapOutlinePx, mapDashPx, mapBracket } = visual.camera
       const o = viewOutline(canvas, mapCam, camera)
-      ctx.strokeStyle = visual.camera.mapOutline
-      ctx.lineWidth = visual.camera.mapOutlinePx * this.dpr
+      ctx.strokeStyle = mapOutline
+      ctx.lineWidth = mapOutlinePx * this.dpr
+      ctx.setLineDash(mapDashPx.map((d) => d * this.dpr))
       ctx.strokeRect(o.x, o.y, o.w, o.h)
+      ctx.setLineDash([])
+      ctx.lineWidth = mapBracket.linePx * this.dpr
+      const arm = mapBracket.armPx * this.dpr
+      strokeBrackets(ctx, o, arm)
     }
   }
 
@@ -334,7 +334,7 @@ export class Game implements Sink {
     const { inHand } = state.possession
     const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing }),
+      hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, destroyed: this.destroyed }),
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),
@@ -343,6 +343,7 @@ export class Game implements Sink {
       flipped: transition.shown === 2,
       confirm: inHand && !builder && !state.match.choosing && !blocked,
       mapOpen: this.mapOpen,
+      minimap: minimapOf(this.camera.y, this.camera.visibleHeight, this.camera.blind),
       winner: state.match.winner ?? undefined,
       result: state.match.winner ? resultOf(state.match, state.match.winner, state.objects) : '',
     }
@@ -351,4 +352,17 @@ export class Game implements Sink {
     this.lastView = key
     this.onView?.(view)
   }
+}
+
+/** Solid corner brackets on the rectangle `o`, each corner's two arms `arm` long. */
+function strokeBrackets(ctx: CanvasRenderingContext2D, o: { x: number; y: number; w: number; h: number }, arm: number): void {
+  ctx.beginPath()
+  for (const [x, dx] of [[o.x, 1], [o.x + o.w, -1]] as const) {
+    for (const [y, dy] of [[o.y, 1], [o.y + o.h, -1]] as const) {
+      ctx.moveTo(x + dx * arm, y)
+      ctx.lineTo(x, y)
+      ctx.lineTo(x, y + dy * arm)
+    }
+  }
+  ctx.stroke()
 }
