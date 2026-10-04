@@ -1,6 +1,7 @@
 import { rules } from '../config/rules'
 import { centreSpot, halfOf, type PlayerId, type Point } from './pitch'
 import { insideTower, nearestOnWall } from './near'
+import { inActivationRing } from './pallet'
 import type { SimConfig, SimEvent, SimState } from './step'
 import type { Structure } from './wall'
 
@@ -19,7 +20,7 @@ export function canPlaceBall(player: PlayerId, at: Point, objects: Structure[], 
     halfOf(at.y) === player &&
     at.x >= r && at.x <= rules.pitchWidth - r && at.y >= rules.board && at.y <= rules.pitchHeight - rules.board &&
     objects.every((w) => nearestOnWall(w, at).dist > r + rules.wallHalf && !insideTower(w, at)) &&
-    c.pallets.every((p) => Math.hypot(at.x - p.x, at.y - p.y) > r + rules.pallet.ringRadius)
+    !inActivationRing(c.pallets, (p) => Math.hypot(at.x - p.x, at.y - p.y), r)
   )
 }
 

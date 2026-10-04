@@ -1,6 +1,6 @@
 import { rules, type WallRules } from '../config/rules'
 import { centreSpot, halfOf, type PlayerId, type Point } from './pitch'
-import type { PalletSpot } from './pallet'
+import { inActivationRing, type PalletSpot } from './pallet'
 import type { SimEvent } from './step'
 
 /** A grid vertex: world position is (gx, gy) * rules.cellSize. */
@@ -233,7 +233,7 @@ export function isLegal(w: StructureSpec, existing: readonly StructureSpec[] = [
   const dist = (at: Point) => (w.kind === 'tower' ? distToBox(min, max, at) : distToSegment(w, at))
   const placed = min.x >= 0 && max.x <= rules.pitchWidth && min.y >= 0 && max.y <= rules.pitchHeight && side(min.y) && side(max.y) && halfOf((min.y + max.y) / 2) === w.owner
   if (!placed || (w.kind === 'wall' && !isDrawable(w, r)) || dist(goal) <= rules.noBuildRadius || dist(centre) <= rules.centreZoneRadius) return false
-  if (pallets.some((at) => dist(at) <= rules.pallet.ringRadius)) return false
+  if (inActivationRing(pallets, dist)) return false
   return existing.every((o) => {
     if (w.kind === 'wall') return o.kind === 'wall' ? !wallsOverlap(w, o, EPS, r) : lengthInside(w, o) <= EPS
     return o.kind === 'wall' ? lengthInside(o, w) <= EPS : o.at.gx !== w.at.gx || o.at.gy !== w.at.gy

@@ -285,9 +285,11 @@ export function step(
   const { placeWall, demolish, moveStructure: move } = input
   // A Rearrange turn moves pieces only: placing and demolishing are refused.
   const edit = mode.mayEdit(match)
+  /** What the place/move checks read, as it stands now. */
+  const ledger = (): Ledger => ({ objects, credits, players, match, pallets: state.pallets })
   /** Places a piece for the builder if cost (or Siege stock) and position allow. */
   const place = (spec: StructureSpec): boolean => {
-    if (spec.owner !== match.builder || !canPlace({ objects, credits, players, match, pallets: state.pallets }, spec)) return false
+    if (spec.owner !== match.builder || !canPlace(ledger(), spec)) return false
     players = restocked(match, players, spec, 1)
     built = [...built, nextId]
     objects = [...objects, newStructure(spec, nextId++)]
@@ -296,7 +298,7 @@ export function step(
   }
   /** An in-play build: placed at its in-play price and never added to `built`, so it can be neither moved nor demolished. */
   const placeInPlay = (spec: StructureSpec): boolean => {
-    if (!placeable({ objects, credits, players, match, pallets: state.pallets, possession: state.possession }, spec)) return false
+    if (!placeable({ ...ledger(), possession: state.possession }, spec)) return false
     objects = [...objects, newStructure(spec, nextId++)]
     credits = { ...credits, [spec.owner]: credits[spec.owner] - playCost(spec) }
     return true
@@ -306,7 +308,7 @@ export function step(
     const it = objects.find((o) => o.id === move.id)
     const spec: StructureSpec | undefined = it && (it.kind === 'wall' ? ('a' in move ? { kind: 'wall', owner: move.player, a: move.a, b: move.b } : undefined) : 'at' in move ? { kind: 'tower', owner: move.player, power: it.power, at: move.at } : undefined)
     // A wall's length may change by its ends: the Credit difference is charged (or refunded).
-    if (it && spec && move.player === match.builder && it.owner === move.player && built.includes(move.id) && canMove({ objects, credits, players, match, pallets: state.pallets }, move.id, spec)) {
+    if (it && spec && move.player === match.builder && it.owner === move.player && built.includes(move.id) && canMove(ledger(), move.id, spec)) {
       // A resize re-creates full segments (a build turn's own pieces are undamaged); a plain move keeps every segment's health, Gaps included.
       const moved: Structure = it.kind === 'wall' && spec.kind === 'wall' ? (segmentCount(spec) !== it.segments.length ? newStructure(spec, it.id) : { ...it, ...spec }) : it.kind === 'tower' && spec.kind === 'tower' ? { ...it, ...spec } : it
       objects = objects.map((o) => (o.id === move.id ? moved : o))

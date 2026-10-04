@@ -15,6 +15,15 @@ const ends = [
 /** A dash pattern in reference px, scaled to world units. */
 const dashed = (dashPx: readonly number[]): number[] => dashPx.map((d) => d * visual.pitch.unit)
 
+/** Runs `strokes` with a `style` dash and width in `color`, then clears the dash: the keep-out arc and the Activation rings. */
+function withDash(ctx: CanvasRenderingContext2D, style: { widthPx: number; dashPx: readonly number[] }, color: string, strokes: () => void): void {
+  ctx.setLineDash(dashed(style.dashPx))
+  ctx.strokeStyle = color
+  ctx.lineWidth = style.widthPx * visual.pitch.unit
+  strokes()
+  ctx.setLineDash([])
+}
+
 /** The ground, markings, goal mouths and nets; during a build turn also the snap grid on the builder's half, the build-zone edge on the halfway line and each Activation ring, in the builder's colour. */
 export class Pitch extends Entity {
   /** Whose build turn it is, if any. */
@@ -288,28 +297,22 @@ export class Pitch extends Entity {
 
   /** The keep-out arc, the drawn edge of the goal no-build zone: neutral, the builder's colour while that player builds. */
   private drawKeepOutArc(ctx: CanvasRenderingContext2D, { y, into, owner }: (typeof ends)[number]): void {
-    const { keepOut } = visual.pitch
-    ctx.beginPath()
-    ctx.arc(rules.pitchWidth / 2, y, rules.noBuildRadius, into > 0 ? 0 : Math.PI, into > 0 ? Math.PI : 2 * Math.PI)
-    ctx.setLineDash(dashed(keepOut.dashPx))
-    ctx.strokeStyle = this.builder === owner ? visual.player.colors[owner] : visual.pitch.line
-    ctx.lineWidth = keepOut.widthPx * visual.pitch.unit
-    ctx.stroke()
-    ctx.setLineDash([])
+    withDash(ctx, visual.pitch.keepOut, this.builder === owner ? visual.player.colors[owner] : visual.pitch.line, () => {
+      ctx.beginPath()
+      ctx.arc(rules.pitchWidth / 2, y, rules.noBuildRadius, into > 0 ? 0 : Math.PI, into > 0 ? Math.PI : 2 * Math.PI)
+      ctx.stroke()
+    })
   }
 
   /** Each Activation ring, a no-build zone: dashed like the keep-out arc, in the builder's colour. The Pallet itself is drawn elsewhere. */
   private drawPalletRings(ctx: CanvasRenderingContext2D, builder: PlayerId): void {
-    const { palletRing } = visual.pitch
-    ctx.setLineDash(dashed(palletRing.dashPx))
-    ctx.strokeStyle = visual.player.colors[builder]
-    ctx.lineWidth = palletRing.widthPx * visual.pitch.unit
-    for (const at of this.pallets) {
-      ctx.beginPath()
-      ctx.arc(at.x, at.y, rules.pallet.ringRadius, 0, 2 * Math.PI)
-      ctx.stroke()
-    }
-    ctx.setLineDash([])
+    withDash(ctx, visual.pitch.palletRing, visual.player.colors[builder], () => {
+      for (const at of this.pallets) {
+        ctx.beginPath()
+        ctx.arc(at.x, at.y, rules.pallet.ringRadius, 0, 2 * Math.PI)
+        ctx.stroke()
+      }
+    })
   }
 
   /** The halfway line as the current path, shared by the centre line and the build-zone edge. */

@@ -6,7 +6,7 @@ import { rules } from '../config/rules'
 
 describe('settings', () => {
   it('defaults to Siege with the slider defaults', () => {
-    expect(defaultSettings).toEqual({ mode: 'siege', shots: 3, rounds: 5, credits: 10, openingCredits: 30, refundRate: 2, expiry: 'shoot', pallets: true })
+    expect(defaultSettings).toEqual({ mode: 'siege', shots: 3, rounds: 5, credits: 10, openingCredits: 30, refundRate: 2, expiry: 'shoot', palletsOn: true })
     expect(configFrom(defaultSettings)).toEqual({ ...defaultConfig, mode: 'siege', openingCredits: 30, pallets: rules.pallet.spots })
   })
 
@@ -23,14 +23,14 @@ describe('settings', () => {
     for (const mode of ['rounds', 'siege'] as const) {
       expect(configFrom({ ...defaultSettings, mode }).pallets).toEqual(modeNamed(mode).pallets)
       expect(modeNamed(mode).pallets).toEqual(rules.pallet.spots)
-      expect(configFrom({ ...defaultSettings, mode, pallets: false }).pallets).toEqual([])
+      expect(configFrom({ ...defaultSettings, mode, palletsOn: false }).pallets).toEqual([])
     }
   })
 
   it('a new match in either mode starts with the two default Pallets, and none with the toggle off', () => {
     for (const mode of ['rounds', 'siege'] as const) {
       expect(initialState(1, configFrom({ ...defaultSettings, mode })).pallets.map((p) => p.pivot)).toEqual([{ x: 6, y: 54 }, { x: 34, y: 54 }])
-      expect(initialState(1, configFrom({ ...defaultSettings, mode, pallets: false })).pallets).toEqual([])
+      expect(initialState(1, configFrom({ ...defaultSettings, mode, palletsOn: false })).pallets).toEqual([])
     }
   })
 

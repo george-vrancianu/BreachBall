@@ -119,7 +119,7 @@ export function SettingsScreen({ settings, onChange, tabletop, onTabletop, onSta
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
         <span>Pallets</span>
-        <ButtonRow specs={palletsPicker(settings.pallets, (pallets) => onChange({ ...settings, pallets }))} />
+        <ButtonRow specs={palletsPicker(settings.palletsOn, (palletsOn) => onChange({ ...settings, palletsOn }))} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: 'min(80vw,320px)' }}>
         <TabletopToggle on={tabletop} onChange={onTabletop} />

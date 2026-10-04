@@ -281,7 +281,8 @@ describe('Activation rings', () => {
     expect(step(placed.state, { moveStructure: { player: 1, id: placed.state.objects[0].id, a: inRing.a, b: inRing.b } }, pc).events).toEqual([{ type: 'refused' }])
   })
   it('refuses an in-play build in a ring', () => {
-    const s = { ...withPallets(), match: { ...withPallets().match, builder: null }, possession: { shooter: 1 as const, shots: pc.shots, inHand: false, live: false } }
+    const b = withPallets()
+    const s = { ...b, match: { ...b.match, builder: null }, possession: { shooter: 1 as const, shots: pc.shots, inHand: false, live: false } }
     expect(step(s, { placeWall: inRing }, pc).events).toEqual([{ type: 'refused' }])
     expect(step(s, { placeWall: clear }, pc).events).toEqual([])
   })

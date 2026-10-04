@@ -2,8 +2,8 @@ import type { GameModeName } from './match'
 import { modeNamed } from './mode'
 import { defaultConfig, type SimConfig } from './step'
 
-export type Settings = { mode: GameModeName; shots: number; rounds: number; credits: number; openingCredits: number; refundRate: number; expiry: SimConfig['expiry']; /** The mode's Pallets, or none. */ pallets: boolean }
-type SliderKey = Exclude<keyof Settings, 'mode' | 'expiry' | 'pallets'>
+export type Settings = { mode: GameModeName; shots: number; rounds: number; credits: number; openingCredits: number; refundRate: number; expiry: SimConfig['expiry']; /** The mode's Pallets, or none. */ palletsOn: boolean }
+type SliderKey = Exclude<keyof Settings, 'mode' | 'expiry' | 'palletsOn'>
 
 export const SLIDERS: Record<SliderKey, { label: string; siegeLabel?: string; min: number; max: number; def: number; siegeDef?: number }> = {
   shots: { label: 'Shots per possession', min: 1, max: 10, def: 3 },
@@ -26,9 +26,9 @@ export const EXPIRIES: { expiry: Settings['expiry']; label: string }[] = [
 ]
 
 /** The Pallets toggle in order; shown in every mode. */
-export const PALLETS: { pallets: boolean; label: string }[] = [
-  { pallets: true, label: 'On' },
-  { pallets: false, label: 'Off' },
+export const PALLETS: { palletsOn: boolean; label: string }[] = [
+  { palletsOn: true, label: 'On' },
+  { palletsOn: false, label: 'Off' },
 ]
 
 /** The sliders a mode uses; Siege has no rounds and no refunds. */
@@ -65,8 +65,8 @@ export const sliderDefault = (mode: GameModeName, key: SliderKey): number => {
 export const withMode = (s: Settings, mode: GameModeName): Settings => (s.mode === mode ? s : { ...s, mode, openingCredits: sliderDefault(mode, 'openingCredits') })
 
 /** What the settings screen starts with: Siege is the default mode, with Pallets. */
-export const defaultSettings: Settings = { mode: 'siege', shots: SLIDERS.shots.def, rounds: SLIDERS.rounds.def, credits: SLIDERS.credits.def, openingCredits: sliderDefault('siege', 'openingCredits'), refundRate: SLIDERS.refundRate.def, expiry: 'shoot', pallets: true }
+export const defaultSettings: Settings = { mode: 'siege', shots: SLIDERS.shots.def, rounds: SLIDERS.rounds.def, credits: SLIDERS.credits.def, openingCredits: sliderDefault('siege', 'openingCredits'), refundRate: SLIDERS.refundRate.def, expiry: 'shoot', palletsOn: true }
 
 const clamp = (k: SliderKey, v: number) => Math.min(SLIDERS[k].max, Math.max(SLIDERS[k].min, Math.round(v)))
 
-export const configFrom = (s: Settings): SimConfig => ({ ...defaultConfig, mode: s.mode, shots: clamp('shots', s.shots), rounds: clamp('rounds', s.rounds), credits: clamp('credits', s.credits), openingCredits: clamp('openingCredits', s.openingCredits), refundRate: clamp('refundRate', s.refundRate), expiry: s.expiry, pallets: s.pallets ? modeNamed(s.mode).pallets : [] })
+export const configFrom = (s: Settings): SimConfig => ({ ...defaultConfig, mode: s.mode, shots: clamp('shots', s.shots), rounds: clamp('rounds', s.rounds), credits: clamp('credits', s.credits), openingCredits: clamp('openingCredits', s.openingCredits), refundRate: clamp('refundRate', s.refundRate), expiry: s.expiry, pallets: s.palletsOn ? modeNamed(s.mode).pallets : [] })

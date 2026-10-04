@@ -10,12 +10,12 @@ export const modePicker = (current: Settings['mode'], pick: (mode: Settings['mod
 export const expiryPicker = (current: Settings['expiry'], pick: (expiry: Settings['expiry']) => void): ButtonSpec[] => EXPIRIES.map(({ expiry, label }) => ({ label, pressed: expiry === current, onClick: () => pick(expiry) }))
 
 /** The Pallets segmented toggle: On puts the mode's Pallets on the map, Off leaves none. */
-export const palletsPicker = (current: Settings['pallets'], pick: (pallets: Settings['pallets']) => void): ButtonSpec[] => PALLETS.map(({ pallets, label }) => ({ label, pressed: pallets === current, onClick: () => pick(pallets) }))
+export const palletsPicker = (current: Settings['palletsOn'], pick: (palletsOn: Settings['palletsOn']) => void): ButtonSpec[] => PALLETS.map(({ palletsOn, label }) => ({ label, pressed: palletsOn === current, onClick: () => pick(palletsOn) }))
 
 /** The Tabletop mode toggle, a device setting: pressed when only the HUD turns at a hot-seat handover, the pitch staying put. Same button in the Side menu and on the settings screen. */
 export const tabletopToggle = (on: boolean, set: (on: boolean) => void): ButtonSpec => ({ label: `Tabletop mode: ${on ? 'On' : 'Off'}`, pressed: on, onClick: () => set(!on) })
 
-export type SliderKey = Exclude<keyof Settings, 'mode' | 'expiry' | 'pallets'>
+export type SliderKey = Exclude<keyof Settings, 'mode' | 'expiry' | 'palletsOn'>
 export type SliderRow = { key: SliderKey; label: string; min: number; max: number; value: number }
 
 /** The sliders the chosen mode uses, with their current values. */

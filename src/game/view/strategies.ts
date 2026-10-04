@@ -24,7 +24,7 @@ const vee = (x: number, y: number): StrategyPiece[] => [wall(x, y, x + d1, y + d
 
 /**
  * The layouts on offer, each placing whole within the Opening Credits (in Rounds; Siege pays walls in Wall points and towers from its stock) and spending within
- * five of them, so no Strategy is lean. Grouped by archetype: wall-heavy, then hybrid, then tower-heavy. No layout seals the pitch: every one leaves a path from the Kick-off spot to the goal mouth.
+ * five of them, so no Strategy is lean; with Pallets on, a piece inside an Activation ring is skipped, at most the forward side stubs. Grouped by archetype: wall-heavy, then hybrid, then tower-heavy. No layout seals the pitch: every one leaves a path from the Kick-off spot to the goal mouth.
  */
 export const STRATEGIES: readonly Strategy[] = [
   // Wall-heavy. Full rows, most of them doubled, with offset gaps (sides, middle, right), so the ball must weave: the goal-side row and a Steal at its seam are the core, one Repulsor up the pitch.
