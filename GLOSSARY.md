@@ -101,7 +101,7 @@ The single resource every Offence, Defence and Subterfuge item is bought with, e
 _Avoid_: Build points, power-up points, resources, energy (and Wall points in Rounds; see below)
 
 **Wall points**:
-Siege's build balance: what its one opening build is paid in, spent on walls and towers as Credits are in Rounds. Siege has no Credits economy, so it never says Credits.
+Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). Siege has no Credits economy, so it never says Credits.
 _Avoid_: Credits (in Siege), build points
 
 **Refund**:
