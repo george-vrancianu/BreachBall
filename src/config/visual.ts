@@ -144,8 +144,8 @@ export const visual = {
     defence: { circlePx: 60, borderPx: 3, itemPx: 56, pillPx: 32, gap: 10, pulseMs: 300, pulseScale: 1.18, columnZ: 10, circleFontPx: 24, itemFontPx: 20, pillFontPx: 13, pillOffsetPx: 8, pillPadPx: 12, pillBorderPx: 2, itemBorderPx: 2, shadowPx: { y: 2, blur: 8 } },
     /** Move point dots: size and ring in px; a refund buzzes `vibration` ms, a refund that cannot happen buzzes `denied`. */
     refund: { dotPx: 12, ringPx: 2, gap: 4, vibration: 20, denied: [15, 40, 15] }, shadow: '#0008', gap: 8 },
-  /** The Side menu: a press within `edgePx` of the viewer's left edge and a drag in `swipePx` opens it (screen px); the ☰ ghost button's size, its offset from the stage's top-left, the panel's width cap and the layer's z-index (above the HUD and the Defence circle's column, under the full-screen screens). */
-  sideMenu: { edgePx: 20, swipePx: 40, buttonPx: 40, buttonInsetPx: 8, panelMaxPx: 320, z: 15 },
+  /** The Side menu: a press within `edgePx` of the viewer's left edge and a drag in `swipePx` opens it (screen px); the ☰ ghost button's size, its offset from the stage's top-left, the glyph size, `buttonZ` (above the Defence circle's column, so it can't cover the button), the panel's width cap and share (%), padding and gaps, and the layer's z-index (above the HUD and the Defence circle's column, under the full-screen screens). */
+  sideMenu: { edgePx: 20, swipePx: 40, buttonPx: 40, buttonInsetPx: 8, panelMaxPx: 320, panelWidthPct: 80, panelPadPx: 16, gapPx: 12, rowGap: '4px 12px', glyphPx: 20, buttonZ: 12, z: 15 },
   /** The Title screen: the dot grid's cell and dot (px), the Play and Online pills' heights, the ghost circles' size, and the widest the pills grow. */
   titleScreen: { gridPx: 26, dotPx: 1.3, playPx: 64, onlinePx: 56, ghostPx: 48, pillMaxPx: 300, halo: tokens.halo },
   /** The Attract loop on the Title screen, in the hero's SVG units (the ring is r150): the pieces' sizes, how many circle at once and how fast, the shot's timing, the ricochet cheat and the effects' lengths. */

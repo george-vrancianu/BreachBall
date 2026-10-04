@@ -15,7 +15,7 @@ class FakeCanvas extends EventTarget {
   clientWidth = 400
   clientHeight = 640
   style = { cursor: '' }
-  setPointerCapture() {}
+  setPointerCapture(_id?: number) {}
 }
 
 let canvas: FakeCanvas
@@ -1232,8 +1232,13 @@ describe('the press model', () => {
 })
 
 describe('the Side menu edge swipe', () => {
+  /** Nobody builds: the shooter either has the ball in hand or can aim. */
+  const playing = (inHand: boolean): SimState => {
+    const s = initialState(1, c)
+    return { ...s, match: { ...s.match, builder: null, choosing: null }, possession: { ...s.possession, inHand } }
+  }
   // Canvas-local px, as the viewer sees them: the stage turns with the flip, so the left edge is always x = 0.
-  const at = (type: string, x: number, y: number, id = 1) => canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: x, offsetY: y, clientX: x, clientY: y, pointerId: id, pointerType: 'touch', button: 0 }))
+  const at = (type: string, x: number, y: number, id = 1, extra: object = {}) => canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: x, offsetY: y, clientX: x, clientY: y, pointerId: id, pointerType: 'touch', button: 0, ...extra }))
 
   it('opens on a swipe in from the left edge', () => {
     at('pointerdown', 5, 300)
@@ -1310,5 +1315,45 @@ describe('the Side menu edge swipe', () => {
     at('pointercancel', 5, 300)
     at('pointermove', 90, 300)
     expect(menu.opened).toBe(0)
+  })
+
+  it('a mouse released off the canvas leaves no stuck press: later presses work and hovering inward opens nothing', () => {
+    // The press is captured, so the release off the canvas is still delivered to it; and even if it were lost, a move with no button held ends it.
+    at('pointerdown', 5, 300, 1, { pointerType: 'mouse', buttons: 1 })
+    at('pointermove', 20, 300, 1, { pointerType: 'mouse', buttons: 0 })
+    at('pointermove', 90, 300, 1, { pointerType: 'mouse', buttons: 0 })
+    expect(menu.opened).toBe(0)
+    ctl.build.toggle()
+    drag({ x: 20, y: 60 }, { x: 20, y: 60 - unit })
+    expect(ctl.selection).toBeDefined()
+  })
+
+  it('captures the pointer on an edge press', () => {
+    const captured: number[] = []
+    canvas.setPointerCapture = (id: number) => void captured.push(id)
+    at('pointerdown', 5, 300, 7)
+    expect(captured).toEqual([7])
+  })
+
+  it('a tap in the edge strip with no swipe reaches the board as a normal press', () => {
+    make(playing(true))
+    at('pointerdown', 6, 300)
+    at('pointerup', 6, 300)
+    expect(menu.opened).toBe(0)
+    expect(ctl.placement).toBeDefined()
+  })
+
+  it('dropLive drops the aim and keeps a ball-in-hand placement; cancelGestures drops both', () => {
+    make(playing(false))
+    const ball = camera.toCanvas(canvas as unknown as HTMLCanvasElement, state.ball.pos)
+    at('pointerdown', ball.x, ball.y)
+    ctl.tickAim()
+    expect(ctl.aimView()).toBeDefined()
+    ctl.placement = { x: 1, y: 2 }
+    ctl.dropLive()
+    expect(ctl.aimView()).toBeUndefined()
+    expect(ctl.placement).toEqual({ x: 1, y: 2 })
+    ctl.cancelGestures()
+    expect(ctl.placement).toBeUndefined()
   })
 })

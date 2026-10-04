@@ -171,7 +171,10 @@ export class Game implements Sink {
       confirmBall: this.input.confirmBall,
       menu: (open) => this.toggleMenu(open),
       restart: () => hotSeat() && this.newMatch(),
-      quit: () => ((this.config = defaultConfig), this.newMatch()),
+      quit: () => {
+        this.config = defaultConfig
+        this.newMatch()
+      },
       dismiss: () => (this.transition = dismiss(this.transition, performance.now())),
       build: this.input.build,
     }
@@ -187,7 +190,7 @@ export class Game implements Sink {
   }
 
   /** Whether the sim waits: behind a blocking hold, and behind the Side menu in hot-seat. */
-  blocked = () => blocking(this.transition) || pausesSim(this.menuOpen, mine)
+  simPaused = () => blocking(this.transition) || pausesSim(this.menuOpen, hotSeat())
 
   /** Whether the board ignores input: behind a blocking hold or the Side menu, online or not. */
   private inputBlocked = () => blocking(this.transition) || this.menuOpen
@@ -257,7 +260,11 @@ export class Game implements Sink {
 
   private toggleMenu(open = !this.menuOpen): void {
     this.menuOpen = open
-    if (open) this.toggleMap(false)
+    if (open) {
+      this.toggleMap(false)
+      // A second finger can tap ☰ mid-aim, so the aim and any live press go; a ball-in-hand placement stays for Resume.
+      this.input.dropLive()
+    }
   }
 
   private announce(events: SimEvent[]): void {
@@ -277,7 +284,7 @@ export class Game implements Sink {
     this.announce([])
     this.seeBlind()
     // A ball-in-hand placement or half-made gesture does not survive a blocking hold into the next player's turn.
-    if (this.inputBlocked()) this.input.cancelGestures()
+    if (blocking(this.transition)) this.input.cancelGestures()
     const { state, transition, camera } = this
     this.fitCamera()
     const flipping = !!transition.flip && now - transition.flip.at >= transition.flip.ms / 2

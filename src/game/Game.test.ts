@@ -230,7 +230,7 @@ describe('Game', () => {
   it('runs on whatever driver it is given: it starts, steps and sends through that driver alone', () => {
     const calls: string[] = []
     const fake: Driver = {
-      start: (config, seed) => (calls.push('start'), new LocalDriver({ apply() {}, blocked: () => false }).start(config, seed)),
+      start: (config, seed) => (calls.push('start'), new LocalDriver({ apply() {}, simPaused: () => false }).start(config, seed)),
       send: (input) => void calls.push(`send ${Object.keys(input)}`),
       update: () => void calls.push('update'),
     }
@@ -324,6 +324,20 @@ describe('Game', () => {
       const { menu } = onView.mock.lastCall![0]
       expect(menu.open).toBe(false)
       expect(menu.settings).toEqual(expect.arrayContaining([{ label: 'Rounds', value: '5' }]))
+    })
+
+    it('opening it keeps a ball-in-hand placement through Resume and drops live gestures', () => {
+      const { game } = running()
+      const input = (game as unknown as { input: { placement?: { x: number; y: number }; dropLive(): void } }).input
+      const dropLive = vi.spyOn(input, 'dropLive')
+      input.placement = { x: 3, y: 4 }
+      game.actions.menu(true)
+      frame(performance.now())
+      expect(dropLive).toHaveBeenCalled()
+      expect(input.placement).toEqual({ x: 3, y: 4 })
+      game.actions.menu(false)
+      frame(performance.now())
+      expect(input.placement).toEqual({ x: 3, y: 4 })
     })
 
     it('an edge swipe on the canvas opens it', () => {
