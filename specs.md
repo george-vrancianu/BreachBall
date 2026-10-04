@@ -207,7 +207,7 @@ The third family of actions (see `GLOSSARY.md`): items that cripple the opponent
 
 - The Subterfuge circle (🗡, a drawn dagger) is the last of the three circles in the shell's top row, `⚡ Offence · 🗼 Defence · 🗡 Subterfuge` (the Offence and Defence circles are in the HUD section below). Tap, or hold still, to open its item column; slide onto an item and lift to buy it. Each item's pill gives its price and when it lands (Jam: "next possession"). The two further items are locked placeholders marked 🧪 "Locked · soon".
 - The circle opens greyed out outside the viewer's own possession or build turn, and once this turn's Subterfuge is bought; a tap or hold then only pulses it. A Jam without the Credits, or while one is already queued, is greyed inside the column.
-- A queued Jam shows as a small pill with a Jam icon in its caster's colour near the far (top) edge, to both players, until it lands. It moves under the Defence bar's side of its target when that slice lands.
+- A queued Jam shows as a small pill with a Jam icon in its caster's colour under the targeted player's half of the Defence bar (P1 on the stage's left, mirrored with the bar when flipped), to both players, until it lands. It sits below the 20 px row reserved for the Resource bar (`visual.hud.queued.reservedPx`).
 
 ## Presentation
 
