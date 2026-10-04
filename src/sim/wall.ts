@@ -1,5 +1,5 @@
 import { rules, type WallRules } from '../config/rules'
-import { halfOf, type PlayerId, type Point } from './pitch'
+import { centreSpot, halfOf, type PlayerId, type Point } from './pitch'
 import type { SimEvent } from './step'
 
 /** A grid vertex: world position is (gx, gy) * rules.cellSize. */
@@ -179,7 +179,7 @@ function lengthInside(s: Segment, tower: TowerSpec): number {
   return Math.max(0, t1 - t0) * Math.hypot(dx, dy)
 }
 
-const centre: Point = { x: rules.pitchWidth / 2, y: rules.halfHeight }
+const centre = centreSpot()
 const distToBox = (min: Point, max: Point, p: Point): number => Math.hypot(Math.max(min.x - p.x, 0, p.x - max.x), Math.max(min.y - p.y, 0, p.y - max.y))
 
 /** Whether the wall is one of the allowed shapes: a whole allowed number of units long, along an allowed angle (within a hundredth of a world unit at its far end). */

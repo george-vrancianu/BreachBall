@@ -53,6 +53,11 @@ describe('shot clock', () => {
     expect(r.state.ball.pos).toEqual({ x: 20, y: 27 })
     expect(r.state.possession).toEqual({ shooter: 2, shots: 2, inHand: false, live: false })
   })
+  it('gives the opponent a Centre-spot restart on the first expiry when only one shot was left', () => {
+    const r = run(base({ possession: { shooter: 1, shots: 1, inHand: false, live: false }, ball: { pos: { x: 20, y: 80 }, vel: { x: 0, y: 0 }, rolled: 0 } }), TICKS)
+    expect(r.state.possession).toEqual({ shooter: 2, shots: 3, inHand: false, live: false })
+    expect(r.state.ball.pos).toEqual({ x: 20, y: 54 })
+  })
   it('gives the opponent a Centre-spot restart on a second consecutive expiry', () => {
     const r = run(base(), 2 * TICKS)
     expect(r.state.possession).toEqual({ shooter: 2, shots: 3, inHand: false, live: false })

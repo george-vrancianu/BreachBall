@@ -9,6 +9,8 @@ import { splashDamage, splashOf } from './splash'
 import { damageWall, isLegal, maxHp, structureCost, wallCost, type Structure, type Tower, type TowerPower, type StructureSpec, type Vertex } from './wall'
 
 const ctxOf = (objects: readonly Structure[], possession: Possession, shooter: PlayerId, credits: Record<PlayerId, number>): ModeContext => ({ objects, possession, shooter, credits })
+/** The ball at rest on `pos`. */
+const setAt = (ball: Ball, pos: Point): Ball => ({ ...ball, pos, vel: { x: 0, y: 0 } })
 
 /** Whether Done would be accepted for the current builder (the HUD disables the button when not). */
 export function canFinishBuild(s: SimState, config: SimConfig): boolean {
@@ -281,7 +283,7 @@ export function step(
   const { placeBall } = input
   if (placeBall) {
     if (!building && !waiting && possession.inHand && placeBall.player === possession.shooter && canPlaceBall(placeBall.player, placeBall.at, objects, config)) {
-      ball = { ...ball, pos: placeBall.at, vel: { x: 0, y: 0 } }
+      ball = setAt(ball, placeBall.at)
       possession = { ...possession, inHand: false }
     } else events.push({ type: 'refused' })
   }
@@ -299,7 +301,7 @@ export function step(
     else {
       const h = centreRestart(refund.player, config)
       possession = h.possession
-      ball = { ...ball, pos: h.ball, vel: { x: 0, y: 0 } }
+      ball = setAt(ball, h.ball)
       events.push(...h.events)
       clock = { left: config.shotClock * config.tickHz, expiries: 0 }
     }
@@ -325,7 +327,7 @@ export function step(
       chose = true
       match = r.match
       if (r.possession) possession = r.possession
-      if (r.ball) ball = { ...ball, pos: r.ball, vel: { x: 0, y: 0 } }
+      if (r.ball) ball = setAt(ball, r.ball)
       if (r.objects) objects = r.objects
       events.push(...r.events)
     } else events.push({ type: 'refused' })
@@ -373,16 +375,16 @@ export function step(
       if (clock.expiries >= 1) {
         const h = centreRestart(shooter, config)
         possession = h.possession
-        ball = { ...ball, pos: h.ball, vel: { x: 0, y: 0 } }
+        ball = setAt(ball, h.ball)
         events.push(...h.events)
       } else {
         if (possession.inHand) {
-          ball = { ...ball, pos: { x: rules.pitchWidth / 2, y: rules.halfCentre[shooter] }, vel: { x: 0, y: 0 } }
+          ball = setAt(ball, { x: rules.pitchWidth / 2, y: rules.halfCentre[shooter] })
           possession = { ...possession, inHand: false }
         }
         const r = resolveRest(possession, ball.pos.y, config)
         possession = r.possession
-        if (r.ball) ball = { ...ball, pos: r.ball, vel: { x: 0, y: 0 } }
+        if (r.ball) ball = setAt(ball, r.ball)
         events.push(...r.events)
         clock = { ...clock, expiries: clock.expiries + 1 }
       }
@@ -418,7 +420,7 @@ export function step(
     consumed = true
     const r = resolveRest(possession, landed.pos.y, config)
     possession = r.possession
-    if (r.ball) landed = { ...landed, pos: r.ball, vel: { x: 0, y: 0 } }
+    if (r.ball) landed = setAt(landed, r.ball)
     events.push(...r.events)
   }
   const ctx = ctxOf(rolled.objects, possession, shooter, credits)
@@ -427,7 +429,7 @@ export function step(
   if (turn) {
     match = turn.match
     if (turn.possession) possession = turn.possession
-    if (turn.ball) landed = { ...landed, pos: turn.ball, vel: { x: 0, y: 0 } }
+    if (turn.ball) landed = setAt(landed, turn.ball)
     events.push(...turn.events)
   }
   if (conceder || consumed) {
