@@ -2,7 +2,7 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
 import { canPlaceBall } from '../../sim/possession'
-import { canArm, canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
+import { canAffordTower, canArm, canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
 import { snapWallBetween, snapWallEnd, type StructureSpec } from '../../sim/wall'
 import { screenDown, type Camera } from '../entities/Camera'
 import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapBody, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/defenceCircle'
@@ -244,9 +244,9 @@ export class InputController {
       const { selection } = this
       if (selection) legal(state, selection) ? this.place() : (this.selection = { ...selection, spec: origin })
     }
-    // The last of an armed tower's stock is down: fall back to the wall.
+    // The armed tower is no longer affordable (its Credits or, in Siege, its stock are spent): fall back to the wall.
     const builder = state.match.builder
-    if (this.item && this.item !== 'wall' && builder && state.players[builder].inventory[this.item] <= 0) this.item = 'wall'
+    if (this.item && this.item !== 'wall' && builder && !canAffordTower(state, builder, this.item)) this.item = 'wall'
     // The shot clock fired the held aim: the gesture is spent.
     if (this.aim && state.possession.live) this.dropAim()
     if (this.selection !== before) this.refreshCursor()

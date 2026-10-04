@@ -24,6 +24,15 @@ export const place = (spec: StructureSpec, s = playState()) => {
   return { ...r, state }
 }
 
+/** `s` with `player` holding exactly `n` Credits. */
+export const funded = (s: SimState, player: PlayerId, n: number): SimState => ({ ...s, credits: { ...s.credits, [player]: n } })
+
+/** A fresh Siege state in `owner`'s opening build turn, holding one round's wall points; towers there spend stock, not Credits. */
+export const siegeBuild = (owner: PlayerId): SimState => {
+  const s = initialState(1, { ...defaultConfig, mode: 'siege' })
+  return { ...s, match: { ...s.match, builder: owner }, credits: { 1: defaultConfig.credits, 2: defaultConfig.credits } }
+}
+
 /** `s` with `player`'s stock of `power` emptied. */
 export const emptied = (s: SimState, player: PlayerId, power: PowerUp): SimState => ({ ...s, players: { ...s.players, [player]: { ...s.players[player], inventory: { ...s.players[player].inventory, [power]: 0 } } } })
 

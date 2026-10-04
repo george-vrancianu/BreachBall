@@ -166,8 +166,8 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 
 ## Power-ups (milestone 2)
 
-- Towers (Repulsor, Steal): each player starts the match with 3 of each. Counts are visible to both players. The Breaker is not stocked in Rounds: it is bought with Credits (below). Siege has no Credits economy and keeps 3 Breakers each.
-- Towers follow the wall placement rules: own half only, outside the goal no-build zones and the Centre zone, persistent across rounds, placed in the build phase by appearing under the finger once it moves (or on a tap), following the drag and placing on lift. They cost 0 Credits; the power-up is the cost.
+- Towers (Repulsor, Steal): in Rounds each is bought with Credits, no stock: `Repulsor · 3` and `Steal · 2` (`rules.towerCost`), shown on the Defence circle's pills, which grey out when the builder cannot afford the price. The Breaker is bought with Credits too (below). Siege has no Credits economy: each player keeps a fixed stock of 3 of each tower and 3 Breakers, towers cost no Credits, and the pills read the bare name.
+- Towers follow the wall placement rules: own half only, outside the goal no-build zones and the Centre zone, persistent across rounds, placed in the build phase by appearing under the finger once it moves (or on a tap), following the drag and placing on lift. Placing spends the price at once; demolishing a tower placed this turn refunds it in full, and an older one costs `rules.demolishCost`, as for a wall. Moving a tower is free.
 
 ### Breaker shot (play phase)
 
@@ -253,7 +253,7 @@ The third family of actions (see `GLOSSARY.md`): items that cripple the opponent
 ### Placement previews and buttons
 
 - The build piece and the ball-in-hand placement are half-transparent in the owner's colour, red when illegal. They are not the Ghost, which is the aim's predicted path.
-- One button-row component serves both phases. Build: the Defence circle (tap to enter or leave building with the Wall selected, hold to open the Defence items with their prices, tap again to close that menu), and for a selected wall Demolish, Rotate and Cancel; Done. Ball-in-hand: Confirm. In Rearrange the circle is greyed (no placing, no demolish), and the defence choice is a two-button row (Repair, Rearrange).
+- One button-row component serves both phases. Build: the Defence circle (tap to enter or leave building with the Wall selected, hold to open the Defence items with their prices (`Wall · 2/unit`, `Repulsor · 3`, `Steal · 2`; an item the builder cannot afford is greyed, and an armed tower that becomes unaffordable falls back to the Wall), tap again to close that menu), and for a selected wall Demolish, Rotate and Cancel; Done. Ball-in-hand: Confirm. In Rearrange the circle is greyed (no placing, no demolish), and the defence choice is a two-button row (Repair, Rearrange).
 
 ### Transitions
 
@@ -266,7 +266,7 @@ The third family of actions (see `GLOSSARY.md`): items that cripple the opponent
 ### HUD
 
 - React components in `src/ui` take data and callbacks and never import the sim; `Game` pushes a view up and the HUD drives it through an actions handle.
-- All in-match controls sit in one shell at the bottom of the screen and show only the active viewer: the Offence circle (greyed outside your own possession; filled while the Breaker is armed) and the Defence circle (greyed on the other player's build turn), Confirm (ball-in-hand) when due, and the minimap chip (see Camera → Map); the shared row; the player row with the score digit (Siege: each side's structure count, "?" for a hidden opponent) and the viewer's two tower power-up icons (Repulsor, Steal) as plain count badges (dimmed to outlines while either circle's column or the map is open).
+- All in-match controls sit in one shell at the bottom of the screen and show only the active viewer: the Offence circle (greyed outside your own possession; filled while the Breaker is armed) and the Defence circle (greyed on the other player's build turn), Confirm (ball-in-hand) when due, and the minimap chip (see Camera → Map); the shared row; the player row with the score digit (Siege: each side's structure count, "?" for a hidden opponent) and, in Siege only, the viewer's two tower power-up icons (Repulsor, Steal) as plain stock count badges (Rounds shows none: towers cost Credits, shown in the Resource bar) (dimmed to outlines while either circle's column or the map is open).
 - The shared row (36 px, the near band's top row) runs left to right: a text block, the clock ring, the Move point dots, then, pushed right, the Recenter ghost circle (a crosshair, 36 px), and the phase buttons (Done in your build turn, disabled while the mode would refuse it or a build piece is unplaced; Repair and Rearrange for a scorer owing a defence choice). It keeps 44 px of right padding clear for the minimap chip, which sits at the near band's bottom-right.
 - The text block is the round line over the phase label. In Rounds the round line is `ROUND 3/7 · 2–1`: the round, then the score with the active player's first; in Siege it is absent and the block is the phase label alone. The phase label (10 px, muted, wide-spaced) reads `Build phase` (the Credits balance is not in it), `Play phase`, `Rearrange`, or `Placing wall`, `Placing Repulsor` or `Placing Steal` while a build piece is drawn or unplaced; `· Drag to aim` is appended to `Play phase` while the first-play hint would show (round 1, a placed ball, no shot fired yet in the possession).
 - The score shows once as the big digit, which in Rounds is the active player's only; the other player's score is the second half of the `2–1` in the round line.

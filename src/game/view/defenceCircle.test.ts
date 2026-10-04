@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { canEdit, defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
-import { buildState, emptied, hseg } from '../../sim/testkit'
+import { rules } from '../../config/rules'
+import { buildState, funded, hseg, siegeBuild } from '../../sim/testkit'
 import type { PlayerId } from '../../sim/pitch'
 import type { WallSpec } from '../../sim/wall'
 import { anchorOf, defenceCircle, commit, placingOf, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapBody, snapStart, towerAt, type BuildActions } from './defenceCircle'
@@ -90,10 +91,11 @@ describe('pick', () => {
 })
 
 describe('selection', () => {
-  it('a new tower is illegal with no stock', () => {
+  it('a new tower is illegal when its price is not affordable', () => {
     const sel = { spec: towerAt('steal', 1, { x: 20, y: 80 }), movable: true }
     expect(legal(buildState(1), sel)).toBe(true)
-    expect(legal(emptied(buildState(1), 1, 'steal'), sel)).toBe(false)
+    expect(legal(funded(buildState(1), 1, rules.towerCost.steal), sel)).toBe(true)
+    expect(legal(funded(buildState(1), 1, rules.towerCost.steal - 1), sel)).toBe(false)
   })
   it('a structure the sim no longer has is illegal', () => {
     expect(legal(buildState(1), { spec: wall, id: 99, movable: true })).toBe(false)
@@ -129,16 +131,24 @@ describe('Defence circle', () => {
     expect(m).toMatchObject({ building: false, available: true })
     expect(m.item).toBeUndefined()
     expect(m.selection).toBeUndefined()
-    expect(m.items.map((i) => [i.label, i.disabled, i.pressed])).toEqual([['Wall · 2/unit', false, false], ['Repulsor', false, false], ['Steal', false, false], ['Cannon', true, false]])
+    expect(m.items.map((i) => [i.label, i.disabled, i.pressed])).toEqual([['Wall · 2/unit', false, false], ['Repulsor · 3', false, false], ['Steal · 2', false, false], ['Cannon', true, false]])
     expect(m.items[3]!.soon).toBe(true)
   })
-  it('building: the armed item is pressed; an item with no stock is disabled', () => {
-    const m = menuOf(emptied(buildState(1), 1, 'steal'), 1, { item: 'repulsor' }, actions)
-    expect(m).toMatchObject({ building: true, item: 'repulsor' })
-    expect(m.items.map((i) => [i.item, i.pressed, i.disabled])).toEqual([['wall', false, false], ['repulsor', true, false], ['steal', false, true], ['cannon', false, true]])
+  it('building: the armed item is pressed; a tower the builder cannot afford is disabled', () => {
+    const m = menuOf(funded(buildState(1), 1, rules.towerCost.steal), 1, { item: 'steal' }, actions)
+    expect(m).toMatchObject({ building: true, item: 'steal' })
+    expect(m.items.map((i) => [i.item, i.pressed, i.disabled])).toEqual([['wall', false, false], ['repulsor', false, true], ['steal', true, false], ['cannon', false, true]])
+  })
+  it('everything but the soon item is disabled with no Credits', () => {
+    expect(menuOf(funded(buildState(1), 1, 0), 1, {}, actions).items.map((i) => i.disabled)).toEqual([true, true, true, true])
+  })
+  it('Siege towers read their bare name and grey on stock, not Credits', () => {
+    const s = siegeBuild(1)
+    const stock = { ...s, players: { ...s.players, 1: { ...s.players[1], inventory: { ...s.players[1].inventory, steal: 0 } } } }
+    expect(menuOf(funded(stock, 1, 0), 1, {}, actions).items.map((i) => [i.label, i.disabled])).toEqual([['Wall · 2/unit', true], ['Repulsor', false], ['Steal', true], ['Cannon', true]])
   })
   it('is absent in play, when no build turn is running', () => {
-    expect(defenceCircle(emptied(buildState(1), 1, 'steal'), 1, { mine: hotSeat }, actions)).toBeDefined()
+    expect(defenceCircle(funded(buildState(1), 1, 0), 1, { mine: hotSeat }, actions)).toBeDefined()
     expect(defenceCircle({ ...buildState(1), match: { ...buildState(1).match, builder: null } }, 1, { mine: hotSeat }, actions)).toBeUndefined()
   })
   it('is unavailable to the other player, and while blocked', () => {

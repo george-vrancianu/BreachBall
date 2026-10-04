@@ -183,7 +183,9 @@ export function Shell({ hud: m, offence, defence, subterfuge, confirm, mapOpen, 
       <div style={{ ...row, gap: 16, color }}>
         {([1, 2] as PlayerId[]).filter((id) => m.score === null || id === m.active).map((id) => <Digit key={id} value={m.players[id].digit} color={visual.player.colors[id]} />)}
         {(Object.keys(ICONS) as (keyof typeof ICONS)[]).map((p) => {
-          const n = m.players[m.active].inventory[p]
+          const stock = m.players[m.active].inventory
+          if (!stock) return null
+          const n = stock[p]
           return (
             <div key={p} role="img" aria-label={`${ICONS[p]}${n}`} style={{ ...FONT, position: 'relative', width: 44, height: 44, boxSizing: 'border-box', borderRadius: '50%', border: `2px solid ${dimmed ? dim : color}`, color: dimmed ? dim : color, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: n > 0 ? 1 : 0.35 }}>
               {ICONS[p]}

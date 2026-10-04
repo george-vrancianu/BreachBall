@@ -14,7 +14,7 @@ export type WallSpec = { kind: 'wall'; owner: PlayerId; a: Point; b: Point }
 export type Wall = WallSpec & { id: number; hp: number }
 
 /** A one-cell obstacle; `at` is the cell's top-left grid vertex. Follows every wall rule. */
-export type TowerSpec = { kind: 'tower'; owner: PlayerId; at: Vertex; /** The inventory power-up it spends. */ power: 'repulsor' | 'steal' }
+export type TowerSpec = { kind: 'tower'; owner: PlayerId; at: Vertex; /** Which tower: its Credit price in Rounds, the stock it spends in Siege. */ power: 'repulsor' | 'steal' }
 /** `spent`: a Repulsor that has fired this shot; cleared when the ball rests. */
 export type Tower = TowerSpec & { id: number; hp: number; spent?: boolean }
 /** Anything placeable, and its placed form; walls and towers share legality, collision and damage. */
@@ -40,8 +40,8 @@ const lengthOf = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y)
 export const wallUnits = (w: Pick<WallSpec, 'a' | 'b'>, r: WallRules = rules): number => Math.round(lengthOf(w.a, w.b) / r.wall.unit)
 /** Credits a wall costs: units times the per-unit price, whatever the angle. */
 export const wallCost = (w: Pick<WallSpec, 'a' | 'b'>, r: WallRules = rules): number => wallUnits(w, r) * r.wall.unitCost
-/** Credits a placement spends; towers cost inventory instead. */
-export const structureCost = (s: StructureSpec): number => (s.kind === 'wall' ? wallCost(s) : rules.towerCost)
+/** A structure's price in Credits: a wall's units, a tower's `rules.towerCost`. Siege spends tower stock instead (see `chargeOf`). */
+export const structureCost = (s: StructureSpec): number => (s.kind === 'wall' ? wallCost(s) : rules.towerCost[s.power])
 
 /** Every allowed direction in degrees, `[0, 360)` and ascending: each allowed angle and its opposite (a wall from a to b at 225 degrees is the same set as 45). */
 const directions = (r: WallRules): number[] => [...new Set(r.wall.angles.flatMap((d) => [norm360(d), norm360(d + 180)]))].sort((p, q) => p - q)
