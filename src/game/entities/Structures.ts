@@ -3,12 +3,15 @@ import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
 import { splashDamage, splashOf } from '../../sim/splash'
 import { playCost, type SimConfig, type SimState } from '../../sim/step'
-import { structureCost, type Structure, type StructureSpec } from '../../sim/wall'
+import { segmentCount, segmentEnds, standing, structureCost, type Structure, type StructureSpec } from '../../sim/wall'
 import { Entity } from './Entity'
 import { Fixture, type FixtureData } from './Fixture'
 import { drawLabel } from './label'
+import { ParticlePool } from './particles'
 import { Tower } from './Tower'
 import { Wall } from './Wall'
+import { between } from './wallLook'
+import { drawParticle, isSimplified } from './wallPaint'
 
 /** Where the Credit cost reads: `offset` off a wall's midpoint along its unit normal, turned half a revolution with the canvas when it is `flipped`. A tower has no Credit cost, so it sits at its cell's centre. */
 export function costLabelAt(spec: StructureSpec, offset: number, flipped: boolean): Point {
@@ -19,8 +22,6 @@ export function costLabelAt(spec: StructureSpec, offset: number, flipped: boolea
   return { x: (spec.a.x + spec.b.x) / 2 - (sign * offset * dy) / len, y: (spec.a.y + spec.b.y) / 2 + (sign * offset * dx) / len }
 }
 
-type Particle = { at: Point; vel: Point; color: string; born: number }
-
 const make = (d: FixtureData): Fixture => (d.kind === 'tower' ? new Tower(d) : new Wall(d))
 
 /**
@@ -29,6 +30,9 @@ const make = (d: FixtureData): Fixture => (d.kind === 'tower' ? new Tower(d) : n
  * What flies above the ball and aim (fragments, particles, landing, build piece) is drawn by `fx`, which the game adds to the camera after them.
  */
 export class Structures extends Entity {
+  /** The sim id the build piece or landing piece stands in for (a wall being moved), so a damaged wall keeps its segments, Gaps and cracks while it moves. */
+  pieceId?: number
+  landingId?: number
   /** The piece being dragged and a placed piece not yet in the sim (the landing one), drawn half-transparent. */
   buildPiece?: StructureSpec
   landing?: StructureSpec
@@ -53,15 +57,15 @@ export class Structures extends Entity {
   /** Drawn above the ball and aim: the game adds it to the camera after them. */
   readonly fx = new StructureFx(this)
   private fixtures = new Map<number, Fixture>()
-  private particles: Particle[] = []
+  private readonly pool = new ParticlePool(visual.wall.particles.cap)
 
   get(id: number): Fixture | undefined {
     return this.fixtures.get(id)
   }
 
-  /** Hit particles still flying. */
+  /** Particles still flying (sparks, chunks, dust, rings): never more than `visual.wall.particles.cap`. */
   get particleCount(): number {
-    return this.particles.length
+    return this.pool.count
   }
 
   get count(): number {
@@ -70,7 +74,11 @@ export class Structures extends Entity {
 
   sync(objects: Structure[]): void {
     const present = new Set(objects.map((o) => o.id))
-    for (const [id, f] of this.fixtures) if (!present.has(id) && !f.isShattering) this.drop(id, f)
+    for (const [id, f] of this.fixtures) {
+      if (present.has(id)) continue
+      if (!f.isShattering) this.drop(id, f)
+      else if (f instanceof Wall) f.markGone()
+    }
     for (const o of objects) {
       const f = this.fixtures.get(o.id)
       if (f) f.data = o
@@ -81,8 +89,9 @@ export class Structures extends Entity {
     }
   }
 
-  hit(id: number, dim: boolean): void {
-    this.fixtures.get(id)?.hit(dim)
+  /** A hit on structure `id`: a wall flashes only the Wall segment hit (`segment`, or the one `at` lies on). */
+  hit(id: number, dim: boolean, segment?: number, at?: Point): void {
+    this.fixtures.get(id)?.hit(dim, segment, at)
   }
 
   pulse(id: number): void {
@@ -90,25 +99,55 @@ export class Structures extends Entity {
     if (f instanceof Tower) f.pulse()
   }
 
-  /** The structure left the sim in a break at `from`: it stays, shattering, after `delay` ms. */
+  /** The structure left the sim in a break at `from`: a tower stays, shattering, after `delay` ms; a wall breaks every standing Wall segment at once. */
   shatter(id: number, from: Point, delay = 0): void {
-    this.fixtures.get(id)?.shatter(from, delay)
+    const f = this.fixtures.get(id)
+    if (f instanceof Wall) for (const i of standing({ segments: f.data.segments ?? [] })) this.shatterSegment(id, i)
+    else f?.shatter(from, delay)
   }
 
-  burst(at: Point, color: string, count: number): void {
+  /** Wall segment `index` of wall `id` broke: it shatters into spinning chunks in its colour, with a dust puff, a ring along the wall and white sparks; a Breaker's break is heavier. The wall itself stays (or leaves, if that was its last segment). */
+  shatterSegment(id: number, index: number, breaker = false): void {
+    const f = this.fixtures.get(id)
+    if (!(f instanceof Wall)) return
+    f.breakSegment(index)
+    const { a, b } = segmentEnds(f.data, index)
+    const scale = breaker ? visual.wall.break.breakerScale : 1
+    const color = visual.player.colors[f.data.owner]
+    const [dx, dy] = [b.x - a.x, b.y - a.y]
+    const len = Math.hypot(dx, dy) || 1
+    const [nx, ny] = [-dy / len, dx / len]
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+    const { chunks, sparks, dust, ring } = visual.wall.break
+    const rnd = (range: readonly number[]) => between(Math.random, range)
+    for (let k = 0; k < Math.round(chunks.count * scale); k++) {
+      const t = Math.random()
+      const v = (Math.random() - 0.5) * visual.wall.look.thickness
+      // Thrown across the wall, either way.
+      const ang = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 0 : Math.PI) + (Math.random() - 0.5) * chunks.throwSpread
+      const speed = rnd(chunks.speed)
+      this.pool.spawn({ kind: 'chunk', x: a.x + dx * t + nx * v, y: a.y + dy * t + ny * v, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, rot: Math.random() * chunks.startSpin, spin: (Math.random() - 0.5) * chunks.spin, size: rnd(chunks.size), life: rnd(chunks.lifeMs), color, drag: chunks.drag })
+    }
+    this.pool.spawn({ kind: 'dust', x: mid.x, y: mid.y, life: dust.ms })
+    this.pool.spawn({ kind: 'ring', x: mid.x, y: mid.y, life: ring.ms, color, ang: Math.atan2(dy, dx) })
+    this.burst(mid, visual.wall.flash, Math.round(sparks.count * scale), sparks.speed, sparks.lifeMs)
+  }
+
+  /** A spray of `count` square sparks from `at` (a crack the ball did not cause, or a break's white sparks). */
+  burst(at: Point, color: string, count: number, speed?: number, lifeMs: readonly number[] = [visual.wall.particles.ms, visual.wall.particles.ms]): void {
     const p = visual.wall.particles
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2
-      const s = p.minSpeed + Math.random() * p.speedRange
-      this.particles.push({ at, vel: { x: Math.cos(a) * s, y: Math.sin(a) * s }, color, born: this.clock })
+      const v = speed === undefined ? p.minSpeed + Math.random() * p.speedRange : speed * between(Math.random, visual.wall.break.sparks.speedRange)
+      this.pool.spawn({ kind: 'spark', x: at.x, y: at.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: lifeMs[0] + Math.random() * (lifeMs[1] - lifeMs[0]), color })
     }
   }
 
   /** A new match: sim ids restart, so nothing from the last one may linger, not even a shattering child. */
   reset(): void {
     for (const [id, f] of this.fixtures) this.drop(id, f)
-    this.particles = []
-    this.buildPiece = this.landing = this.selected = this.handles = undefined
+    this.pool.clear()
+    this.buildPiece = this.landing = this.selected = this.handles = this.pieceId = this.landingId = undefined
     this.costLabel = this.pieceBlocked = false
     this.hidden = []
     this.movable = []
@@ -125,6 +164,7 @@ export class Structures extends Entity {
   /** Hands each child what this frame shows (build overlays, splash preview). Call before drawing. */
   mark(): void {
     for (const [id, f] of this.fixtures) {
+      f.flipped = this.flipped
       f.hidden = this.hidden.includes(id)
       f.movable = this.movable.includes(id)
       f.selected = this.selected === id
@@ -136,7 +176,16 @@ export class Structures extends Entity {
   override update(dt: number): void {
     super.update(dt)
     for (const [id, f] of this.fixtures) if (f.shattered) this.drop(id, f)
-    this.particles = this.particles.filter((p) => this.clock - p.born < visual.wall.particles.ms)
+    this.pool.update(dt)
+  }
+
+  /** The Breach marks, at pitch level: drawn first, so every wall and the ball sit over them. The map view's simplified walls are set here, from the scale this draw is made at. */
+  protected override render(ctx: CanvasRenderingContext2D): void {
+    const simplified = isSimplified(ctx)
+    for (const f of this.fixtures.values()) {
+      f.simplified = simplified
+      if (f instanceof Wall && !f.hidden) f.drawBreach(ctx)
+    }
   }
 
   private drop(id: number, f: Fixture): void {
@@ -150,21 +199,13 @@ export class Structures extends Entity {
   }
 
   drawParticles(ctx: CanvasRenderingContext2D): void {
-    ctx.save()
-    const { ms, size } = visual.wall.particles
-    for (const p of this.particles) {
-      const t = (this.clock - p.born) / ms
-      ctx.globalAlpha = 1 - t
-      ctx.fillStyle = p.color
-      ctx.fillRect(p.at.x + p.vel.x * t - size / 2, p.at.y + p.vel.y * t - size / 2, size, size)
-    }
-    ctx.restore()
+    for (let i = 0; i < this.pool.count; i++) drawParticle(ctx, this.pool.items[i], visual.wall.particles.size)
   }
 
   /** The landing piece (placed, on its way to the sim), then the one being dragged. */
   drawPieces(ctx: CanvasRenderingContext2D): void {
-    if (this.landing) this.drawBuildPiece(ctx, this.landing, false)
-    if (this.buildPiece) this.drawBuildPiece(ctx, this.buildPiece, true)
+    if (this.landing) this.drawBuildPiece(ctx, this.landing, false, this.landingId)
+    if (this.buildPiece) this.drawBuildPiece(ctx, this.buildPiece, true, this.pieceId)
     if (this.buildPiece && this.costLabel) this.drawCost(ctx, this.buildPiece)
     if (this.handles) this.drawHandles(ctx, this.handles)
   }
@@ -192,12 +233,18 @@ export class Structures extends Entity {
     drawLabel(ctx, String(this.inPlay ? playCost(spec) : structureCost(spec)), at, { size, weight: visual.wall.cost.weight, color: this.pieceBlocked ? visual.wall.illegal : visual.hud.ink, flipped: this.flipped })
   }
 
-  private drawBuildPiece(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean): void {
-    const f = make(spec)
+  /** A translucent piece: a bare spec draws clean Wall segments with their joints; one standing in for a placed wall (`id`) draws that wall's real Wall segments, Gaps and damage while the length is unchanged. */
+  private drawBuildPiece(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean, id?: number): void {
+    const real = id === undefined ? undefined : this.fixtures.get(id)?.data
+    const data = spec.kind === 'wall' && real?.kind === 'wall' && real.segments?.length === segmentCount(spec) ? { ...spec, id, segments: real.segments } : spec
+    const f = make(data)
     f.clock = this.clock
     f.alpha = visual.wall.buildPieceAlpha
     f.selected = selected
+    f.flipped = this.flipped
+    f.simplified = isSimplified(ctx)
     if (selected && this.pieceBlocked) f.tint = visual.wall.illegal
+    if (f instanceof Wall) f.drawBreach(ctx)
     f.draw(ctx)
   }
 }

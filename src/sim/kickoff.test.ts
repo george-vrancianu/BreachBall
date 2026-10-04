@@ -39,7 +39,7 @@ describe('Kick-off', () => {
   it.each(seats)('follows a Siege goal by seat %i: the defence turn first, then the conceder kicks off', (scorer) => {
     const conceder = opponent(scorer)
     const base = initialState(1, siege)
-    const playing: SimState = { ...base, match: { ...base.match, builder: null, opening: false } as SimState['match'], objects: [{ kind: 'wall', owner: 1, a: { x: 4, y: 80 }, b: { x: 12, y: 80 }, id: 1, hp: 3 }, { kind: 'wall', owner: 2, a: { x: 4, y: 30 }, b: { x: 12, y: 30 }, id: 2, hp: 3 }], nextId: 3 }
+    const playing: SimState = { ...base, match: { ...base.match, builder: null, opening: false } as SimState['match'], objects: [{ kind: 'wall', owner: 1, a: { x: 4, y: 80 }, b: { x: 12, y: 80 }, id: 1, segments: [3] }, { kind: 'wall', owner: 2, a: { x: 4, y: 30 }, b: { x: 12, y: 30 }, id: 2, segments: [3] }], nextId: 3 }
     const scored = step(goal(scorer, playing), {}, siege).state
     expect(scored.match).toMatchObject({ choosing: scorer })
     expect(scored.possession).toMatchObject({ shooter: conceder, inHand: false })

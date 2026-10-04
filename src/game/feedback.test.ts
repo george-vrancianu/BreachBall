@@ -21,19 +21,50 @@ describe('feedbackFor', () => {
   const destroyed = { type: 'wall-destroyed', wall: { id: 1, owner: 2, hp: 0 }, at } as never
   it('damaging hit flashes bright and emits particles; destruction emits more', () => {
     const hit = feedbackFor([{ type: 'ball-hit-wall', wall: 1, speed: 9, at }, { type: 'wall-cracked', id: 1, hp: 2, at }], walls)
-    expect(hit.flashes).toEqual([{ wall: 1, dim: false }])
-    expect(feedbackFor([destroyed], walls).bursts[0].count).toBeGreaterThan(hit.bursts[0].count)
+    expect(hit.flashes).toEqual([{ wall: 1, dim: false, segment: undefined, at }])
+    // The tracer's bounce is the one spark burst of a ball hit, in the owner's colour.
+    expect(hit.bursts).toEqual([])
+    expect(hit.hitColors.get(1)).toBe(visual.player.colors[2])
   })
-  it('a Breaker break doubles the particles', () => {
-    const broke = { ...(destroyed as object), breaker: true } as never
-    expect(feedbackFor([broke], walls).bursts[0].count).toBe(2 * feedbackFor([destroyed], walls).bursts[0].count)
+  it('a Splash crack with no ball hit sprays its own sparks', () => {
+    expect(feedbackFor([{ type: 'wall-cracked', id: 1, hp: 2, segment: 0, at }], walls).bursts).toHaveLength(1)
+  })
+  it('a segment break is a break, with a shake; a Breaker break shakes harder; a crack never shakes', () => {
+    const broken = { type: 'segment-broken', id: 1, segment: 1, wall: { id: 1, owner: 2 }, at } as never
+    const last = { type: 'wall-destroyed', wall: { id: 1, owner: 2 }, segment: 0, at } as never
+    const breaker = { type: 'wall-destroyed', wall: { id: 1, owner: 2 }, segment: 0, breaker: true, at } as never
+    expect(feedbackFor([broken], walls).breaks).toEqual([{ id: 1, segment: 1, at, breaker: false }])
+    expect(feedbackFor([last], walls).breaks).toEqual([{ id: 1, segment: 0, at, breaker: false }])
+    expect(feedbackFor([broken], walls).shakes).toEqual([visual.wall.break.shake])
+    expect(feedbackFor([breaker], walls).shakes).toEqual([visual.wall.break.breakerShake])
+    expect(visual.wall.break.breakerShake).toBeGreaterThan(visual.wall.break.shake)
+    expect(feedbackFor([{ type: 'wall-cracked', id: 1, hp: 2, segment: 0, at }], walls).shakes).toEqual([])
+  })
+  it('a Breaker that opens a Gap breaks heavier: breaker scale and the Breaker shake', () => {
+    const gap = { type: 'segment-broken', id: 1, segment: 0, wall: { id: 1, owner: 2 }, at, breaker: true } as never
+    expect(feedbackFor([gap], walls).breaks).toEqual([{ id: 1, segment: 0, at, breaker: true }])
+    expect(feedbackFor([gap], walls).shakes).toEqual([visual.wall.break.breakerShake])
+  })
+  it('a destroyed tower sprays the destroy count, a Breaker the breaker count', () => {
+    const tower = (breaker?: true) => ({ type: 'wall-destroyed', wall: { id: 1, owner: 2 }, at, breaker }) as never
+    expect(feedbackFor([tower()], []).bursts).toEqual([{ at, color: visual.player.colors[2], count: visual.wall.particles.destroy }])
+    expect(feedbackFor([tower(true)], []).bursts).toEqual([{ at, color: visual.player.colors[2], count: visual.wall.particles.breaker }])
+    expect(feedbackFor([tower()], []).breaks).toEqual([])
+  })
+  it('several breaks in one tick give a single shake, at the largest amplitude', () => {
+    const broken = (segment: number) => ({ type: 'segment-broken', id: 1, segment, wall: { id: 1, owner: 2 }, at }) as never
+    const breaker = { type: 'wall-destroyed', wall: { id: 1, owner: 2 }, segment: 0, breaker: true, at } as never
+    expect(feedbackFor([broken(0), broken(1), broken(2)], walls).shakes).toEqual([visual.wall.break.shake])
+    const mixed = feedbackFor([broken(0), breaker, broken(1)], walls)
+    expect(mixed.breaks).toHaveLength(3)
+    expect(mixed.shakes).toEqual([visual.wall.break.breakerShake])
   })
   it('a repaired structure flashes bright', () => {
     expect(feedbackFor([{ type: 'repaired', id: 1, player: 1 }], walls).flashes).toEqual([{ wall: 1, dim: false }])
   })
   it('non-damaging hit flashes dim with no particles', () => {
     const r = feedbackFor([{ type: 'ball-hit-wall', wall: 1, speed: 1, at }], walls)
-    expect(r.flashes).toEqual([{ wall: 1, dim: true }])
+    expect(r.flashes).toEqual([{ wall: 1, dim: true, at }])
     expect(r.bursts).toEqual([])
   })
   it('a shot shakes in proportion to power, none below 30%', () => {

@@ -22,7 +22,7 @@ describe('hudModel', () => {
   describe('Defence bar', () => {
     const w = (owner: 1 | 2): WallSpec => ({ kind: 'wall', owner, ...hseg(10, owner === 1 ? 40 : 10) })
     it('counts structures in Rounds as well as Siege, not the score', () => {
-      const s = { ...initialState(1), objects: [{ ...w(1), id: 1, hp: 3 }, { ...w(1), id: 2, hp: 1 }, { ...w(2), id: 3, hp: 3 }] }
+      const s = { ...initialState(1), objects: [{ ...w(1), id: 1, segments: [3] }, { ...w(1), id: 2, segments: [1] }, { ...w(2), id: 3, segments: [3] }] }
       const bar = hudModel(s, defaultConfig, view).defenceBar
       expect([bar[1].count, bar[2].count]).toEqual(['2', '1'])
     })
@@ -166,7 +166,7 @@ describe('hudModel', () => {
     const c = { ...defaultConfig, mode: 'siege' as const }
     let s = initialState(1, c)
     expect(hudModel(s, c, view).players[1].digit).toBe('0')
-    const wall = (id: number, owner: 1 | 2) => ({ id, hp: 3, kind: 'wall' as const, owner, ...hseg(2, id) })
+    const wall = (id: number, owner: 1 | 2) => ({ id, segments: [3], kind: 'wall' as const, owner, ...hseg(2, id) })
     const tower = { id: 3, hp: 1, kind: 'tower' as const, owner: 1 as const, at: { gx: 8, gy: 22 }, power: 'repulsor' as const }
     s = { ...s, objects: [wall(1, 1), tower, wall(2, 2)], match: { ...s.match, builder: null } }
     const m = hudModel(s, c, view)

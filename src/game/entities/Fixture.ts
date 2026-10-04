@@ -4,8 +4,8 @@ import type { Point } from '../../sim/pitch'
 import { maxHp, wallSegments, type StructureSpec, type TowerSpec, type WallSpec } from '../../sim/wall'
 import { Entity } from './Entity'
 
-/** A structure as drawn: the sim's `Structure`, or a bare spec (a build piece) with no hp, id or spent flag yet. */
-type Placed = { id?: number; hp?: number; spent?: boolean }
+/** A structure as drawn: the sim's `Structure`, or a bare spec (a build piece) with no hp, segments, id or spent flag yet. */
+type Placed = { id?: number; hp?: number; segments?: number[]; spent?: boolean }
 export type WallData = WallSpec & Placed
 export type TowerData = TowerSpec & Placed
 export type FixtureData = WallData | TowerData
@@ -94,6 +94,10 @@ export abstract class Fixture<D extends FixtureData = FixtureData> extends Entit
   tint?: string
   /** Drawn half-transparent: build pieces. */
   alpha = 1
+  /** The stage is turned for the other seat (hot-seat flip): the light stays fixed on screen. */
+  flipped = false
+  /** The map view: walls draw simplified. */
+  simplified = false
   private flash?: { dim: boolean; age: number }
   private shattering?: { from: Point; delay: number; age: number; fragments: Fragment[] }
 
@@ -109,8 +113,8 @@ export abstract class Fixture<D extends FixtureData = FixtureData> extends Entit
     return !!this.shattering
   }
 
-  /** A ball hit: a bright flash after damage, a dim one otherwise. A flash still running is kept, so rapid re-hits show the oldest. */
-  hit(dim: boolean): void {
+  /** A ball hit: a bright flash after damage, a dim one otherwise. A flash still running is kept, so rapid re-hits show the oldest. A wall flashes only the segment hit (`segment`, or the one `at` lies on). */
+  hit(dim: boolean, _segment?: number, _at?: Point): void {
     this.flash ??= { dim, age: 0 }
   }
 

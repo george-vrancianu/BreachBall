@@ -3,8 +3,8 @@ import { coinFlip } from './match'
 import { opponent } from './possession'
 import { defaultConfig as c, initialState, step, type SimInput, type SimState } from './step'
 import { rules } from '../config/rules'
-import { buildState, roundsMatch, hseg } from './testkit'
-import type { TowerSpec, WallSpec } from './wall'
+import { healthOf, buildState, roundsMatch, hseg } from './testkit'
+import type { TowerSpec, Wall, WallSpec } from './wall'
 
 const wall = (owner: 1 | 2, units = 1): WallSpec => ({ kind: 'wall', owner, ...hseg(10, owner === 1 ? 40 : 10, units) })
 const run = (s: SimState, ...inputs: SimInput[]) => inputs.reduce((st, i) => step(st, i, c).state, s)
@@ -130,7 +130,7 @@ describe('moving and refunding this turn\'s items', () => {
     const s = run(buildState(1), { placeWall: wall(1) })
     const r = step(s, { moveStructure: { player: 1, id: 1, ...movedSeg } }, c)
     expect(r.events).toEqual([])
-    expect(r.state.objects).toEqual([{ ...wall(1), id: 1, hp: s.objects[0].hp, ...movedSeg }])
+    expect(r.state.objects).toEqual([{ ...wall(1), id: 1, segments: (s.objects[0] as Wall).segments, ...movedSeg }])
     expect(r.state.credits[1]).toBe(s.credits[1])
   })
   it('a move may overlap the item\'s own old spot', () => {
@@ -151,6 +151,14 @@ describe('moving and refunding this turn\'s items', () => {
       expect(r.events).toEqual([])
       expect(r.state.credits[1]).toBe(8)
       expect(step(r.state, { demolish: { player: 1, wall: 1 } }, c).state.credits[1]).toBe(10)
+    })
+    it('a resize re-creates full segments, while a plain move keeps the health and Gaps as they are', () => {
+      let s = run({ ...buildState(1), credits: { 1: 10, 2: 10 } }, { placeWall: wall(1, 2) })
+      s = { ...s, objects: s.objects.map((o) => (o.kind === 'wall' ? { ...o, segments: [0, 1] } : o)) }
+      const slid = step(s, { moveStructure: { player: 1, id: 1, ...hseg(11, 40, 2) } }, c).state
+      expect((slid.objects[0] as Wall).segments).toEqual([0, 1])
+      const cut = step(s, { moveStructure: { player: 1, id: 1, ...hseg(10, 40, 1) } }, c).state
+      expect((cut.objects[0] as Wall).segments).toEqual([3])
     })
     it('refuses a longer wall the builder cannot afford, changing nothing', () => {
       const s = withCredits(0)
@@ -240,7 +248,7 @@ describe('moving and refunding this turn\'s items', () => {
     const r = step(s, { moveStructure: { player: 1, id: 1, at: moved } }, c)
     expect(r.events).toEqual([])
     expect(r.state.objects).toEqual([{ ...s.objects[0], at: moved }])
-    expect(r.state.objects[0]).toMatchObject({ power: 'repulsor', id: 1, hp: s.objects[0].hp })
+    expect(r.state.objects[0]).toMatchObject({ power: 'repulsor', id: 1, hp: healthOf(s.objects[0]) })
   })
   it('a wall built in an earlier turn costs 1 to demolish and cannot be moved, across a real turn sequence', () => {
     let s = run(initialState(), { placeWall: wall(loser) }, { done: loser })

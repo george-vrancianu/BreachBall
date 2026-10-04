@@ -25,7 +25,7 @@ describe('towerAt', () => {
 
 describe('snapStart', () => {
   const end = { x: 20.123, y: 80.456 }
-  const s = { objects: [{ id: 1, kind: 'wall' as const, owner: 1 as const, hp: 3, a: { x: 12.123, y: 80.456 }, b: end }] }
+  const s = { objects: [{ id: 1, kind: 'wall' as const, owner: 1 as const, segments: [3], a: { x: 12.123, y: 80.456 }, b: end }] }
   it('copies the nearest wall end within the radius exactly, else keeps the point', () => {
     expect(snapStart(s, 1, { x: 20.5, y: 80 }, 1)).toStrictEqual(end)
     expect(snapStart(s, 1, { x: 20.5, y: 80 }, 1)).not.toBe(end)
@@ -38,7 +38,7 @@ describe('snapStart', () => {
 
 describe('snapBody', () => {
   const w: WallSpec = { kind: 'wall', owner: 1, a: { x: 20.123, y: 80.456 }, b: { x: 28.123, y: 80.456 } }
-  const other = (id: number, a: { x: number; y: number }, b: { x: number; y: number }, owner: 1 | 2 = 1) => ({ id, kind: 'wall' as const, owner, hp: 3, a, b })
+  const other = (id: number, a: { x: number; y: number }, b: { x: number; y: number }, owner: 1 | 2 = 1) => ({ id, kind: 'wall' as const, owner, segments: [3], a, b })
   it('the nearest candidate wins, whichever end of the dragged wall it meets', () => {
     const far = other(2, { x: 20.6, y: 80.456 }, { x: 20.6, y: 90 })
     const near = other(3, { x: 28.3, y: 80.456 }, { x: 36, y: 80.456 })
@@ -56,7 +56,7 @@ describe('snapBody', () => {
     expect(Math.abs(snapped.b.y - (target.y + (w.b.y - w.a.y)))).toBeLessThan(1e-12)
   })
   it('ignores the wall\'s own ends by selfId, and counts every wall without one', () => {
-    const itself = { id: 1, kind: 'wall' as const, owner: 1 as const, hp: 3, a: w.a, b: w.b }
+    const itself = { id: 1, kind: 'wall' as const, owner: 1 as const, segments: [3], a: w.a, b: w.b }
     expect(snapBody(w, [itself], 1, 1)).toBe(w)
     const nudged = other(1, { x: 20.5, y: 80.456 }, { x: 28.5, y: 80.456 })
     expect(snapBody(w, [nudged], undefined, 1).a).toEqual({ x: 20.5, y: 80.456 })
@@ -86,6 +86,9 @@ describe('pick', () => {
     expect(pick(s, 1, { x: 21, y: 80.5 }, 1)).toEqual({ spec: wall, id: 1, movable: true })
     expect(pick({ ...s, built: [] }, 1, { x: 21, y: 80.5 }, 1)?.movable).toBe(false)
     expect(pick(s, 1, { x: 21, y: 83 }, 1)).toBeUndefined()
+    // A Gap is still part of the wall: touching it selects the wall.
+    const gapped = { ...s, objects: [{ id: 1, kind: 'wall' as const, owner: 1 as const, segments: [0, 3], a: { x: 20, y: 80 }, b: { x: 36, y: 80 } }] }
+    expect(pick(gapped, 1, { x: 22, y: 80.5 }, 1)).toMatchObject({ id: 1 })
     expect(pick(s, 2, { x: 21, y: 80.5 }, 1)).toBeUndefined()
   })
 })
@@ -233,7 +236,7 @@ describe('landing', () => {
 describe('rearrange turn', () => {
   const siege = { ...c, mode: 'siege' as const }
   const base = initialState(1, siege)
-  const s: SimState = { ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: [{ ...wall, id: 1, hp: 2 }], built: [1], credits: { 1: 0, 2: 0 } }
+  const s: SimState = { ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: [{ ...wall, id: 1, segments: [2] }], built: [1], credits: { 1: 0, 2: 0 } }
   it('is unavailable when nothing is selected, and has no demolish once a piece is', () => {
     expect(menuOf(s, 1, {}, actions)).toMatchObject({ available: false, building: false })
     const sel = pick(s, 1, { x: 21, y: 80.5 }, 1)!

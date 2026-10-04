@@ -4,7 +4,7 @@ import type { RoundsMatch } from './match'
 import { sliderDefault } from './settings'
 import type { PlayerId, Point } from './pitch'
 import type { PowerUp } from './player'
-import type { StructureSpec } from './wall'
+import type { Structure, StructureSpec } from './wall'
 
 /** A fresh state already in the play phase (build turns are skipped), both players holding one round's Credits. */
 export const playState = (seed = 1): SimState => {
@@ -45,4 +45,7 @@ export const roundsMatch = (s: SimState): RoundsMatch => {
 }
 
 /** The ends of a horizontal wall `units` long starting at grid vertex (gx, gy): one unit is `rules.wall.unit` world units. */
+/** A structure's health: a tower's hp, a wall's segments added up (a 1-unit wall's one segment). */
+export const healthOf = (o: Structure): number => (o.kind === 'tower' ? o.hp : o.segments.reduce((a, b) => a + b, 0))
+
 export const hseg = (gx: number, gy: number, units = 1): { a: Point; b: Point } => ({ a: { x: gx * rules.cellSize, y: gy * rules.cellSize }, b: { x: gx * rules.cellSize + rules.wall.unit * units, y: gy * rules.cellSize } })

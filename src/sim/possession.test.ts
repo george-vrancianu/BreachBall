@@ -64,7 +64,7 @@ describe('possession', () => {
 })
 
 describe('ball-in-hand', () => {
-  const wall: Wall = { kind: 'wall', owner: 2, ...hseg(10, 20), id: 1, hp: rules.wallHp }
+  const wall: Wall = { kind: 'wall', owner: 2, ...hseg(10, 20), id: 1, segments: [rules.wallHp] }
   const inHand: SimState = { ...base(at(80), 2), objects: [wall], possession: { shooter: 2, shots: 3, inHand: true, live: false } }
   const place = (p: { x: number; y: number }, player: 1 | 2 = 2) => step(inHand, { placeBall: { player, at: p } }, c)
 
@@ -93,5 +93,14 @@ describe('ball-in-hand', () => {
     expect(place(at(60)).events).toEqual([{ type: 'refused' }])
     expect(place(at(30), 1).events).toEqual([{ type: 'refused' }])
     expect(step(base(at(80)), { placeBall: { player: 1, at: at(90) } }, c).events).toEqual([{ type: 'refused' }])
+  })
+})
+
+describe('ball-in-hand and Gaps', () => {
+  const gapped: Wall = { kind: 'wall', owner: 2, ...hseg(10, 20, 2), id: 1, segments: [0, 3] }
+  it('a ball can be placed in a Gap, but not on the standing segment next to it', () => {
+    // The wall runs x 20..36 along y=40; segment 0 (x 20..28) is the Gap.
+    expect(canPlaceBall(2, at(40, 24), [gapped], c)).toBe(true)
+    expect(canPlaceBall(2, at(40, 32), [gapped], c)).toBe(false)
   })
 })

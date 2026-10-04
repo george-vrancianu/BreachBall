@@ -82,7 +82,7 @@ describe('drawing a wall', () => {
 
   it('in a Siege blind opening, an opponent wall end on the halfway line does not attract the start', () => {
     const siege = initialState(1, { ...c, mode: 'siege' })
-    const hidden: Structure = { kind: 'wall', owner: 2, id: 9, hp: 3, a: { x: 10, y: rules.halfHeight }, b: { x: 10 + unit, y: rules.halfHeight } }
+    const hidden: Structure = { kind: 'wall', owner: 2, id: 9, segments: [3], a: { x: 10, y: rules.halfHeight }, b: { x: 10 + unit, y: rules.halfHeight } }
     make({ ...siege, match: { ...siege.match, builder: 1 }, objects: [hidden], nextId: 10 })
     ctl.build.toggle()
     const start = { x: 10.5, y: rules.halfHeight + 0.2 }
@@ -181,7 +181,7 @@ describe('drawing a wall', () => {
 
   it('starts exactly on a nearby end of the builder own wall', () => {
     const end = { x: 20.123, y: 20.456 }
-    state = { ...state, objects: [{ id: 7, kind: 'wall', owner: 1, hp: 3, a: { x: 12.123, y: 20.456 }, b: end } as Structure] }
+    state = { ...state, objects: [{ id: 7, kind: 'wall', owner: 1, segments: [3], a: { x: 12.123, y: 20.456 }, b: end } as Structure] }
     down({ x: end.x + 0.3, y: end.y })
     move({ x: end.x + 0.3 + unit, y: end.y })
     expect(ctl.selection!.spec).toMatchObject({ a: end })
@@ -262,7 +262,7 @@ describe('drawing a wall', () => {
   })
 
   it('leaving build mode deselects a placed wall too', () => {
-    make({ ...buildState(1), objects: [{ id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 } as Structure], built: [1] })
+    make({ ...buildState(1), objects: [{ id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), segments: [3] } as Structure], built: [1] })
     ctl.build.toggle()
     down({ x: 24, y: 80 })
     up({ x: 24, y: 80 })
@@ -279,7 +279,7 @@ describe('drawing a wall', () => {
 
 describe('online, the other peer\'s build turn', () => {
   // Player 1 builds; this device plays only player 2.
-  const theirs: Structure = { kind: 'wall', owner: 1, id: 1, hp: 3, ...hseg(10, 40) }
+  const theirs: Structure = { kind: 'wall', owner: 1, id: 1, segments: [3], ...hseg(10, 40) }
   beforeEach(() => make({ ...buildState(1), objects: [theirs], built: [1], nextId: 2 }, (p) => p === 2))
 
   it('toggle and arm do not enter build mode', () => {
@@ -429,7 +429,7 @@ describe('drawing details', () => {
   it('rotating a placed wall in a Rearrange turn emits one move with the rotated end', () => {
     const siege = { ...c, mode: 'siege' as const }
     const base = initialState(1, siege)
-    make({ ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: [{ id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 } as Structure], built: [1] })
+    make({ ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: [{ id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), segments: [3] } as Structure], built: [1] })
     down({ x: 24, y: 80 })
     up({ x: 24, y: 80 })
     expect(ctl.selection).toMatchObject({ id: 1 })
@@ -487,7 +487,7 @@ describe('tower Credits', () => {
 describe('rearrange turn', () => {
   const siege = { ...c, mode: 'siege' as const }
   const base = initialState(1, siege)
-  const wall: Structure = { id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 }
+  const wall: Structure = { id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), segments: [3] }
   beforeEach(() => {
     make({ ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: [wall], built: [1] })
   })
@@ -523,7 +523,7 @@ describe('rearrange turn', () => {
 })
 
 describe('the press model', () => {
-  const older: Structure = { id: 5, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 }
+  const older: Structure = { id: 5, kind: 'wall', owner: 1, ...hseg(10, 40), segments: [3] }
   const turns = (...walls: Structure[]) => make({ ...buildState(1), objects: walls, built: walls.filter((w) => w.owner === 1 && w.id !== 5).map((w) => w.id) })
   const at = { x: 24, y: 80 }
   const pan = (to: Point, id: number) => fire('pointermove', to, id)

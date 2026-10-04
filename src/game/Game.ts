@@ -370,7 +370,9 @@ export class Game implements Sink {
     structures.pieceBlocked = !!sel && !legal(state, sel)
     structures.inPlay = !builder
     structures.flipped = this.transition.shown === 2
+    structures.pieceId = sel?.id
     structures.landing = mapOpen ? undefined : input.landing?.spec
+    structures.landingId = input.landing?.id
     structures.hidden = mapOpen ? [] : [sel?.movable ? sel.id : undefined, input.landing?.id].filter((id) => id !== undefined)
     structures.selected = !mapOpen && sel && !sel.movable ? sel.id : undefined
     structures.movable = builder && !mapOpen ? state.built : []

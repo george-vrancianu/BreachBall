@@ -3,7 +3,7 @@ import type { Structure, Tower } from '../../sim/wall'
 import type { SimEvent } from '../../sim/step'
 import { countDestroyed, defenceBar } from './defenceBar'
 
-const wall = (id: number, owner: 1 | 2): Structure => ({ kind: 'wall', id, owner, hp: 3, a: { x: 0, y: 0 }, b: { x: 8, y: 0 } })
+const wall = (id: number, owner: 1 | 2): Structure => ({ kind: 'wall', id, owner, segments: [3], a: { x: 0, y: 0 }, b: { x: 8, y: 0 } })
 const tower = (id: number, owner: 1 | 2): Structure => ({ kind: 'tower', id, owner, hp: 1, power: 'steal', at: { gx: 0, gy: 0 } })
 
 describe('defenceBar', () => {
@@ -45,6 +45,13 @@ describe('countDestroyed', () => {
     expect(placed[1].segments).toEqual([true])
     const taken = defenceBar([], countDestroyed(none, [{ type: 'refunded', player: 1, count: 1 }]), null)
     expect(taken[1]).toEqual({ count: '0', segments: [] })
+  })
+  it('a broken wall segment (a Gap) empties no bar segment: only the whole wall going does', () => {
+    const w = wall(1, 1)
+    const broken: SimEvent = { type: 'segment-broken', id: 1, segment: 0, wall: w as never, at }
+    const d = countDestroyed(none, [broken])
+    expect(d).toEqual(none)
+    expect(defenceBar([w], d, null)[1].segments).toEqual([true])
   })
   it('leaves an empty segment for a structure destroyed in play', () => {
     const d = countDestroyed(none, [{ type: 'wall-destroyed', wall: wall(1, 1), at }])

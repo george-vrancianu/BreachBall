@@ -1,7 +1,7 @@
 import { rules } from '../config/rules'
 import { type PlayerId, type Point } from './pitch'
 import type { SimConfig, SimEvent } from './step'
-import { damageWall, wallSegments, type Segment, type Structure } from './wall'
+import { damageSegment, segmentAt, standingPieces, type Segment, type Structure } from './wall'
 
 export type Ball = { pos: Point; vel: Point; /** Distance travelled, drives the rolling dot. */ rolled: number }
 
@@ -58,11 +58,12 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker
   // The cap only matters when wedged in a corner; the rest of that tick's motion is dropped.
   for (let i = 0; i < 8 && left > 0 && (vel.x || vel.y); i++) {
     const d = { x: vel.x * dt * left, y: vel.y * dt * left }
-    let best: { t: number; n: Point; wall?: Structure } | null = null
-    const candidates: [Segment, Structure?][] = [...boards.map((s): [Segment] => [s]), ...objects.flatMap((w) => wallSegments(w).map((s): [Segment, Structure] => [s, w]))]
-    for (const [s, wall] of candidates) {
+    let best: { t: number; n: Point; wall?: Structure; segment?: number } | null = null
+    // A placed wall offers only its standing segments, so the ball passes through a Gap.
+    const candidates: [Segment, Structure?, number?][] = [...boards.map((s): [Segment] => [s]), ...objects.flatMap((w) => standingPieces(w).map(({ seg, index }): [Segment, Structure, number?] => [seg, w, index]))]
+    for (const [s, wall, segment] of candidates) {
       const h = sweep(pos, d, s, c.ballRadius)
-      if (h && (!best || h.t < best.t)) best = { ...h, wall }
+      if (h && (!best || h.t < best.t)) best = { ...h, wall, segment }
     }
     const len = Math.hypot(d.x, d.y)
     if (!best) {
@@ -79,9 +80,16 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker
       events.push({ type: 'ball-hit-wall', wall: best.wall.id, speed, at: pos })
       if (breaker) {
         breaker = false
-        const gone = { ...best.wall, hp: 0 }
-        objects = objects.filter((w) => w.id !== gone.id)
-        events.push({ type: 'wall-destroyed', wall: gone, at: pos, breaker: true })
+        // A tower goes whole; a wall loses the segment it touched, and goes only with its last.
+        if (best.wall.kind === 'tower') {
+          const gone = { ...best.wall, hp: 0 }
+          objects = objects.filter((w) => w.id !== gone.id)
+          events.push({ type: 'wall-destroyed', wall: gone, at: pos, breaker: true })
+        } else {
+          const r = damageSegment(objects, best.wall.id, best.segment ?? segmentAt(best.wall, pos), pos, rules.wallHp)
+          objects = r.objects
+          events.push(...r.events.map((e) => (e.type === 'wall-destroyed' || e.type === 'segment-broken' ? { ...e, breaker: true as const } : e)))
+        }
         continue
       }
       if (best.wall.kind === 'tower' && best.wall.power === 'steal' && best.wall.owner !== shooter) {
@@ -92,11 +100,11 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker
         break
       }
       if (speed > c.damageFraction * c.maxSpeed) {
-        const r = damageWall(objects, best.wall.id, pos)
+        const r = damageSegment(objects, best.wall.id, best.segment ?? 0, pos)
         objects = r.objects
         events.push(...r.events)
         // A destroyed Repulsor still fires below, so it skips the pass-through.
-        if (r.events[0].type === 'wall-destroyed' && !(best.wall.kind === 'tower' && best.wall.power === 'repulsor')) {
+        if ((r.events[0].type === 'wall-destroyed' || r.events[0].type === 'segment-broken') && !(best.wall.kind === 'tower' && best.wall.power === 'repulsor')) {
           vel = { x: vel.x * c.destroyedSpeedFactor, y: vel.y * c.destroyedSpeedFactor }
           continue
         }

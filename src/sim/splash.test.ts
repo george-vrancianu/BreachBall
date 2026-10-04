@@ -5,7 +5,7 @@ import { defaultConfig as c } from './step'
 import { hseg } from './testkit'
 import type { Structure, Wall } from './wall'
 
-const wall = (id: number, owner: 1 | 2, gy: number): Wall => ({ kind: 'wall', owner, ...hseg(8, gy), id, hp: rules.wallHp })
+const wall = (id: number, owner: 1 | 2, gy: number): Wall => ({ kind: 'wall', owner, ...hseg(8, gy), id, segments: [rules.wallHp] })
 const losses = (objects: Structure[], player: 1 | 2 = 1, origin = { x: 20, y: 79.5 }) => splashDamage(objects, origin, { power: 1, radius: 10 }, player).map((h) => [h.wall.id, h.loss])
 
 describe('splash radius', () => {
@@ -21,6 +21,20 @@ describe('splashOf', () => {
     expect(splashOf(1, 1, c)).toEqual({ power: 1, radius: 10 })
     expect(splashOf(1, 0.75, c)).toEqual({ power: 0.5, radius: 6 })
     expect(splashOf(0, 0.3, c)).toBeNull()
+  })
+})
+
+describe('splash per segment', () => {
+  it('two segments of one wall at different distances lose different amounts', () => {
+    // A 2-unit wall along y=80 from x=10 to 26; the origin is 1.5 above segment 0 (pressure 0.85) and 5.2 from segment 1's near end (0.48).
+    const w: Wall = { kind: 'wall', owner: 2, ...hseg(5, 40, 2), id: 1, segments: [3, 3] }
+    const hits = splashDamage([w], { x: 13, y: 78.5 }, { power: 1, radius: 10 }, 1)
+    expect(hits.map((h) => [h.segment, h.loss])).toEqual([[0, 2], [1, 1]])
+    expect(hits[1].at).toEqual({ x: 18, y: 80 })
+  })
+  it('skips a Gap', () => {
+    const w: Wall = { kind: 'wall', owner: 2, ...hseg(5, 40, 2), id: 1, segments: [0, 3] }
+    expect(splashDamage([w], { x: 13, y: 78.5 }, { power: 1, radius: 10 }, 1).map((h) => h.segment)).toEqual([1])
   })
 })
 

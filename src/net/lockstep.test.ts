@@ -3,7 +3,7 @@ import { lockstep, type Frame } from './lockstep'
 import { canPlaceBall } from '../sim/possession'
 import { defaultConfig, initialState, step, type SimConfig, type SimInput, type SimState } from '../sim/step'
 import type { PlayerId } from '../sim/pitch'
-import { roundsMatch, hseg } from '../sim/testkit'
+import { healthOf, roundsMatch, hseg } from '../sim/testkit'
 
 const config: SimConfig = { ...defaultConfig, buildTime: 1 }
 const DELAY = 4
@@ -159,7 +159,7 @@ describe('lockstep', () => {
 
   describe('Siege defence choice under the build timer', () => {
     const siege: SimConfig = { ...config, mode: 'siege' }
-    const wall = (id: number, owner: PlayerId, gx: number) => ({ id, kind: 'wall' as const, owner, ...hseg(gx, owner === 1 ? 40 : 10), hp: 1 })
+    const wall = (id: number, owner: PlayerId, gx: number) => ({ id, kind: 'wall' as const, owner, ...hseg(gx, owner === 1 ? 40 : 10), segments: [1] })
     /** Player 1's ball is about to cross into player 2's goal. */
     const scoring = (seed: number): SimState => {
       const s = initialState(seed, siege)
@@ -170,7 +170,7 @@ describe('lockstep', () => {
         const [a, b] = match(5, lag, 400, () => ({}), siege, scoring)
         expect(a).toEqual(b)
         expect(a.match).toMatchObject({ choosing: null, builder: null })
-        expect(a.objects.map((o) => o.hp)).toEqual([3, 1])
+        expect(a.objects.map((o) => healthOf(o))).toEqual([3, 1])
       }
     })
     // The window is 60 ticks; the choice is submitted when `left` drops under `at`, and arrives DELAY ticks later (plus the link lag).
@@ -181,7 +181,7 @@ describe('lockstep', () => {
         expect(a).toEqual(b)
         expect(a.match).toMatchObject({ choosing: null, builder: null })
         // Not repaired: the Rearrange got in before the timeout.
-        expect(a.objects.map((o) => o.hp)).toEqual([1, 1])
+        expect(a.objects.map((o) => healthOf(o))).toEqual([1, 1])
       }
     })
     it('a Rearrange choice that arrives after the window ran out is refused identically on both peers: the timeout Repair stands', () => {
@@ -189,7 +189,7 @@ describe('lockstep', () => {
         const [a, b] = match(5, lag, 700, choosesAt(2), siege, scoring)
         expect(a).toEqual(b)
         expect(a.match).toMatchObject({ choosing: null, builder: null })
-        expect(a.objects.map((o) => o.hp)).toEqual([3, 1])
+        expect(a.objects.map((o) => healthOf(o))).toEqual([3, 1])
       }
     })
   })

@@ -121,7 +121,8 @@ export const siege: GameMode<SiegeMatch> = {
     if (choice === 'rearrange') return { match: { ...m, choosing: null, builder: player }, events: [] }
     return {
       match: { ...m, choosing: null },
-      objects: ctx.objects.map((o) => (o.owner === player ? { ...o, hp: maxHp(o) } : o)),
+      // Standing segments return to full; a Gap is permanent.
+      objects: ctx.objects.map((o) => (o.owner !== player ? o : o.kind === 'wall' ? { ...o, segments: o.segments.map((h) => (h > 0 ? maxHp(o) : 0)) } : { ...o, hp: maxHp(o) })),
       // One per surviving own structure, full-HP ones included, so the sweep and flash always fire.
       events: structuresOf(ctx.objects, player).map((o) => ({ type: 'repaired', id: o.id, player })),
     }

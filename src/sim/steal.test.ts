@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import { defaultConfig, step, type SimEvent, type SimState } from './step'
-import { buildState, funded, place, roundsMatch } from './testkit'
+import { healthOf, buildState, funded, place, roundsMatch } from './testkit'
 import type { PlayerId } from './pitch'
 import type { TowerSpec } from './wall'
 
@@ -33,7 +33,7 @@ describe('steal placement', () => {
     expect(x.state.objects).toHaveLength(0)
     expect(x.events).toEqual([{ type: 'refused' }])
   })
-  it('has 1 hit point', () => expect(place(steal()).state.objects[0].hp).toBe(1))
+  it('has 1 hit point', () => expect(healthOf(place(steal()).state.objects[0])).toBe(1))
 })
 
 describe('steal trigger', () => {

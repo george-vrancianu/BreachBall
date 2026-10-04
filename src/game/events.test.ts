@@ -10,10 +10,11 @@ import { Camera } from './entities/Camera'
 import { Pitch } from './entities/Pitch'
 import { Structures } from './entities/Structures'
 import { Tower } from './entities/Tower'
+import { Wall } from './entities/Wall'
 import { routeEvents } from './events'
 
 const at = { x: 20, y: 30 }
-const wall: Structure = { id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 0 }
+const wall: Structure = { id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), segments: [0] }
 const tower: Structure = { id: 2, kind: 'tower', owner: 2, power: 'repulsor', at: { gx: 5, gy: 10 }, hp: 3 }
 
 function setup(objects: Structure[]) {
@@ -76,7 +77,7 @@ describe('routeEvents', () => {
 
   it('a destroyed wall shatters: it leaves the sim but its child stays for the shatter', () => {
     const w = setup([wall])
-    w.route([{ type: 'wall-destroyed', wall, at }], [])
+    w.route([{ type: 'wall-destroyed', wall, segment: 0, at }], [])
     w.structures.sync([])
     expect(w.structures.count).toBe(1)
     w.structures.update(visual.wall.shatterMs / 1000 + 0.01)
@@ -120,5 +121,75 @@ describe('routeEvents', () => {
     const w = setup([])
     w.route([{ type: 'shot-fired', player: 1, from: at, dir: { x: 0, y: -1 }, tier: 0, power: 0.4 }], [])
     expect(w.aim.splashCount).toBe(0)
+  })
+})
+
+describe('wall segments', () => {
+  const two = (segments: number[]): Structure => ({ id: 1, kind: 'wall', owner: 1, ...hseg(10, 40, 2), segments })
+  /** Counts the Breach marks drawn: one radial gradient each. */
+  const breachDraws = (s: Structures) => {
+    let n = 0
+    const rec = new Proxy({}, { get: (_, k) => () => (k === 'getTransform' ? { a: 10, b: 0 } : k === 'createRadialGradient' ? (n++, { addColorStop() {} }) : k === 'createLinearGradient' ? { addColorStop() {} } : undefined), set: () => true }) as unknown as CanvasRenderingContext2D
+    s.draw(rec)
+    return n
+  }
+
+  it('segment-broken shatters that segment, not the whole wall', () => {
+    const w = setup([two([3, 1])])
+    const left = [two([3, 0])]
+    w.route([{ type: 'segment-broken', id: 1, segment: 1, wall: left[0] as never, at }], left)
+    w.structures.sync(left)
+    const f = w.structures.get(1) as Wall
+    expect(f.isShattering).toBe(true)
+    expect(w.structures.count).toBe(1)
+    expect(w.structures.particleCount).toBeGreaterThan(0)
+    // The wall stays: nothing is dropped once the segment's shatter ends.
+    w.structures.update(visual.wall.shatterMs / 1000 + 0.01)
+    expect(w.structures.count).toBe(1)
+    expect(f.isShattering).toBe(false)
+  })
+
+  it('the Breach mark is drawn while the wall stands, and gone once it is destroyed', () => {
+    const w = setup([two([0, 3])])
+    expect(breachDraws(w.structures)).toBe(1)
+    w.structures.update(10)
+    expect(breachDraws(w.structures)).toBe(1)
+    const last = two([0, 0])
+    w.route([{ type: 'wall-destroyed', wall: last, segment: 1, at }], [])
+    w.structures.sync([])
+    expect(w.structures.count).toBe(1)
+    w.structures.update(visual.wall.shatterMs / 1000 + 0.01)
+    expect(w.structures.count).toBe(0)
+    expect(breachDraws(w.structures)).toBe(0)
+  })
+
+  it('a break spawns spinning chunks, dust, a ring and sparks, and a Breaker break spawns more', () => {
+    const count = (breaker: boolean) => {
+      const w = setup([two([3, 1])])
+      w.route([{ type: 'wall-destroyed', wall: two([0, 0]), segment: 1, at, ...(breaker && { breaker: true as const }) }], [])
+      return w.structures.particleCount
+    }
+    expect(count(true)).toBeGreaterThan(count(false))
+  })
+
+  it('the particle pool stays within its cap however many segments break', () => {
+    const w = setup([two([3, 1])])
+    for (let i = 0; i < 100; i++) w.route([{ type: 'wall-destroyed', wall: two([0, 0]), segment: 1, at, breaker: true }], [])
+    expect(w.structures.particleCount).toBeLessThanOrEqual(visual.wall.particles.cap)
+    expect(w.structures.particleCount).toBe(visual.wall.particles.cap)
+  })
+
+  it('several breaks in one tick shake the camera once, at the largest amplitude', () => {
+    const w = setup([two([1, 1])])
+    const broken = (segment: number): SimEvent => ({ type: 'segment-broken', id: 1, segment, wall: two([0, 1]) as never, at })
+    w.route([broken(0), { type: 'wall-destroyed', wall: two([0, 0]), segment: 1, at, breaker: true }, broken(0)], [])
+    // The camera holds the Breaker's amplitude, not a later smaller one: a shake begins at its full amplitude.
+    expect(w.camera.shakeNow.y).toBeCloseTo(visual.wall.break.breakerShake, 9)
+  })
+
+  it('a crack never shakes the camera', () => {
+    const w = setup([two([3, 3])])
+    w.route([{ type: 'ball-hit-wall', wall: 1, speed: 40, at: { x: 26, y: 80 } }, { type: 'wall-cracked', id: 1, hp: 2, segment: 1, at: { x: 26, y: 80 } }], [two([3, 2])])
+    expect(w.camera.shakeNow).toEqual({ x: 0, y: 0 })
   })
 })

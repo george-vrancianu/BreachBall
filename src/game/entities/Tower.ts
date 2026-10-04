@@ -3,6 +3,7 @@ import { visual } from '../../config/visual'
 import { cellToWorld } from '../../sim/pitch'
 import { vertexToWorld, type TowerPower } from '../../sim/wall'
 import { Fixture, ownerFill, type TowerData } from './Fixture'
+import { drawTowerBody } from './wallPaint'
 
 const GLYPHS: Record<TowerPower, (ctx: CanvasRenderingContext2D, x: number, y: number, spent: boolean) => void> = {
   // Concentric rings; dimmed once spent for the shot.
@@ -42,8 +43,7 @@ export class Tower extends Fixture<TowerData> {
     const d = this.data
     const { cellSize } = rules
     const { x, y } = vertexToWorld(d.at)
-    ctx.fillStyle = fill ?? ownerFill(ctx, d.owner)
-    ctx.fillRect(x, y, cellSize, cellSize)
+    drawTowerBody(ctx, x, y, fill ?? ownerFill(ctx, d.owner), this.flipped)
     ctx.strokeStyle = visual.tower.outline
     ctx.lineWidth = visual.tower.outlineWidth
     ctx.strokeRect(x, y, cellSize, cellSize)

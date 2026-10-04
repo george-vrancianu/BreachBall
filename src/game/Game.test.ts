@@ -355,10 +355,10 @@ describe('Game', () => {
 
   it('routes a tick\'s destroy events before syncing structures, so a destroyed wall shatters instead of being dropped', () => {
     const game = make()
-    const wall: Structure = { id: 99, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 }
+    const wall: Structure = { id: 99, kind: 'wall', owner: 1, ...hseg(10, 40), segments: [3] }
     game.apply({ ...game.state, objects: [wall] }, [])
     expect(game.structures.count).toBe(1)
-    game.apply({ ...game.state, objects: [] }, [{ type: 'wall-destroyed', wall: { ...wall, hp: 0 }, at: { x: 20, y: 40 } }])
+    game.apply({ ...game.state, objects: [] }, [{ type: 'wall-destroyed', wall: { ...wall, segments: [0] }, at: { x: 20, y: 40 } }])
     expect(game.structures.count).toBe(1)
     expect(game.structures.get(99)!.isShattering).toBe(true)
   })

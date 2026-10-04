@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import { defaultConfig, step, type SimState } from './step'
-import { buildState, funded, place } from './testkit'
+import { healthOf, buildState, funded, place } from './testkit'
 import type { TowerSpec } from './wall'
 
 const repulsor = (owner: 1 | 2 = 1): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx: 10, gy: owner === 1 ? 40 : 14 } })
@@ -27,7 +27,7 @@ describe('repulsor placement', () => {
     expect(x.state.objects).toHaveLength(0)
     expect(x.events).toEqual([{ type: 'refused' }])
   })
-  it('has 3 hit points', () => expect(place(repulsor()).state.objects[0].hp).toBe(3))
+  it('has 3 hit points', () => expect(healthOf(place(repulsor()).state.objects[0])).toBe(3))
 })
 
 describe('repulsor firing', () => {

@@ -70,15 +70,15 @@ export class Tracer {
     this.burst(from, this.tint, count[this.tierName], speedPx[this.tierName])
   }
 
-  /** The ball bounced at `at` off a wall (white sparks) or a board (sparks in the tier's colour): a flash and a spray of sparks there. */
-  bounce(at: Point, wall: boolean, now: number): void {
+  /** The ball bounced at `at` off a wall (white sparks, or `color`) or a board (sparks in the tier's colour): a flash and a spray of sparks there. */
+  bounce(at: Point, wall: boolean, now: number, color?: string): void {
     const { count, speedPx, wall: white } = visual.ball.tracer.bounce
     const f = this.lit < this.flashPool.length ? this.flashPool[this.lit++] : this.flashPool[this.flashEvict++ % this.flashPool.length]
     f.x = at.x
     f.y = at.y
     f.t = now
     f.color = this.tint
-    this.burst(at, wall ? white : this.tint, count[this.tierName], speedPx)
+    this.burst(at, wall ? (color ?? white) : this.tint, count[this.tierName], speedPx)
   }
 
   /** The ball moved to `pos`: the tail follows, with points added every `stepPx` across the gap, shedding sparks on the way while the shot flies. */

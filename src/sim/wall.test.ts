@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import type { Point } from './pitch'
 import { hseg } from './testkit'
-import { isDrawable, isLegal, nearestOnSegment, rotatedWall, segmentsTouchOnly, snapWallBetween, snapWallEnd, structureCost, translatedWall, wallCost, wallSegments, wallsOverlap, wallUnits, type TowerSpec, type WallSpec } from './wall'
+import { damageSegment, damageWall, maxHp, segmentAt, segmentCount, segmentEnds, standing, isDrawable, isLegal, nearestOnSegment, rotatedWall, segmentsTouchOnly, snapWallBetween, snapWallEnd, structureCost, translatedWall, wallCost, wallSegments, wallsOverlap, wallUnits, type Structure, type Tower, type TowerSpec, type Wall, type WallSpec } from './wall'
 
 const U = rules.wall.unit
 const D = U * Math.SQRT1_2 // a diagonal unit's run along each axis
@@ -376,5 +376,96 @@ describe('nearestOnSegment', () => {
     expect(nearestOnSegment(s, { x: 4, y: 3 })).toEqual({ x: 4, y: 0 })
     expect(nearestOnSegment(s, { x: 20, y: 3 })).toEqual({ x: 10, y: 0 })
     expect(nearestOnSegment({ a: { x: 2, y: 2 }, b: { x: 2, y: 2 } }, { x: 5, y: 5 })).toEqual({ x: 2, y: 2 })
+  })
+})
+
+/** A placed wall with the given per-segment health. */
+const placed = (a: Point, b: Point, segments: number[], id = 1): Wall => ({ kind: 'wall', owner: 1, a, b, id, segments })
+
+describe('wall segments', () => {
+  const two = placed(p(0, 80), p(2 * U, 80), [3, 3])
+  const diag = placed(p(0, 0), p(2 * D, 2 * D), [3, 3])
+  it('a wall has one segment per unit', () => {
+    expect(segmentCount(two)).toBe(2)
+    expect(segmentCount(placed(p(0, 0), p(D, D), [3]))).toBe(1)
+  })
+  it('segmentAt is the index a point projects onto, clamped to the wall', () => {
+    expect(segmentAt(two, p(3, 90))).toBe(0)
+    expect(segmentAt(two, p(U + 1, 70))).toBe(1)
+    expect(segmentAt(two, p(-50, 80))).toBe(0)
+    expect(segmentAt(two, p(500, 80))).toBe(1)
+    expect(segmentAt(diag, p(D + 1, D + 1.5))).toBe(1)
+    expect(segmentAt(diag, p(D - 1, D - 1))).toBe(0)
+  })
+  it('segmentEnds cuts the wall into equal pieces from a', () => {
+    expect(segmentEnds(two, 0)).toEqual({ a: p(0, 80), b: p(U, 80) })
+    expect(segmentEnds(two, 1)).toEqual({ a: p(U, 80), b: p(2 * U, 80) })
+    const s = segmentEnds(diag, 1)
+    near(s.a, p(D, D))
+    near(s.b, p(2 * D, 2 * D))
+  })
+  it('standing lists the indices of the segments with health left', () => {
+    expect(standing(placed(p(0, 80), p(2 * U, 80), [0, 2]))).toEqual([1])
+    expect(standing(two)).toEqual([0, 1])
+  })
+  it('a placed wall collides only through its standing segments; a bare spec through its whole length', () => {
+    expect(wallSegments(placed(p(0, 80), p(2 * U, 80), [0, 2]))).toEqual([{ a: p(U, 80), b: p(2 * U, 80) }])
+    expect(wallSegments(wall(1, p(0, 80), p(2 * U, 80)))).toEqual([{ a: p(0, 80), b: p(2 * U, 80) }])
+  })
+  it('a wall is one segment of health per segment (maxHp)', () => {
+    expect(maxHp(wall(1, p(0, 80), p(2 * U, 80)))).toBe(rules.wallHp)
+  })
+})
+
+describe('damageWall', () => {
+  const two = placed(p(0, 80), p(2 * U, 80), [3, 3])
+  it('damages only the segment the point lands on, and reports it', () => {
+    const r = damageWall([two], 1, p(U + 2, 80))
+    expect((r.objects[0] as Wall).segments).toEqual([3, 2])
+    expect(r.events).toEqual([{ type: 'wall-cracked', id: 1, hp: 2, segment: 1, at: p(U + 2, 80) }])
+  })
+  it('a broken segment leaves a Gap and the wall stands (segment-broken)', () => {
+    const w = placed(p(0, 80), p(2 * U, 80), [1, 3])
+    const r = damageWall([w], 1, p(2, 80))
+    const left = r.objects[0] as Wall
+    expect(left.segments).toEqual([0, 3])
+    expect(r.events).toEqual([{ type: 'segment-broken', id: 1, segment: 0, wall: left, at: p(2, 80) }])
+  })
+  it('the wall is removed only when its last segment breaks (wall-destroyed carries the segment)', () => {
+    const w = placed(p(0, 80), p(2 * U, 80), [0, 1])
+    const r = damageWall([w], 1, p(U + 1, 80))
+    expect(r.objects).toEqual([])
+    expect(r.events).toHaveLength(1)
+    expect(r.events[0]).toMatchObject({ type: 'wall-destroyed', segment: 1, at: p(U + 1, 80) })
+  })
+  it('a 1-unit wall is destroyed on its third hit', () => {
+    let objs: Structure[] = [placed(p(0, 80), p(U, 80), [3])]
+    const types: string[] = []
+    for (let i = 0; i < 3; i++) {
+      const r = damageWall(objs, 1, p(1, 80))
+      objs = r.objects
+      types.push(r.events[0].type)
+    }
+    expect(types).toEqual(['wall-cracked', 'wall-cracked', 'wall-destroyed'])
+    expect(objs).toEqual([])
+  })
+  it('ignores a segment that is already a Gap', () => {
+    const w = placed(p(0, 80), p(2 * U, 80), [0, 3])
+    expect(damageSegment([w], 1, 0, p(1, 80))).toEqual({ objects: [w], events: [] })
+  })
+  it('leaves towers on their own hp', () => {
+    const t: Structure = { kind: 'tower', owner: 1, at: { gx: 8, gy: 20 }, power: 'repulsor', id: 2, hp: 2 }
+    const r = damageWall([t], 2, p(0, 0))
+    expect((r.objects[0] as Tower).hp).toBe(1)
+    expect(r.events).toEqual([{ type: 'wall-cracked', id: 2, hp: 1, at: p(0, 0) }])
+  })
+})
+
+describe('placing over a Gap', () => {
+  it('the wall\'s full footprint, Gaps included, still blocks placing', () => {
+    const gapped = placed(p(0, 80), p(2 * U, 80), [0, 3])
+    const over = wall(1, p(2, 80), p(2 + U, 80))
+    expect(isLegal(over, [gapped])).toBe(false)
+    expect(isLegal(wall(1, p(2, 76), p(2, 76 + U)), [gapped])).toBe(false) // crossing the Gap's footprint
   })
 })

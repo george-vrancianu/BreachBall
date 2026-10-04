@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig, step, type SimInput, type SimState } from './step'
-import { hseg, place, playState } from './testkit'
+import { healthOf, hseg, place, playState } from './testkit'
 import type { Point } from './pitch'
-import type { WallSpec } from './wall'
+import type { Wall, WallSpec } from './wall'
 
 const c = defaultConfig
 const run = (s: SimState, input: SimInput = {}) => step(s, input, c)
@@ -84,12 +84,12 @@ describe('ball', () => {
     const pre = (v: number) => -v / 0.5 ** (1 / 48)
     for (const [v, hp] of [[30, 3], [31, 2]] as const) {
       const s = run(withWall(straight(), 14, 81.02, 0, pre(v))).state
-      expect(s.objects[0].hp).toBe(hp)
+      expect(healthOf(s.objects[0])).toBe(hp)
     }
   })
   it('a ball that destroys a wall mid-shot continues through at reduced speed', () => {
     let s = withWall(straight(), 14, 81.02, 0, -60 / 0.5 ** (1 / 48))
-    s = { ...s, objects: s.objects.map((w) => ({ ...w, hp: 1 })) }
+    s = { ...s, objects: s.objects.map((w) => ({ ...w, segments: [1] })) }
     const r = run(s)
     expect(r.events.map((e) => e.type)).toEqual(['ball-hit-wall', 'wall-destroyed'])
     expect(r.state.objects).toEqual([])
@@ -108,5 +108,30 @@ describe('ball', () => {
       return ticks(s, 400).s
     }
     expect(play()).toEqual(play())
+  })
+})
+
+describe('wall segments', () => {
+  /** A 2-unit wall along y=80 from x=10 to 26, segment 0 over x 10..18, with the given health. */
+  const two = (segments: number[]): SimState => ({ ...playState(), objects: [{ kind: 'wall', owner: 1, ...hseg(5, 40, 2), id: 1, segments } as Wall], nextId: 2 })
+  const roll = (s: SimState, n = 90) => ticks(s, n)
+  it('a ball passes through a Gap and still bounces off the standing segment next to it', () => {
+    const through = roll(at(14, 70, 0, 25, two([0, 3])))
+    expect(through.events.some((e) => e.type === 'ball-hit-wall')).toBe(false)
+    expect(through.s.ball.pos.y).toBeGreaterThan(82)
+    const bounced = roll(at(22, 70, 0, 25, two([0, 3])))
+    expect(bounced.events.some((e) => e.type === 'ball-hit-wall')).toBe(true)
+    expect(bounced.s.ball.pos.y).toBeLessThan(80)
+  })
+  it('a hard hit damages only the segment it lands on', () => {
+    const r = roll(at(22, 70, 0, 50, two([3, 3])))
+    expect(r.events.find((e) => e.type === 'wall-cracked')).toMatchObject({ id: 1, hp: 2, segment: 1 })
+    expect((r.s.objects[0] as Wall).segments).toEqual([3, 2])
+  })
+  it('breaking one segment keeps the wall, and the ball goes through at reduced speed', () => {
+    const r = roll(at(22, 70, 0, 50, two([3, 1])))
+    expect(r.events.find((e) => e.type === 'segment-broken')).toMatchObject({ id: 1, segment: 1 })
+    expect((r.s.objects[0] as Wall).segments).toEqual([3, 0])
+    expect(r.s.ball.pos.y).toBeGreaterThan(80)
   })
 })
