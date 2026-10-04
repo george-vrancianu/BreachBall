@@ -253,7 +253,11 @@ A Charged ball wears a pulsing glow ring and a "×1.5" / "×2" badge that pops i
 ### Aim and Shot
 
 - While holding still on the ball: a ring around it fills towards Power in the tier's colour (Touch green, Power red). Reaching Power pulses it for 300 ms and gives a short vibration.
-- While aiming: a faint ring shows the tier's control radius, and the Ghost is drawn from the ball in the tier's colour. While cancel-armed the Ghost turns grey and an ✕ sits on the ball.
+- While holding or aiming, the Gauge sits around the ball (`visual.aim.gauge`, `game/entities/AimGauge.ts`), drawn in screen px so it is the same size at any zoom, and turned with the stage so its text reads upright. It shows only the current tier:
+  - a scale band from the inner cancel circle (the slop) out to the tier's limit, a radial gradient in the tier's colour, strong where the tier's power is high (Touch at the limit, Power near the ball); dashed tick rings at 25 / 50 / 75 %; a faint inner cancel circle;
+  - the limit drawn solid with a glow and a slow breathing pulse, a `TOUCH LIMIT` / `POWER LIMIT` chip on it at the lower left, and end labels: Touch `LOW` near the ball and `MAX` at the limit, Power `MAX` near the ball and `MIN` at the limit.
+- While aiming, the Gauge adds a lit wedge (about ±18°) on the pull side out to the finger, a ring at the finger's distance, a ripple running out to it (faster at the strong end of the scale), a dashed elastic line from the ball to the knob, the knob at the finger (clamped to the limit), and a readout chip beside the knob (to its screen right, or left near the right edge) with the tier name, the power in % and 8 meter segments lit by the scale position. Dragging past the limit flares the limit ring and the knob, easing in and out. The Ghost is drawn from the ball in the tier's colour. While cancel-armed the Ghost turns grey and an ✕ sits on the ball.
+- Reaching Power while holding morphs the Gauge from the Touch size to the Power size over 380 ms with a small overshoot, cross-fading its colour green to red, and a `POWER!` pop rises and fades above the ring over 700 ms.
 - While a Power aim is held, structures the Splash would reach are tinted red, own structures darker red, so own-wall damage is always a visible choice.
 - On a Power shot, a Splash ring expands to the Splash radius over 250 ms and fades. Any shot of at least 30% power shakes the screen with amplitude scaled by power (max about 4 px, 200 ms).
 

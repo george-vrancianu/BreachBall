@@ -9,12 +9,16 @@ How the shooter moves the ball, pool-style: press on the ball, drag back, releas
 _Avoid_: Blast, kick, charge
 
 **Tier**:
-The kind of Shot, picked by how long the shooter holds still on the ball before dragging; the first drag locks it. Each tier sets its control radius, power curve and range, and Ghost. **Touch** (drag right away) is weak and precise: a large radius, a longer drag is stronger, a full green Ghost. **Power** (hold 1 s) is strong: a small radius, a shorter drag is stronger, a short red Ghost.
+The kind of Shot, picked by how long the shooter holds still on the ball before dragging; the first drag locks it. Each tier sets its control radius (how far the drag can usefully go, drawn as the Gauge's limit), power curve and range, and Ghost. **Touch** (drag right away) is weak and precise: a large radius, a longer drag is stronger, a full green Ghost. **Power** (hold 1 s) is strong: a small radius, a shorter drag is stronger, a short red Ghost.
 _Avoid_: Mode, level, charge
 
 **Ghost**:
 The ball's predicted path, drawn from the ball while aiming a Shot in its Tier's colour, showing where it will go. Only this is the Ghost: the translucent ball-in-hand disc is the placement, and the translucent piece dragged in a build turn is the build piece.
 _Avoid_: Preview, arrow, trajectory; "ghost" for the ball-in-hand placement or the build piece
+
+**Gauge**:
+The control gauge drawn around the ball while aiming a Shot: a scale band in the Tier's colour from the inner cancel circle out to the Tier's limit (its control radius), with end labels saying where power is high and low, and a knob at the finger with a power readout. It shows only the current Tier's limit; reaching Power morphs it from the Touch size to the Power size. It replaced the faint control ring.
+_Avoid_: Control ring, power ring, dial
 
 **Splash**:
 The burst every Power Shot sets off where the ball starts, damaging every structure in range, the shooter's own included and across the halfway line. It grows with power within the Tier; the shooter's own structures lose hit points only to its strongest part. It doesn't move the ball.
