@@ -7,6 +7,7 @@ import { tierClimbed } from '../feedback'
 import { tierColor } from './Aim'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
+import { placeClear, textRect, type Rect } from '../layout'
 
 /** What the gauge reads of the aim in progress: its phase and tier, the tier's control radius and the finger's pull in screen px, the aim once there is one, and how many screen px a world unit spans. */
 export type GaugeAim = Pick<AimView, 'phase' | 'tier' | 'radiusPx' | 'pxPerUnit'> & Partial<Pick<AimView, 'dir' | 'power' | 'pullPx' | 'cancel'>>
@@ -54,16 +55,69 @@ export class AimGauge extends Entity {
     return progress < 1 ? { text: `${rules.shot.tiers[aim.tier].name.toUpperCase()}!`, progress } : undefined
   }
 
-  /** The limits drawn: only the current tier's, never the other tier's. */
+  /** +1, or -1 on the turned stage: the gauge's screen-px frame (+x right, +y down) against world axes. */
+  private get turn(): number {
+    return this.flipped ? -1 : 1
+  }
+
+  /** A world point in the gauge's screen-px frame (+x right, +y down from the ball), for an aim's `ppu` px per world unit. */
+  private toPx(p: Point, ppu: number): Point {
+    return { x: (p.x - this.at.x) * ppu * this.turn, y: (p.y - this.at.y) * ppu * this.turn }
+  }
+
+  /** A point in the gauge's screen-px frame as a world point: the inverse of `toPx`. */
+  private toWorld(p: Point, ppu: number): Point {
+    return { x: this.at.x + (p.x * this.turn) / ppu, y: this.at.y + (p.y * this.turn) / ppu }
+  }
+
+  /** The near-ball end chip's centre in the gauge's screen-px frame: past the inner cancel circle (`visual.aim.gauge.cancelPx`) by `nearGapPx`, above the ball. */
+  private nearChipPx(): Point {
+    const { cancelPx, label } = visual.aim.gauge
+    return { x: 0, y: -(cancelPx + label.nearGapPx) }
+  }
+
+  /** A label chip's box in the gauge's screen-px frame (+x right, +y down from the ball): `text` at `sizePx` centred on `at`, padded as drawn. */
+  private chipBox(at: Point, text: string, sizePx: number): Rect {
+    const { heightPx } = visual.aim.gauge.label
+    const r = textRect(at, text, sizePx, visual.text.glyphEm)
+    return { ...r, w: chipWidthPx(r.w), h: heightPx }
+  }
+
+  /** The end chips' boxes in the gauge's screen-px frame: the near-ball one and the one at the limit. */
+  private endBoxesPx(): Rect[] {
+    const { ends, radius, aim } = this
+    if (!aim || !ends || radius === undefined) return []
+    const { label } = visual.aim.gauge
+    return [
+      this.chipBox(this.nearChipPx(), ends.near, label.nearSizePx),
+      this.chipBox({ x: 0, y: -radius * aim.pxPerUnit }, ends.limit, label.sizePx),
+    ]
+  }
+
+  /** The near-ball end chip's box in world units, for the Charged ball's badge to keep clear of; none without an aim. */
+  get chipRects(): Rect[] {
+    const { aim } = this
+    const near = this.endBoxesPx()[0]
+    if (!aim || !near) return []
+    return [{ ...this.toWorld(near, aim.pxPerUnit), w: near.w / aim.pxPerUnit, h: near.h / aim.pxPerUnit }]
+  }
+
+  /** The limits drawn: only the current tier's, never the other tier's. The chip is on the ring at the first of `chipDegs` where it keeps clear of the readout and the end chips. */
   get limits(): GaugeLimit[] {
-    const { aim, radius } = this
+    const { aim, radius, readout } = this
     if (!aim || radius === undefined) return []
     const tier = rules.shot.tiers[aim.tier].name
-    const a = (visual.aim.gauge.label.chipDeg * Math.PI) / 180
+    const chip = `${tier.toUpperCase()} LIMIT`
+    const { chipDegs, sizePx } = visual.aim.gauge.label
+    const { wPx, hPx } = visual.aim.gauge.readout
+    const ppu = aim.pxPerUnit
+    const avoid = this.endBoxesPx()
+    if (readout) avoid.push({ ...this.toPx(readout.at, ppu), w: wPx, h: hPx })
     // Screen degrees: on the turned stage screen right and down are world left and up.
-    const r = this.flipped ? -radius : radius
-    const chipAt = { x: this.at.x + r * Math.cos(a), y: this.at.y + r * Math.sin(a) }
-    return [{ tier, radius, chip: `${tier.toUpperCase()} LIMIT`, chipAt, color: this.color }]
+    const spots = chipDegs.map((deg) => ({ dx: radius * ppu * Math.cos((deg * Math.PI) / 180), dy: radius * ppu * Math.sin((deg * Math.PI) / 180) }))
+    const box = this.chipBox({ x: 0, y: 0 }, chip, sizePx)
+    const chipAt = this.toWorld(placeClear({ x: 0, y: 0 }, box, spots, avoid), ppu)
+    return [{ tier, radius, chip, chipAt, color: this.color }]
   }
 
   /** The scale's end labels: its reading near the ball and at the limit, by the tier's curve. */
@@ -85,7 +139,7 @@ export class AimGauge extends Entity {
     if (!aim || !knob || aim.power === undefined) return undefined
     const { offsetPx, dropPx, edgePx, segments, hPx, dockClearPx, risePx } = visual.aim.gauge.readout
     // World units per screen px, right and down: negative on the turned stage.
-    const s = (this.flipped ? -1 : 1) / aim.pxPerUnit
+    const s = this.turn / aim.pxPerUnit
     const roomPx = (this.flipped ? knob.x : rules.pitchWidth - knob.x) * aim.pxPerUnit
     const side = roomPx < edgePx ? -1 : 1
     const belowPx = this.dockEdge === undefined ? Infinity : (this.dockEdge - knob.y) / s
@@ -126,9 +180,7 @@ export class AimGauge extends Entity {
     const { aim, radius } = this
     if (!aim || radius === undefined) return
     const ppu = aim.pxPerUnit
-    const turn = this.flipped ? -1 : 1
-    // A world point in the gauge's screen-px frame.
-    const local = (p: Point): Point => ({ x: (p.x - this.at.x) * ppu * turn, y: (p.y - this.at.y) * ppu * turn })
+    const local = (p: Point): Point => this.toPx(p, ppu)
     ctx.save()
     ctx.translate(this.at.x, this.at.y)
     ctx.scale(1 / ppu, 1 / ppu)
@@ -189,7 +241,7 @@ export class AimGauge extends Entity {
     if (ends) {
       chip(ctx, ends.limit, { x: 0, y: -R }, col, label.sizePx)
       const near = label.near[curve]
-      chip(ctx, ends.near, { x: 0, y: -(inner + label.nearGapPx) }, withAlpha(col, near.alpha), label.nearSizePx, near.fill)
+      chip(ctx, ends.near, this.nearChipPx(), withAlpha(col, near.alpha), label.nearSizePx, near.fill)
     }
     for (const l of this.limits) chip(ctx, l.chip, local(l.chipAt), l.color, label.sizePx)
   }
@@ -266,11 +318,14 @@ function circle(ctx: CanvasRenderingContext2D, r: number): void {
   ctx.stroke()
 }
 
+/** A chip's width (px) for a text `textPx` wide: the side padding (`visual.aim.gauge.label.padPx`) added. */
+const chipWidthPx = (textPx: number): number => textPx + visual.aim.gauge.label.padPx
+
 /** A label chip centred on `at` (px): text in `color` (`#rrggbb` or `rgba()`) on a dark pill (`fill`) with a faint border in the same colour. */
 function chip(ctx: CanvasRenderingContext2D, text: string, at: Point, color: string, sizePx: number, fill: string = visual.aim.gauge.label.fill): void {
-  const { padPx, heightPx, borderPx, borderAlpha, weight } = visual.aim.gauge.label
+  const { heightPx, borderPx, borderAlpha, weight } = visual.aim.gauge.label
   ctx.font = `${weight} ${sizePx}px ${visual.hud.font}`
-  const w = ctx.measureText(text).width + padPx
+  const w = chipWidthPx(ctx.measureText(text).width)
   ctx.fillStyle = fill
   ctx.beginPath()
   ctx.roundRect(at.x - w / 2, at.y - heightPx / 2, w, heightPx, heightPx / 2)

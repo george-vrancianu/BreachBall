@@ -1,6 +1,58 @@
 import { describe, expect, it } from 'vitest'
 import { visual } from '../../config/visual'
+import { zoneLabels } from '../boost'
+import { overlaps, textRect } from '../layout'
 import { Ball } from './Ball'
+
+describe('Ball badge', () => {
+  const { badge } = visual.ball.charged
+  const charged = (pos: { x: number; y: number }, flipped = false) => {
+    const b = new Ball()
+    b.state = { pos, vel: { x: 0, y: 0 }, rolled: 0 }
+    b.charge = { zone: 'ring', factor: 1.5 }
+    b.flipped = flipped
+    return b
+  }
+  const ringLabel = zoneLabels()[0]
+  const far = { x: 5, y: 20 }
+
+  it('sits above the ball on the screen: toward -y, or +y on Player 2 turned stage', () => {
+    expect(charged(far).badgeAt).toEqual({ x: far.x, y: far.y - badge.offset })
+    expect(charged(far, true).badgeAt).toEqual({ x: far.x, y: far.y + badge.offset })
+  })
+
+  it('does not land on the zone label of the ring the ball rests in', () => {
+    // The ball rests so that the badge above it would be right on the label.
+    const b = charged({ x: ringLabel.at.x, y: ringLabel.at.y + badge.offset })
+    expect(overlaps(textRect(b.badgeAt, '×1.5', badge.size, visual.text.glyphEm), ringLabel.rect)).toBe(false)
+  })
+
+  it('does not land on the Bullseye label either', () => {
+    const label = zoneLabels()[1]
+    const b = charged({ x: label.at.x, y: label.at.y + badge.offset })
+    b.charge = { zone: 'bullseye', factor: 2 }
+    expect(overlaps(textRect(b.badgeAt, '×2', badge.size, visual.text.glyphEm), label.rect)).toBe(false)
+  })
+
+  it('steps off the zone label on the flipped stage too, onto a spot clear of every label', () => {
+    const b = charged({ x: ringLabel.at.x, y: ringLabel.at.y - badge.offset }, true)
+    expect(overlaps(textRect({ x: b.state.pos.x, y: b.state.pos.y + badge.offset }, '×1.5', badge.size, visual.text.glyphEm), ringLabel.rect)).toBe(true)
+    expect(b.badgeAt).not.toEqual({ x: b.state.pos.x, y: b.state.pos.y + badge.offset })
+    for (const l of zoneLabels()) expect(overlaps(textRect(b.badgeAt, '×1.5', badge.size, visual.text.glyphEm), l.rect)).toBe(false)
+  })
+
+  it('steps off the Gauge chip on the flipped stage, where screen up is world down', () => {
+    const b = charged(far, true)
+    b.avoid = [{ x: far.x, y: far.y + badge.offset, w: 6, h: 2 }]
+    expect(b.badgeAt).toEqual({ x: far.x, y: far.y - badge.offset })
+  })
+
+  it('keeps clear of what the game says to avoid, such as the Aim chip over the ball', () => {
+    const b = charged(far)
+    b.avoid = [{ x: far.x, y: far.y - badge.offset, w: 6, h: 2 }]
+    expect(b.badgeAt.y).toBeGreaterThan(far.y)
+  })
+})
 
 const ms = (b: Ball, n: number) => b.update(n / 1000)
 

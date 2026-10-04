@@ -393,6 +393,8 @@ export class Game implements Sink {
     const inNet = goalBall(this.transition)
     this.ball.sync(inNet ? { ...state.ball, pos: inNet, vel: { x: 0, y: 0 } } : state.ball)
     this.gauge.at = this.ball.state.pos
+    // The Charged badge keeps clear of the gauge's near-ball chip.
+    this.ball.avoid = this.gauge.chipRects
     // The view's edge on the HUD's side: the dock band starts there.
     this.gauge.dockEdge = this.camera.y + (screenDown(this.transition.shown) * this.camera.visibleHeight) / 2
     this.ball.placement = input.placement && { at: input.placement, legal: canPlaceBall(shooter, input.placement, state.objects, this.config), radius: this.config.ballRadius }

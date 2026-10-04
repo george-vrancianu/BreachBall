@@ -1,12 +1,9 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import { centreSpot, halfSpan, type BoostZone, type Charge, type PlayerId } from '../../sim/pitch'
-import { boostColor, boostLabel } from '../boost'
+import { boostColor, boostZones as zones, zoneLabels } from '../boost'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
-
-/** The Boost zones, outer first so the Bullseye draws over the ring. */
-const zones: BoostZone[] = ['ring', 'bullseye']
 
 /** One goal end: its line's y, the direction into the pitch (+1 down the canvas) and the owner. P2 defends the top, P1 the bottom. */
 const ends = [
@@ -152,10 +149,8 @@ export class Pitch extends Entity {
   /** "x1.5" and "x2" below the centre spot, each inside its own zone. */
   private drawBoostLabels(ctx: CanvasRenderingContext2D): void {
     const { label, colors } = visual.pitch.boost
-    const at = centreSpot()
-    for (const zone of zones) {
-      const { radius, factor } = rules.boost[zone]
-      drawLabel(ctx, boostLabel(factor), { x: at.x, y: at.y + radius * label[`${zone}At`] }, { size: label.px * visual.pitch.unit, weight: label.weight, color: colors[zone], alpha: label.alpha, flipped: this.flipped })
+    for (const { zone, text, at, size } of zoneLabels()) {
+      drawLabel(ctx, text, at, { size, weight: label.weight, color: colors[zone], alpha: label.alpha, flipped: this.flipped })
     }
   }
 

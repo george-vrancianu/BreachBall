@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { visual } from '../../config/visual'
+import { overlaps, type Rect } from '../layout'
 import { AimGauge, type GaugeAim } from './AimGauge'
 
 // The ball at (20, 80); 10 screen px per world unit; Touch 150 px, Power 84 px.
@@ -11,6 +13,21 @@ const gauge = (aim?: GaugeAim) => {
   g.aim = aim
   return g
 }
+
+describe('AimGauge chipRects', () => {
+  it('boxes the near-ball chip, 24 screen px above the ball and 1.8 units high', () => {
+    const near = gauge(touch).chipRects[0]
+    expect(near).toMatchObject({ x: expect.closeTo(20), y: expect.closeTo(77.6), h: expect.closeTo(1.8) })
+  })
+  it('puts it below the ball in world y on the flipped stage, where screen up is world down', () => {
+    const g = gauge(touch)
+    g.flipped = true
+    expect(g.chipRects[0].y).toBeCloseTo(82.4)
+  })
+  it('has none without an aim', () => {
+    expect(gauge().chipRects).toEqual([])
+  })
+})
 
 describe('AimGauge radius', () => {
   it('shows nothing without an aim', () => {
@@ -47,6 +64,22 @@ describe('AimGauge limit', () => {
     const g = gauge(touch)
     g.flipped = true
     expect(g.limits[0].chipAt).toEqual(about(9.39, 90.61))
+  })
+  // Pulled 10 units up the screen (the shot goes down), the readout beside the knob lands where the default chip is.
+  const pulledUp: GaugeAim = { ...touch, phase: 'aiming', dir: { x: 0, y: 1 }, power: 0.27, pullPx: 100 }
+  const readoutBox = (g: AimGauge): Rect => ({ ...g.readout!.at, w: visual.aim.gauge.readout.wPx / 10, h: visual.aim.gauge.readout.hPx / 10 })
+  const chipBox = (g: AimGauge): Rect => ({ ...g.limits[0].chipAt, w: 8, h: 1.8 })
+  it('moves the chip off the readout when the readout would cover it', () => {
+    const g = gauge(pulledUp)
+    expect(overlaps(chipBox(g), readoutBox(g))).toBe(false)
+  })
+  it('keeps the chip at the top right when the readout is elsewhere', () => {
+    expect(gauge(pulled(50)).limits[0].chipAt).toEqual(about(30.61, 69.39))
+  })
+  it('moves the chip off the readout on the flipped stage too', () => {
+    const g = gauge(pulledUp)
+    g.flipped = true
+    expect(overlaps(chipBox(g), readoutBox(g))).toBe(false)
   })
   it('shows no limit without an aim', () => {
     expect(gauge().limits).toEqual([])
