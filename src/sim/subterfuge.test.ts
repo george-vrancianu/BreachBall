@@ -57,23 +57,45 @@ describe('Subterfuge: Jam', () => {
     expect(refunded.subterfuge.queued[opponent(p)]).toBe('jam')
     expect(refunded.possession.shots).toBe(c.shots - 1)
   })
-  it('cast in a build turn, it lands when play begins on the opponent\'s possession', () => {
+  describe('cast in the last build turn', () => {
     // The last builder (not the first) ends the build phase; the possession is already set for the round.
-    const builder = opponent(firstBuilder(buildState(1).match.seed, 1))
-    const s = buildState(builder)
-    const shooter = s.possession.shooter
-    const cast = step(s, jam(builder), c).state
-    expect(cast.subterfuge.queued[opponent(builder)]).toBe('jam')
-    expect(cast.possession.shots).toBe(c.shots)
-    const done = step(cast, { done: builder }, c)
-    expect(done.state.match.builder).toBeNull()
-    if (shooter === opponent(builder)) {
-      expect(done.state.possession.shots).toBe(c.shots - 1)
-      expect(done.state.subterfuge.queued[opponent(builder)]).toBeNull()
-    } else {
-      expect(done.state.possession.shots).toBe(c.shots)
-      expect(done.state.subterfuge.queued[opponent(builder)]).toBe('jam')
+    const last = opponent(firstBuilder(buildState(1).match.seed, 1))
+    const castThenEnd = (shooter: PlayerId) => {
+      const s = buildState(last)
+      const cast = step({ ...s, possession: { ...s.possession, shooter } }, jam(last), c).state
+      expect(cast.subterfuge.queued[opponent(last)]).toBe('jam')
+      expect(cast.possession.shots).toBe(c.shots)
+      const done = step(cast, { done: last }, c)
+      expect(done.state.match.builder).toBeNull()
+      return done.state
     }
+    it('lands when play begins on the opponent\'s possession', () => {
+      const after = castThenEnd(opponent(last))
+      expect(after.possession.shots).toBe(c.shots - 1)
+      expect(after.subterfuge.queued[opponent(last)]).toBeNull()
+    })
+    it('stays queued when play begins on the caster\'s own possession', () => {
+      const after = castThenEnd(last)
+      expect(after.possession.shots).toBe(c.shots)
+      expect(after.subterfuge.queued[opponent(last)]).toBe('jam')
+    })
+  })
+  it('carries through a goal and the next round\'s build turns, landing on the conceder\'s possession', () => {
+    const s = ready()
+    const scorer: PlayerId = 1
+    const cast = step({ ...s, possession: { ...s.possession, shooter: scorer } }, jam(scorer), c).state
+    // The scorer shoots a goal (the ball crosses the opponent's goal line).
+    const shooting: SimState = { ...cast, ball: { pos: { x: 20, y: 0.5 }, vel: { x: 0, y: -60 }, rolled: 0 }, possession: { shooter: scorer, shots: c.shots, inHand: false, live: true } }
+    let r = step(shooting, {}, c)
+    expect(r.events).toContainEqual({ type: 'round-ended', round: 1, scorer })
+    expect(r.state.subterfuge.queued[opponent(scorer)]).toBe('jam')
+    // Both builders finish their turns; play begins on the conceder's possession.
+    for (let i = 0; i < 2 && r.state.match.builder; i++) r = step(r.state, { done: r.state.match.builder }, c)
+    expect(r.state.match.builder).toBeNull()
+    expect(r.state.possession.shooter).toBe(opponent(scorer))
+    expect(r.state.possession.shots).toBe(c.shots - 1)
+    expect(r.state.subterfuge.queued).toEqual({ 1: null, 2: null })
+    expect(r.events).toContainEqual({ type: 'subterfuge-landed', player: opponent(scorer), item: 'jam' })
   })
   it('never takes the last Move point', () => {
     const one = { ...c, shots: 1 }
@@ -109,18 +131,33 @@ describe('Subterfuge: Jam', () => {
       expect(canSubterfuge(handed, opponent(p))).toBe(true)
       expect(step(handed, jam(opponent(p)), c).state.subterfuge.queued[p]).toBe('jam')
     })
-    it('refuses a Jam while one is already queued against that opponent', () => {
-      const s = buildState(1)
-      const first = step(s, jam(1), c).state
-      // A later turn of the same player: the per-turn flag is reset, the queue is not.
-      const later = { ...first, subterfuge: { ...first.subterfuge, spent: false } }
-      const r = step(later, jam(1), c)
-      expect(r.events).toContainEqual({ type: 'refused' })
-      expect(r.state.credits[1]).toBe(first.credits[1])
+    it('refuses a Jam while one is already queued against that opponent, in a real later turn', () => {
+      // The first builder casts in their own build turn and also holds the first possession, so the Jam stays queued while play begins.
+      const first = firstBuilder(buildState(1).match.seed, 1)
+      const s = buildState(first)
+      let r = step({ ...s, possession: { ...s.possession, shooter: first } }, jam(first), c)
+      expect(r.state.subterfuge.queued[opponent(first)]).toBe('jam')
+      r = step(r.state, { done: first }, c)
+      r = step(r.state, { done: opponent(first) }, c)
+      expect(r.state.match.builder).toBeNull()
+      expect(r.state.subterfuge.queued[opponent(first)]).toBe('jam')
+      expect(r.state.subterfuge.spent).toBe(false)
+      expect(canSubterfuge(r.state, first)).toBe(true)
+      const second = step(r.state, jam(first), c)
+      expect(second.events).toContainEqual({ type: 'refused' })
+      expect(second.state.credits[first]).toBe(r.state.credits[first])
     })
   })
 
   describe('refused', () => {
+    it('for an unknown item, without charging', () => {
+      const s = ready()
+      const p = s.possession.shooter
+      const r = step(s, { subterfuge: { player: p, item: 'nuke' as never } }, c)
+      expect(r.events).toContainEqual({ type: 'refused' })
+      expect(r.state.credits).toEqual(s.credits)
+      expect(r.state.subterfuge).toEqual(s.subterfuge)
+    })
     it('without enough Credits', () => {
       const s = ready()
       const p = s.possession.shooter

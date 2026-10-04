@@ -494,4 +494,13 @@ describe('Shell', () => {
     rerender(<Shell {...props()} flipped />)
     expect(shell.style.top).toBe('0px')
   })
+
+  it('lays the circles out Offence, Defence, Subterfuge', () => {
+    const defence: DefenceCircle = { building: false, items: [], available: true }
+    render(<Shell {...props()} defence={defence} subterfuge={{ available: true, queued: [], items: [] }} />)
+    const names = ['Offence', 'Build', 'Subterfuge'].map((n) => screen.getByRole('button', { name: new RegExp(`^${n}`) }))
+    const follows = (a: HTMLElement, b: HTMLElement) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(follows(names[0]!, names[1]!)).toBe(true)
+    expect(follows(names[1]!, names[2]!)).toBe(true)
+  })
 })
