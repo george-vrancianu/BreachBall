@@ -258,6 +258,47 @@ describe('Shell', () => {
       expect(p.onBuildToggle).not.toHaveBeenCalled()
     })
 
+    it('opens over the pitch for Player 2: above the HUD rows, and the circle row is the innermost', () => {
+      vi.useFakeTimers()
+      const { container } = render(<Shell {...props()} flipped menu={model()} confirm />)
+      hold()
+      const column = screen.getByRole('button', { name: 'Steal' }).parentElement as HTMLElement
+      expect(column.style.zIndex).toBe(String(visual.hud.defence.columnZ))
+      const shell = container.firstElementChild as HTMLElement
+      expect(shell.style.flexDirection).toBe('column-reverse')
+      expect(shell.firstElementChild!.contains(circle())).toBe(true)
+    })
+
+    it('renders no circle without a menu (the play phase)', () => {
+      render(<Shell {...props()} />)
+      expect(screen.queryByRole('button', { name: /^(Build|Leave building)$/ })).toBeNull()
+    })
+
+    it('stays, greyed, on the opponent\'s build turn', () => {
+      setup(model({ available: false }))
+      expect(circle().getAttribute('aria-disabled')).toBe('true')
+    })
+
+    it('a hold does not open when building became unavailable meanwhile', () => {
+      const { p, r } = setup()
+      fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 })
+      r.rerender(<Shell {...p} menu={model({ available: false })} />)
+      act(() => { vi.advanceTimersByTime(visual.hud.holdMs + 1) })
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+    })
+
+    it('a press outside the circle and its column closes the column', () => {
+      setup()
+      hold()
+      document.elementFromPoint = () => circle()
+      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
+      expect(screen.getByRole('button', { name: 'Steal' })).toBeTruthy()
+      fireEvent.pointerDown(screen.getByRole('button', { name: 'Steal' }))
+      expect(screen.getByRole('button', { name: 'Steal' })).toBeTruthy()
+      fireEvent.pointerDown(document.body)
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+    })
+
     it('closes the open menu when building becomes unavailable', () => {
       const { p, r } = setup()
       hold()

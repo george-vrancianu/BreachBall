@@ -4,12 +4,13 @@ import { buildState, emptied, hseg } from '../../sim/testkit'
 import type { WallSpec } from '../../sim/wall'
 import { anchorOf, buildMenu, commit, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapBody, snapStart, towerAt, type BuildActions } from './buildMenu'
 
+const menuOf = (...a: Parameters<typeof buildMenu>) => buildMenu(...a)!
 const noop = () => {}
 const actions: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'> = { cancel: noop, rotate: noop, remove: noop }
 const wall: WallSpec = { kind: 'wall', owner: 1, ...hseg(10, 40) }
 const placed = (): SimState => step(buildState(1), { placeWall: wall }, c).state
 const labels = (s: SimState, v: Parameters<typeof buildMenu>[2]) => {
-  return buildMenu(s, 1, v, actions).selection?.buttons.map((b) => b.label)
+  return menuOf(s, 1, v, actions).selection?.buttons.map((b) => b.label)
 }
 
 describe('towerAt', () => {
@@ -107,7 +108,7 @@ describe('selection', () => {
     expect(legal(rearrange, { spec: longer, id: 1, movable: true })).toBe(false)
     expect(legal(rearrange, { spec: { ...wall, ...hseg(4, 40) }, id: 1, movable: true })).toBe(true)
   })
-  it('✓ places a new piece or moves a structure; nothing for an older one', () => {
+  it('commit places a new piece or moves a structure; nothing for an older one', () => {
     expect(commit({ spec: wall, movable: true })).toEqual({ placeWall: wall })
     expect(commit({ spec: rotated({ spec: wall, movable: true }).spec, id: 1, movable: true })).toEqual({ moveStructure: { player: 1, id: 1, a: wall.a, b: expect.objectContaining({ x: expect.closeTo(wall.a.x + 8 * Math.SQRT1_2), y: expect.closeTo(wall.a.y + 8 * Math.SQRT1_2) }) } })
     expect(commit({ spec: wall, id: 1, movable: false })).toBeUndefined()
@@ -116,21 +117,25 @@ describe('selection', () => {
 
 describe('build menu', () => {
   it('not building: four items, none pressed, Cannon soon, available on the build turn', () => {
-    const m = buildMenu(buildState(1), 1, {}, actions)
+    const m = menuOf(buildState(1), 1, {}, actions)
     expect(m).toMatchObject({ building: false, available: true })
     expect(m.item).toBeUndefined()
     expect(m.selection).toBeUndefined()
-    expect(m.items.map((i) => [i.label, i.disabled, i.pressed])).toEqual([['Wall · 2', false, false], ['Repulsor', false, false], ['Steal', false, false], ['Cannon', true, false]])
+    expect(m.items.map((i) => [i.label, i.disabled, i.pressed])).toEqual([['Wall · 2/unit', false, false], ['Repulsor', false, false], ['Steal', false, false], ['Cannon', true, false]])
     expect(m.items[3]!.soon).toBe(true)
   })
   it('building: the armed item is pressed; an item with no stock is disabled', () => {
-    const m = buildMenu(emptied(buildState(1), 1, 'steal'), 1, { item: 'repulsor' }, actions)
+    const m = menuOf(emptied(buildState(1), 1, 'steal'), 1, { item: 'repulsor' }, actions)
     expect(m).toMatchObject({ building: true, item: 'repulsor' })
     expect(m.items.map((i) => [i.item, i.pressed, i.disabled])).toEqual([['wall', false, false], ['repulsor', true, false], ['steal', false, true], ['cannon', false, true]])
   })
+  it('is absent in play, when no build turn is running', () => {
+    expect(buildMenu(emptied(buildState(1), 1, 'steal'), 1, {}, actions)).toBeDefined()
+    expect(buildMenu({ ...buildState(1), match: { ...buildState(1).match, builder: null } }, 1, {}, actions)).toBeUndefined()
+  })
   it('is unavailable to the other player, and while blocked', () => {
-    expect(buildMenu(buildState(1), 2, {}, actions).available).toBe(false)
-    expect(buildMenu(buildState(1), 1, { blocked: true }, actions).available).toBe(false)
+    expect(menuOf(buildState(1), 2, {}, actions).available).toBe(false)
+    expect(menuOf(buildState(1), 1, { blocked: true }, actions).available).toBe(false)
   })
   it('a new wall gets Rotate and cancel; a new tower only cancel', () => {
     expect(labels(buildState(1), { selection: { spec: wall, movable: true } })).toEqual(['↻', '✕'])
@@ -179,7 +184,7 @@ describe('rearrange turn', () => {
   const base = initialState(1, siege)
   const s: SimState = { ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: [{ ...wall, id: 1, hp: 2 }], built: [1], credits: { 1: 0, 2: 0 } }
   it('is unavailable when nothing is selected, and has no demolish once a piece is', () => {
-    expect(buildMenu(s, 1, {}, actions)).toMatchObject({ available: false, building: false })
+    expect(menuOf(s, 1, {}, actions)).toMatchObject({ available: false, building: false })
     const sel = pick(s, 1, { x: 21, y: 80.5 }, 1)!
     expect(sel.movable).toBe(true)
     expect(labels(s, { selection: sel })).toEqual(['↻', '✕'])

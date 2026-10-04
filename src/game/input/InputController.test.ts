@@ -246,7 +246,7 @@ describe('drawing a wall', () => {
     expect(ctl.selection).toBeUndefined()
   })
 
-  it('arms another item from the palette', () => {
+  it('arms another item', () => {
     ctl.build.arm('steal')
     expect(ctl.item).toBe('steal')
   })
@@ -315,15 +315,28 @@ describe('drawing details', () => {
     expect(sent).toEqual([{ placeWall: { kind: 'wall', owner: 1, a: { x: 10, y: 80 }, b: { x: 10 + unit, y: 80 } } }])
   })
 
-  it('toggling Build mid-draw sends nothing and ends the draw', () => {
+  it('toggling Build mid-draw does nothing: the item stays and the lift still places the wall', () => {
     down({ x: 10, y: 80 })
     move({ x: 10 + unit, y: 80 })
     ctl.build.toggle()
+    expect(ctl.item).toBe('wall')
     up({ x: 10 + unit, y: 80 })
-    expect(sent).toEqual([])
-    expect(ctl.selection).toBeUndefined()
-    move({ x: 10 + 2 * unit, y: 80 })
-    expect(ctl.selection).toBeUndefined()
+    expect(sent).toEqual([{ placeWall: { kind: 'wall', owner: 1, a: { x: 10, y: 80 }, b: { x: 10 + unit, y: 80 } } }])
+  })
+
+  describe.each([['blocked'], ['mapOpen']] as const)('while %s', (flag) => {
+    beforeEach(() => {
+      ctl.build.arm('wall')
+      ;(ctl as unknown as { host: Record<string, () => boolean> }).host[flag] = () => true
+    })
+    it('toggle leaves the armed item', () => {
+      ctl.build.toggle()
+      expect(ctl.item).toBe('wall')
+    })
+    it('arm leaves the armed item', () => {
+      ctl.build.arm('steal')
+      expect(ctl.item).toBe('wall')
+    })
   })
 
   it('a refused landing clears and leaves no selection', () => {

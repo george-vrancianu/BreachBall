@@ -5,7 +5,7 @@ import type { ButtonSpec } from '../../game/view/hudModel'
 import { Button, FONT } from '../ButtonRow'
 
 const { ink, panel, shadow } = visual.hud
-const { circlePx, borderPx, itemPx, pillPx, gap, pulseMs } = visual.hud.defence
+const { circlePx, borderPx, itemPx, pillPx, gap, pulseMs, columnZ } = visual.hud.defence
 const GREY = visual.tokens.ghostBorder
 const ROUND: CSSProperties = { ...FONT, width: 52, height: 52, borderRadius: '50%', border: `2px solid ${ink}`, color: ink, background: panel, fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, boxShadow: `0 2px 8px ${shadow}` }
 
@@ -57,9 +57,23 @@ export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, class
   const circle = useRef<HTMLButtonElement>(null)
   // The press in progress: where it began, and what the hold did.
   const press = useRef<Press>(undefined)
+  // The hold timer fires later than the render that started it, so it reads the latest.
+  const availableRef = useRef(available)
+  availableRef.current = available
+  const column = useRef<HTMLDivElement>(null)
   const clearHold = () => clearTimeout(hold.current)
   useEffect(() => () => (clearTimeout(hold.current), clearTimeout(pulseTimer.current)), [])
   useEffect(() => { if (!available) setOpen(false) }, [available])
+  // A press anywhere outside the circle and its column closes the column.
+  useEffect(() => {
+    if (!open) return
+    const outside = (e: Event) => {
+      const t = e.target as Node
+      if (!circle.current?.contains(t) && !column.current?.contains(t)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', outside, true)
+    return () => document.removeEventListener('pointerdown', outside, true)
+  }, [open])
 
   const nudge = () => {
     clearTimeout(pulseTimer.current)
@@ -72,7 +86,7 @@ export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, class
     circle.current?.setPointerCapture?.(e.pointerId)
     hold.current = setTimeout(() => {
       if (p.slid) return
-      if (available) (p.opened = true), setOpen(true)
+      if (availableRef.current) (p.opened = true), setOpen(true)
       else (p.pulsed = true), nudge()
     }, visual.hud.holdMs)
   }
@@ -110,7 +124,7 @@ export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, class
       {selection?.buttons.map((s) => <Round key={s.label} spec={s} />)}
       <div style={{ position: 'relative' }}>
         {open && (
-          <div style={{ position: 'absolute', [flipped ? 'top' : 'bottom']: circlePx + gap, left: (circlePx - itemPx) / 2, display: 'flex', flexDirection: flipped ? 'column' : 'column-reverse', gap }}>
+          <div ref={column} style={{ position: 'absolute', [flipped ? 'top' : 'bottom']: circlePx + gap, left: (circlePx - itemPx) / 2, display: 'flex', flexDirection: flipped ? 'column' : 'column-reverse', gap, zIndex: columnZ }}>
             {items.map((s) => <ItemButton key={s.item} spec={s} color={color} onPick={(item) => (setOpen(false), onArm(item))} />)}
           </div>
         )}

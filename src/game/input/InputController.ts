@@ -125,10 +125,13 @@ export class InputController {
   // Tapping one of the builder's structures selects it (on lift, so a drag that starts on it is not a tap); an older one is only selected, to demolish it.
   build: BuildActions = {
     toggle: () => {
+      // Not mid-gesture, and not under a blocking hold or the map.
+      if (this.live || this.host.blocked() || this.host.mapOpen()) return
       if (this.item) this.leaveBuild()
       else if (canEdit(this.host.state())) this.item = 'wall'
     },
     arm: (item: Item) => {
+      if (this.live || this.host.blocked() || this.host.mapOpen()) return
       const s = this.host.state()
       const builder = s.match.builder
       if (builder && !itemDisabled(s, builder, item) && (this.item || canEdit(s))) this.item = item

@@ -28,8 +28,8 @@ export type { PlayerId, PowerUp }
 /** Everything the HUD and screens draw from. Data only: pushed up through `onView` when it changes, never read back. */
 export type HudView = {
   hud: HudModel
-  /** The Defence circle's model, for the whole match (greyed when the viewer cannot build). */
-  menu: BuildMenu
+  /** The Defence circle's model, for the whole match (greyed when the viewer cannot build; absent when no build turn is running). */
+  menu?: BuildMenu
   overlay?: OverlayView
   /** Degrees the stage (canvas and in-match HUD) is rotated by the hot-seat flip. */
   angle: number

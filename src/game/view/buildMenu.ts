@@ -122,21 +122,22 @@ export function landedAs(s: SimState, sel: Selection): Selection | undefined {
 /** One Defence piece in the hold menu: `disabled` greys it (no Credits or stock; Cannon is not built yet, `soon`), `pressed` marks the armed one. */
 export type ItemSpec = { item: Item | 'cannon'; label: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
-/** What the Defence circle shows: whether the viewer is building, the pieces to offer, whether they can build now (else the circle is greyed), and the controls of the selected structure. */
+/** What the Defence circle shows (nothing when no build turn is running): whether the viewer is building, the pieces to offer, whether they can build now (else the circle is greyed), and the controls of the selected structure. */
 export type BuildMenu = { building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: ButtonSpec[] } }
 
 export type BuildActions = { toggle(): void; arm(item: Item): void; cancel(): void; rotate(): void; remove(): void }
 
-/** Whether the palette entry for `item` is greyed out: no Credits for a unit of wall, no stock of the tower. */
+/** Whether the menu item for `item` is greyed out: no Credits for a unit of wall, no stock of the tower. */
 export const itemDisabled = (s: SimState, b: PlayerId, item: Item): boolean => (item === 'wall' ? s.credits[b] < oneUnitCost() : s.players[b].inventory[item] < 1)
 
 const oneUnitCost = () => wallCost({ a: { x: 0, y: 0 }, b: { x: rules.wall.unit * Math.min(...rules.wall.units), y: 0 } })
 
 const POWER_LABEL: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: 'Steal' }
 
-export function buildMenu(s: SimState, viewer: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection; /** A blocking hold or the map is up. */ blocked?: boolean }, a: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'>): BuildMenu {
+export function buildMenu(s: SimState, viewer: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection; /** A blocking hold or the map is up. */ blocked?: boolean }, a: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'>): BuildMenu | undefined {
+  if (!s.match.builder) return undefined
   const mine = s.match.builder === viewer
-  // A turn that may only move pieces (Rearrange) has no palette and no demolish.
+  // A turn that may only move pieces (Rearrange) has no placing and no demolish and no demolish.
   const edit = canEdit(s)
   const sel = mine && !v.blocked ? v.selection : undefined
   // The price on the item is one unit's; a longer wall is drawn and costed live.
@@ -145,7 +146,7 @@ export function buildMenu(s: SimState, viewer: PlayerId, v: { /** The armed item
     building: v.item !== undefined,
     ...(v.item && { item: v.item }),
     items: [
-      piece('wall', `Wall · ${rules.wall.unitCost}`),
+      piece('wall', `Wall · ${rules.wall.unitCost}/unit`),
       ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => piece(power, POWER_LABEL[power])),
       { item: 'cannon', label: 'Cannon', disabled: true, pressed: false, soon: true },
     ],
