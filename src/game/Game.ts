@@ -28,8 +28,8 @@ export type { PlayerId, PowerUp }
 /** Everything the HUD and screens draw from. Data only: pushed up through `onView` when it changes, never read back. */
 export type HudView = {
   hud: HudModel
-  /** The builder's build menu, when it is their build turn and the map is closed. */
-  menu?: BuildMenu
+  /** The Defence circle's model, for the whole match (greyed when the viewer cannot build). */
+  menu: BuildMenu
   overlay?: OverlayView
   /** Degrees the stage (canvas and in-match HUD) is rotated by the hot-seat flip. */
   angle: number
@@ -320,7 +320,7 @@ export class Game implements Sink {
     const { shooter, inHand } = state.possession
     const view: HudView = {
       hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked }), viewer: this.viewer(), armed: input.armed, tappable: canArm(state, shooter) }),
-      menu: builder && !this.mapOpen && !blocked ? buildMenu(state, builder, { item: input.item, selection: input.selection }, input.build) : undefined,
+      menu: buildMenu(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen }, input.build),
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),
       flipped: transition.shown === 2,

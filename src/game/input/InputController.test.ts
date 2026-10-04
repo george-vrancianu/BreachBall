@@ -252,6 +252,19 @@ describe('drawing a wall', () => {
   })
 })
 
+describe('arm from not building', () => {
+  it('enters build mode with that item', () => {
+    expect(ctl.item).toBeUndefined()
+    ctl.build.arm('repulsor')
+    expect(ctl.item).toBe('repulsor')
+  })
+  it('ignores a disabled item', () => {
+    make(emptied(buildState(1), 1, 'steal'))
+    ctl.build.arm('steal')
+    expect(ctl.item).toBeUndefined()
+  })
+})
+
 describe('not building', () => {
   it('a one-finger drag on empty pitch pans', () => {
     const y = camera.y

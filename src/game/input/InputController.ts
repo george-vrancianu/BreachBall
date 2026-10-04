@@ -131,7 +131,7 @@ export class InputController {
     arm: (item: Item) => {
       const s = this.host.state()
       const builder = s.match.builder
-      if (this.item && !(builder && itemDisabled(s, builder, item))) this.item = item
+      if (builder && !itemDisabled(s, builder, item) && (this.item || canEdit(s))) this.item = item
     },
     rotate: () => {
       // Mid-gesture the piece is still the finger's: rotating would place a second one.

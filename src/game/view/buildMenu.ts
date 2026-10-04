@@ -119,8 +119,11 @@ export function landedAs(s: SimState, sel: Selection): Selection | undefined {
   return o && { spec: sel.spec, id: o.id, movable: true }
 }
 
-/** What the build menu shows: the closed or open icon, or the selection's controls. */
-export type BuildMenu = { kind: 'menu'; open: boolean; items: ButtonSpec[] } | { kind: 'selected'; buttons: ButtonSpec[] }
+/** One Defence piece in the hold menu: `disabled` greys it (no Credits or stock; Cannon is not built yet, `soon`), `pressed` marks the armed one. */
+export type ItemSpec = { item: Item | 'cannon'; label: string; disabled: boolean; pressed: boolean; soon?: boolean }
+
+/** What the Defence circle shows: whether the viewer is building, the pieces to offer, whether they can build now (else the circle is greyed), and the controls of the selected structure. */
+export type BuildMenu = { building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: ButtonSpec[] } }
 
 export type BuildActions = { toggle(): void; arm(item: Item): void; cancel(): void; rotate(): void; remove(): void }
 
@@ -131,28 +134,30 @@ const oneUnitCost = () => wallCost({ a: { x: 0, y: 0 }, b: { x: rules.wall.unit 
 
 const POWER_LABEL: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: 'Steal' }
 
-export function buildMenu(s: SimState, b: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection }, a: BuildActions): BuildMenu | undefined {
-  const sel = v.selection
+export function buildMenu(s: SimState, viewer: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection; /** A blocking hold or the map is up. */ blocked?: boolean }, a: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'>): BuildMenu {
+  const mine = s.match.builder === viewer
   // A turn that may only move pieces (Rearrange) has no palette and no demolish.
   const edit = canEdit(s)
-  if (!sel && !edit) return undefined
-  if (!sel) {
-    // The price on the item is one unit's; a longer wall is drawn and costed live.
-    return {
-      kind: 'menu',
-      open: v.item !== undefined,
-      items: [
-        { label: `Wall · ${rules.wall.unitCost}/unit`, disabled: itemDisabled(s, b, 'wall'), pressed: v.item === 'wall', onClick: () => a.arm('wall') },
-        ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => ({ label: `${POWER_LABEL[power]} ×${s.players[b].inventory[power]}`, disabled: itemDisabled(s, b, power), pressed: v.item === power, onClick: () => a.arm(power) })),
-      ],
-    }
-  }
+  const sel = mine && !v.blocked ? v.selection : undefined
+  // The price on the item is one unit's; a longer wall is drawn and costed live.
+  const piece = (item: Item, label: string): ItemSpec => ({ item, label, disabled: itemDisabled(s, viewer, item), pressed: v.item === item })
   return {
-    kind: 'selected',
-    buttons: [
-      ...(sel.id !== undefined && edit ? [{ label: '🗑', disabled: !sel.movable && s.credits[b] < rules.demolishCost, onClick: a.remove }] : []),
-      ...(sel.movable && sel.spec.kind === 'wall' ? [{ label: '↻', onClick: a.rotate }] : []),
-      { label: '✕', onClick: a.cancel },
+    building: v.item !== undefined,
+    ...(v.item && { item: v.item }),
+    items: [
+      piece('wall', `Wall · ${rules.wall.unitCost}`),
+      ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => piece(power, POWER_LABEL[power])),
+      { item: 'cannon', label: 'Cannon', disabled: true, pressed: false, soon: true },
     ],
+    available: mine && edit && !v.blocked,
+    ...(sel && {
+      selection: {
+        buttons: [
+          ...(sel.id !== undefined && edit ? [{ label: '🗑', disabled: !sel.movable && s.credits[viewer] < rules.demolishCost, onClick: a.remove }] : []),
+          ...(sel.movable && sel.spec.kind === 'wall' ? [{ label: '↻', onClick: a.rotate }] : []),
+          { label: '✕', onClick: a.cancel },
+        ],
+      },
+    }),
   }
 }
