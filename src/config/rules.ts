@@ -26,6 +26,8 @@ const base = {
   centreZoneRadius,
   /** The Boost ring (same radius as the Centre zone) and the Bullseye, both centred on the centre spot: a shot that comes to rest with the ball's centre inside Charges it, the Bullseye winning, and the next shot's speed is multiplied by `factor`. */
   boost: { ring: { radius: centreZoneRadius, factor: 1.5 }, bullseye: { radius: 2, factor: 2 } },
+  /** Credits the shooter earns in Rounds when the ball enters the Bullseye from outside during a shot, once per shot (Siege has no Credits economy). */
+  bullseyeCredits: 2,
   /** Distance in world units from a goal line to the Kick-off spot of the kicker defending it (inside their keep-out arc, so no wall can block the ball). */
   kickoffGap: 5,
   /** Half the drawn wall thickness; the ball cannot be placed on it. */

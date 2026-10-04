@@ -1,5 +1,5 @@
 import { rules } from '../config/rules'
-import { boostAt, goalCrossed, isCharged, kickoffSpot, type BoostZone, type PlayerId, type Point } from './pitch'
+import { boostAt, bullseyeEntered, goalCrossed, isCharged, kickoffSpot, type BoostZone, type PlayerId, type Point } from './pitch'
 import type { GameModeName, Match } from './match'
 import { modeFor, modeNamed, type DefenceChoice, type ModeContext } from './mode'
 import { initialPlayers, type Player, type PowerUp } from './player'
@@ -101,6 +101,8 @@ export type SimEvent =
   /** `from` is the ball's position at launch. */
   | { type: 'shot-fired'; player: PlayerId; from: Point; dir: Point; power: number; tier: number; breaker?: boolean; /** The Charged ball's factor, when the shot used one. */ charge?: number }
   /** A shot came to rest in the Boost ring or Bullseye: the ball is Charged by `factor` until its next shot or move. */
+  /** The ball entered the Bullseye from outside during `player`'s shot, earning them `credits` (Rounds). */
+  | { type: 'bullseye'; player: PlayerId; credits: number }
   | { type: 'charged'; zone: BoostZone; factor: number; at: Point }
   | { type: 'possession-changed'; shooter: PlayerId; inHand: boolean }
   /** The shooter traded `count` Move points for Credits. */
@@ -140,6 +142,8 @@ export type SimState = {
   charge: number
   /** The zone `charge` came from (null exactly when not Charged), for the view. */
   chargeZone: BoostZone | null
+  /** The shot in flight has already earned its Bullseye Credits (once per shot); cleared when a shot fires. */
+  bullseyePaid: boolean
   possession: Possession
   match: Match
   /** Shot clock: ticks left (frozen while a shot is live) and consecutive expiries in this possession. */
@@ -232,7 +236,7 @@ export function initialState(seed = 1, config: SimConfig = defaultConfig): SimSt
   // The first builder's turn opens here, so it gets its grant as every later build turn does in step; the other player holds nothing yet.
   const none = { 1: 0, 2: 0 }
   const credits = { ...none, ...(b && { [b]: mode.onBuildStart(start.match, ctxOf([], start.possession, start.possession.shooter, none), config).credits }) }
-  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: kickoffSpot(start.possession.shooter), vel: { x: 0, y: 0 }, rolled: 0 }, charge: 1, chargeZone: null, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false } }
+  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: kickoffSpot(start.possession.shooter), vel: { x: 0, y: 0 }, rolled: 0 }, charge: 1, chargeZone: null, bullseyePaid: false, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false } }
 }
 
 const spend = (players: SimState['players'], id: PlayerId, power: PowerUp, n = 1): SimState['players'] => ({ ...players, [id]: { ...players[id], inventory: { ...players[id].inventory, [power]: players[id].inventory[power] - n } } })
@@ -287,7 +291,7 @@ export function step(
     } else events.push({ type: 'refused' })
   }
   let ball = state.ball
-  let { charge, chargeZone } = state
+  let { charge, chargeZone, bullseyePaid } = state
   /** Moves the ball to `pos` at rest: a restart, kick-off or placement, which loses its charge. */
   const put = (b: Ball, pos: Point): Ball => {
     charge = 1
@@ -368,6 +372,7 @@ export function step(
       const v = launchSpeed(shot.power, charge, config)
       charge = 1
       chargeZone = null
+      bullseyePaid = false
       ball = { ...ball, vel: { x: shot.dir.x * v, y: shot.dir.y * v } }
       const splash = splashOf(shot.tier, shot.power, config)
       if (splash) {
@@ -421,6 +426,12 @@ export function step(
   }
   const rolled = rollBall(ball, objects, config, breaker, possession.shooter)
   events.push(...rolled.events)
+  // Entering the Bullseye from outside pays the shooter once per shot, however the shot ends; the swept segment keeps a fast ball from skipping it.
+  if (possession.live && !bullseyePaid && mode.hasCredits(match) && bullseyeEntered(ball.pos, rolled.ball.pos)) {
+    bullseyePaid = true
+    credits = { ...credits, [possession.shooter]: credits[possession.shooter] + rules.bullseyeCredits }
+    events.push({ type: 'bullseye', player: possession.shooter, credits: rules.bullseyeCredits })
+  }
   let landed = rolled.ball
   const stolen = rolled.events.find((e) => e.type === 'steal-triggered')
   if (stolen) {
@@ -486,5 +497,5 @@ export function step(
   if (expired || fired || ended || (chose && !match.builder) || (state.possession.live && !possession.live) || possession.shooter !== state.possession.shooter) clock = { ...clock, left: config.shotClock * config.tickHz }
   // A goal opens the choice: its window is the build window, set after the resets above.
   if (match.choosing && !state.match.choosing && config.buildTime) clock = { left: config.buildTime * config.tickHz, expiries: 0 }
-  return { state: { ...state, possession, match, clock, tick: state.tick + 1, charge, chargeZone, players, subterfuge, breaker: rolled.breaker && possession.live, objects: rolled.objects, credits, nextId, built, ball: landed }, events }
+  return { state: { ...state, possession, match, clock, tick: state.tick + 1, charge, chargeZone, bullseyePaid, players, subterfuge, breaker: rolled.breaker && possession.live, objects: rolled.objects, credits, nextId, built, ball: landed }, events }
 }

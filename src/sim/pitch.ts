@@ -30,6 +30,17 @@ export function boostAt(pos: Point): BoostZone | null {
   return d <= bullseye.radius ? 'bullseye' : d <= ring.radius ? 'ring' : null
 }
 
+/** Whether a ball whose centre moves straight from `from` to `to` enters the Bullseye from outside: it starts outside and the swept segment reaches the circle, so a fast ball cannot skip over it. Starting inside never counts. */
+export function bullseyeEntered(from: Point, to: Point): boolean {
+  const { x, y } = centreSpot()
+  const r = rules.boost.bullseye.radius
+  if (Math.hypot(from.x - x, from.y - y) <= r) return false
+  const [dx, dy] = [to.x - from.x, to.y - from.y]
+  const len2 = dx * dx + dy * dy
+  const t = len2 ? Math.min(1, Math.max(0, ((x - from.x) * dx + (y - from.y) * dy) / len2)) : 0
+  return Math.hypot(from.x + dx * t - x, from.y + dy * t - y) <= r
+}
+
 /** Whether a ball's `charge` factor means it is Charged (1 = not). */
 export const isCharged = (charge: number): boolean => charge > 1
 

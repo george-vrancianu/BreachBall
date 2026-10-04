@@ -32,6 +32,14 @@ describe('routeEvents', () => {
     expect(w.ball.badgeScale).toBe(visual.ball.charged.popScale)
   })
 
+  it('a Bullseye pass-through flashes the zone and floats the Credits, also under reduced motion', () => {
+    for (const reduced of [false, true]) {
+      const w = setup([])
+      w.route([{ type: 'bullseye', player: 1, credits: 2 }], [], reduced)
+      expect(w.pitch.passCount).toBe(1)
+    }
+  })
+
   it('shows no arrival animation under reduced motion', () => {
     const w = setup([])
     w.route([{ type: 'charged', zone: 'bullseye', factor: 2, at }], [], true)

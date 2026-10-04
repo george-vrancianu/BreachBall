@@ -15,7 +15,7 @@ function recorder() {
     {
       get: (_t, k: string) => {
         if (k === 'setLineDash') return (d: number[]) => void (dash = d)
-        if (['stroke', 'fill', 'fillRect', 'arc'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
+        if (['stroke', 'fill', 'fillRect', 'arc', 'fillText'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
         return state[k] ?? (() => {})
       },
       set: (_t, k: string, v) => ((state[k] = v), true),
@@ -161,5 +161,31 @@ describe('Boost ring and Bullseye', () => {
     expect(p.arrivalCount).toBe(1)
     p.update(0.002)
     expect(p.arrivalCount).toBe(0)
+  })
+})
+
+describe('Bullseye pass-through', () => {
+  const { pass } = visual.pitch.boost
+  it('flashes the Bullseye and floats the Credits up in the shooter\'s colour, for its time', () => {
+    const p = new Pitch()
+    p.pass(2, 2)
+    expect(p.passCount).toBe(1)
+    const { ctx, calls } = recorder()
+    p.draw(ctx)
+    expect(calls.filter((c) => c.fn === 'arc' && c.args[2] === rules.boost.bullseye.radius)[0].alpha).toBe(pass.flashAlpha)
+    expect(calls.filter((c) => c.fn === 'fillText').map((c) => [c.args[0], c.fillStyle])).toContainEqual(['+2', visual.player.colors[2]])
+    p.update((pass.ms - 1) / 1000)
+    expect(p.passCount).toBe(1)
+    p.update(0.002)
+    expect(p.passCount).toBe(0)
+  })
+  it('under reduced motion keeps the flash but floats nothing', () => {
+    const p = new Pitch()
+    p.reduced = true
+    p.pass(1, 2)
+    const { ctx, calls } = recorder()
+    p.draw(ctx)
+    expect(calls.filter((c) => c.fn === 'arc' && c.args[2] === rules.boost.bullseye.radius)[0].alpha).toBe(pass.flashAlpha)
+    expect(calls.filter((c) => c.fn === 'fillText' && String(c.args[0]).startsWith('+'))).toEqual([])
   })
 })
