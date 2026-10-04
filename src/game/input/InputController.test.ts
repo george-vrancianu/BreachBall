@@ -3,7 +3,7 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
 import { defaultConfig as c, initialState, step, type SimInput, type SimState } from '../../sim/step'
-import { buildState, emptied, hseg } from '../../sim/testkit'
+import { buildState, emptied, hseg, playState } from '../../sim/testkit'
 import type { Structure } from '../../sim/wall'
 import { Camera } from '../entities/Camera'
 import { InputController } from './InputController'
@@ -37,7 +37,7 @@ const make = (s: SimState, mine: (p: PlayerId) => boolean = () => true) => {
   ctl = new InputController({
     canvas: canvas as unknown as HTMLCanvasElement,
     camera,
-    mapCam: new Camera(rules.mapY, { stretch: true }),
+    mapCam: new Camera(rules.mapY, true),
     state: () => state,
     config: () => c,
     shown: () => 1,
@@ -1355,5 +1355,70 @@ describe('the Side menu edge swipe', () => {
     expect(ctl.placement).toEqual({ x: 1, y: 2 })
     ctl.cancelGestures()
     expect(ctl.placement).toBeUndefined()
+  })
+})
+
+describe('the map view', () => {
+  const host = () => (ctl as unknown as { host: { mapCam: Camera; mapOpen: () => boolean; toggleMap: (open?: boolean) => void } }).host
+  const tap = (y: number) => {
+    const at = host().mapCam.toCanvas(canvas as unknown as HTMLCanvasElement, { x: 20, y })
+    canvas.dispatchEvent(Object.assign(new Event('pointerdown'), { offsetX: at.x, offsetY: at.y, clientX: at.x, clientY: at.y, pointerId: 1, pointerType: 'touch', button: 0 }))
+  }
+
+  it('a tap anywhere jumps the camera there and holds it, and the map stays open for more jumps', () => {
+    const toggle = vi.fn()
+    host().mapOpen = () => true
+    host().toggleMap = toggle
+    for (const y of [40, 75, 50]) {
+      tap(y)
+      expect(camera.y).toBeCloseTo(y)
+    }
+    expect(camera.held).toBe(true)
+    expect(toggle).not.toHaveBeenCalled()
+  })
+
+  it('M toggles it and Esc closes it', () => {
+    const toggle = vi.fn()
+    host().toggleMap = toggle
+    key('m')
+    expect(toggle).toHaveBeenLastCalledWith()
+    host().mapOpen = () => true
+    key('Escape')
+    expect(toggle).toHaveBeenLastCalledWith(false)
+  })
+})
+
+describe('the Breaker from the Offence circle', () => {
+  const ready = (): SimState => {
+    const s = playState()
+    return { ...s, possession: { ...s.possession, inHand: false } }
+  }
+  /** Press the ball and release in the edge cancel zone, which is where an aim is cancelled. */
+  const cancelAim = () => {
+    const ball = state.ball.pos
+    down(ball)
+    const at = px(ball)
+    canvas.dispatchEvent(Object.assign(new Event('pointermove'), { offsetX: 4, offsetY: at.y, clientX: 4, clientY: at.y, pointerId: 1, pointerType: 'mouse', button: 0 }))
+    canvas.dispatchEvent(Object.assign(new Event('pointerup'), { offsetX: 4, offsetY: at.y, clientX: 4, clientY: at.y, pointerId: 1, pointerType: 'mouse', button: 0 }))
+  }
+
+  it('arms with Credits to cover it', () => {
+    make(ready())
+    ctl.toggleArm()
+    expect(ctl.armed).toBe(true)
+  })
+  it('stays unarmed when the shooter cannot afford it', () => {
+    const s = ready()
+    make({ ...s, credits: { ...s.credits, [s.possession.shooter]: rules.breakerCost - 1 } })
+    ctl.toggleArm()
+    expect(ctl.armed).toBe(false)
+  })
+  it('a cancelled aim disarms it and sends no shot', () => {
+    make(ready())
+    ctl.toggleArm()
+    expect(ctl.armed).toBe(true)
+    cancelAim()
+    expect(ctl.armed).toBe(false)
+    expect(sent.some((i) => i.shot)).toBe(false)
   })
 })

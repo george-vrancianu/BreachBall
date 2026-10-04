@@ -6,7 +6,7 @@ import type { TowerSpec, WallSpec } from '../../sim/wall'
 import { playState, hseg } from '../../sim/testkit'
 import { hudModel } from './hudModel'
 
-const view = { active: 1 as const, viewer: 1 as const, armed: false, tappable: false }
+const view = { active: 1 as const, viewer: 1 as const }
 
 describe('hudModel', () => {
   it('Rounds shows the score digit and the round label', () => {
@@ -18,6 +18,50 @@ describe('hudModel', () => {
     const c = { ...defaultConfig, mode: 'siege' as const }
     const m = hudModel(initialState(1, c), c, view)
     expect(m.round).toBeNull()
+  })
+  describe('Defence bar', () => {
+    const w = (owner: 1 | 2): WallSpec => ({ kind: 'wall', owner, ...hseg(10, owner === 1 ? 40 : 10) })
+    it('counts structures in Rounds as well as Siege, not the score', () => {
+      const s = { ...initialState(1), objects: [{ ...w(1), id: 1, hp: 3 }, { ...w(1), id: 2, hp: 1 }, { ...w(2), id: 3, hp: 3 }] }
+      const bar = hudModel(s, defaultConfig, view).defenceBar
+      expect([bar[1].count, bar[2].count]).toEqual(['2', '1'])
+    })
+    it('keeps an empty segment for a structure destroyed in play', () => {
+      const bar = hudModel(initialState(1), defaultConfig, { ...view, destroyed: { 1: 2, 2: 0 } }).defenceBar
+      expect(bar[1]).toEqual({ count: '0', segments: [false, false] })
+    })
+  })
+  describe('score line', () => {
+    it('Rounds gives the score once, the active player first', () => {
+      const s = { ...initialState(1), match: { ...initialState(1).match, score: { 1: 2, 2: 1 } } }
+      expect(hudModel(s, defaultConfig, view).score).toBe('2–1')
+      expect(hudModel(s, defaultConfig, { ...view, active: 2 }).score).toBe('1–2')
+    })
+    it('Siege has none', () => {
+      const c = { ...defaultConfig, mode: 'siege' as const }
+      expect(hudModel(initialState(1, c), c, view).score).toBeNull()
+    })
+  })
+  describe('phase label', () => {
+    const play = () => {
+      const s = playState()
+      return { ...s, possession: { ...s.possession, inHand: false, shots: defaultConfig.shots } }
+    }
+    it('reads Play phase, with the aim hint in round 1 until the first shot of the possession', () => {
+      const s = play()
+      expect(s.match.mode === 'rounds' && s.match.round).toBe(1)
+      expect(hudModel(s, defaultConfig, view).phase).toBe('Play phase · Drag to aim')
+      expect(hudModel({ ...s, possession: { ...s.possession, shots: defaultConfig.shots - 1 } }, defaultConfig, view).phase).toBe('Play phase')
+      expect(hudModel({ ...s, possession: { ...s.possession, live: true } }, defaultConfig, view).phase).toBe('Play phase')
+    })
+    it('has no hint in ball-in-hand, after round 1 or in Siege', () => {
+      const s = play()
+      expect(hudModel({ ...s, possession: { ...s.possession, inHand: true } }, defaultConfig, view).phase).toBe('Play phase')
+      expect(hudModel({ ...s, match: { ...s.match, round: 2 } as typeof s.match }, defaultConfig, view).phase).toBe('Play phase')
+      const c = { ...defaultConfig, mode: 'siege' as const }
+      const sieged = { ...s, match: { mode: 'siege' as const, seed: 1, winner: null, builder: null, choosing: null, opening: false } }
+      expect(hudModel(sieged, c, view).phase).toBe('Play phase')
+    })
   })
   describe('Move point dots', () => {
     const placed = (): SimState => {
@@ -65,6 +109,13 @@ describe('hudModel', () => {
     it('is decided by the viewer, not by whose strip is shown', () => {
       expect(digits(afterFirst(), first, second)).toEqual(first === 1 ? ['2', '?'] : ['?', '2'])
     })
+    it('puts "?" on the Defence bar for the opponent too, until play starts', () => {
+      const s = afterFirst()
+      const bar = hudModel(s, c, { ...view, viewer: second, destroyed: { 1: 5, 2: 5 } }).defenceBar
+      expect(bar[first]).toEqual({ count: '?', segments: [] })
+      expect(bar[second].count).toBe('0')
+      expect(hudModel(afterSecond(), c, { ...view, viewer: second }).defenceBar[first].count).toBe('2')
+    })
     it('shows the number once the second Done starts play', () => {
       const s = afterSecond()
       expect(s.match.builder).toBeNull()
@@ -79,10 +130,10 @@ describe('hudModel', () => {
       expect(hudModel(s, c, { ...view, viewer: first }).players[first].inventory.steal).toBe(2)
       expect(hudModel(afterSecond(), c, { ...view, viewer: second }).players[first].inventory.steal).toBe(2)
     })
-    it('shows build points only for the viewer\'s own build', () => {
+    it('reads Build phase for both viewers, so the label gives nothing of a blind build away', () => {
       const s = build(afterFirst(), piece(second))
-      expect(hudModel(s, c, { ...view, viewer: second }).phase).toMatch(/^Build · \d+ pts$/)
-      expect(hudModel(s, c, { ...view, viewer: first }).phase).toBe('Build')
+      expect(hudModel(s, c, { ...view, viewer: second }).phase).toBe('Build phase')
+      expect(hudModel(s, c, { ...view, viewer: first }).phase).toBe('Build phase')
     })
     it('Rounds build phases keep the score, the badges and the Credits', () => {
       let s = initialState(1)
@@ -91,16 +142,16 @@ describe('hudModel', () => {
       const m = hudModel(s, defaultConfig, { ...view, viewer: opponent(b) })
       expect([m.players[1].digit, m.players[2].digit]).toEqual(['0', '0'])
       expect(m.players[b].inventory.steal).toBe(2)
-      expect(m.phase).toBe('Build · 10 credits')
+      expect(m.phase).toBe('Build phase')
     })
-    it('reads Placing … while the builder draws or holds an unplaced piece, else the Credits', () => {
+    it('reads Placing … while the builder draws or holds an unplaced piece, else Build phase', () => {
       const s = initialState(1)
       const b = s.match.builder!
       const phase = (placing?: 'wall' | 'repulsor' | 'steal') => hudModel(s, defaultConfig, { ...view, viewer: b, placing }).phase
       expect(phase('wall')).toBe('Placing wall')
       expect(phase('repulsor')).toBe('Placing Repulsor')
       expect(phase('steal')).toBe('Placing Steal')
-      expect(phase()).toBe('Build · 10 credits')
+      expect(phase()).toBe('Build phase')
     })
   })
   it('Siege exposes each owner\'s structure count, towers included', () => {

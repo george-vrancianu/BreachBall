@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { rules } from '../config/rules'
 import { visual } from '../config/visual'
 import { defaultSettings } from '../sim/settings'
 import { LocalDriver, type Driver } from './driver'
@@ -161,6 +162,32 @@ describe('Game', () => {
     spy(game.camera, 'draw', 'draw')
     frame(performance.now())
     expect(order).toEqual(['camera.update', 'driver.update', 'mark', 'draw'])
+  })
+
+  it('the minimap thumbnail tracks the live camera', () => {
+    const onView = vi.fn()
+    const game = make(onView)
+    const t = performance.now()
+    frame(t)
+    // The opening turn card holds the camera on the ball.
+    game.actions.dismiss()
+    frame(t + 5000)
+    // Start held at mid-pitch, clear of both clamps wherever the follow had settled, so the pan below always moves the view.
+    game.camera.pan(rules.pitchHeight / 2 - game.camera.y)
+    frame(t + 5016)
+    const before = onView.mock.lastCall![0].minimap.frame
+    game.camera.pan(10)
+    frame(t + 5032)
+    const after = onView.mock.lastCall![0].minimap.frame
+    expect(after.top).toBeGreaterThan(before.top)
+    expect(after.height).toBe(before.height)
+  })
+
+  it('the map camera fits above the HUD band the main camera keeps clear', () => {
+    const game = make()
+    game.actions.map(true)
+    frame(performance.now())
+    expect(game.mapCam.reserve).toEqual(game.camera.reserve)
   })
 
   it('draws the open map with the main camera\'s shake', () => {

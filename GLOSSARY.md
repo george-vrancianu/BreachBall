@@ -64,6 +64,14 @@ _Avoid_: Unveil, showdown
 The renderer's cover over the opponent's half (up to the halfway line, boards and nets included) during a blind build, in the main view and the map.
 _Avoid_: Mask, blackout
 
+**Minimap chip**:
+The small chip at the near band's bottom-right showing a thumbnail of the whole pitch with the main camera's frame on it (and the Fog over the opponent's half in a blind build). Tapping it opens the Map view; while open it is a filled ✕ that closes it.
+_Avoid_: Radar, overview button
+
+**Map view**:
+The whole pitch fitted above the HUD band, opened from the Minimap chip. The main camera's frame is drawn on it, dashed with solid corner brackets, and tapping the pitch jumps the main camera there. The Reveal holds the same camera.
+_Avoid_: Overview, zoom-out
+
 **Title screen**:
 The menu shown when no match is running, where a match is started or joined: start a hot-seat match, go online, settings, help. Quitting a match returns here.
 _Avoid_: Title, main menu, main screen, home, start screen

@@ -8,21 +8,22 @@ type Size = { width: number; height: number }
 /** Canvas px kept clear of the pitch at the top and bottom (the HUD band). */
 export type Reserve = { top: number; bottom: number }
 const NONE: Reserve = { top: 0, bottom: 0 }
-/** What the camera draws through: per-axis scale (they differ only in a stretched map), the pane on the canvas, and the world height shown. */
+/** What the camera draws through: per-axis scale (always equal, so the pitch is never distorted), the pane on the canvas, and the world height shown. */
 export type View = { sx: number; sy: number; pane: Pane; visibleHeight: number }
 /** The part of a camera the layout maths needs. */
-export type CameraView = { y: number; map?: { stretch: boolean }; reserve?: Reserve }
+export type CameraView = { y: number; map?: boolean; reserve?: Reserve }
 
 export function viewOf(canvas: Size, cam: CameraView): View {
-  const { width, height } = canvas
   if (!cam.map) {
     const l = layout(canvas, cam.reserve)
     return { sx: l.scale, sy: l.scale, pane: l.pane, visibleHeight: l.visibleHeight }
   }
-  if (cam.map.stretch) return { sx: width / rules.pitchWidth, sy: height / rules.mapHeight, pane: { x: 0, y: 0, w: width, h: height }, visibleHeight: rules.mapHeight }
-  const s = Math.min(width / rules.pitchWidth, height / rules.mapHeight)
+  // The whole pitch fitted into what the HUD band leaves, centred.
+  const { top, bottom } = cam.reserve ?? NONE
+  const free = canvas.height - top - bottom
+  const s = Math.min(canvas.width / rules.pitchWidth, free / rules.mapHeight)
   const [w, h] = [rules.pitchWidth * s, rules.mapHeight * s]
-  return { sx: s, sy: s, pane: { x: (width - w) / 2, y: (height - h) / 2, w, h }, visibleHeight: rules.mapHeight }
+  return { sx: s, sy: s, pane: { x: (canvas.width - w) / 2, y: top + (free - h) / 2, w, h }, visibleHeight: rules.mapHeight }
 }
 
 /** Canvas rectangle where `cam`'s view lies, as seen through the map camera. */
@@ -83,7 +84,7 @@ export function shakeOffset(amp: number, born: number, now: number): Point {
  */
 export class Camera extends Entity {
   held = false
-  /** Canvas px kept clear for the HUD band; the game sets it each frame for the side the HUD sits on. */
+  /** Canvas px kept clear for the HUD band; the game sets it each frame for the side the HUD sits on (the map camera's too, so the whole pitch fits above the band). */
   reserve: Reserve = NONE
   /** World height the main view shows, from the last `fit`. */
   visibleHeight: number = visual.camera.minVisibleHeight
@@ -91,7 +92,7 @@ export class Camera extends Entity {
   blind?: PlayerId
   private shaking = { amp: 0, born: -Infinity }
 
-  constructor(public y: number, public map?: { stretch: boolean }) {
+  constructor(public y: number, public map?: boolean) {
     super()
   }
 

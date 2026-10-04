@@ -36,7 +36,7 @@ describe('defence turn under the build timer', () => {
 
   it('the HUD shows the draining build clock while the choice is pending', () => {
     const s = run(choice(timed), 20, timed).s
-    const m = hudModel(s, timed, { active: 1, viewer: 1, armed: false, tappable: false })
+    const m = hudModel(s, timed, { active: 1, viewer: 1 })
     expect(m.clock?.seconds).toBeCloseTo((TICKS - 20) / timed.tickHz)
     expect(m.clock?.fraction).toBeCloseTo((TICKS - 20) / TICKS)
   })

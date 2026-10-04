@@ -3,6 +3,7 @@ import { LocalDriver } from '../game/driver'
 import { Game, type HudView } from '../game/Game'
 import { showConnectScreen } from '../net/connectScreen'
 import { defaultSettings, type Settings } from '../game/view/settings'
+import { DefenceBar } from './hud/DefenceBar'
 import { Shell } from './hud/Shell'
 import { SideMenu, SideMenuButton } from './hud/SideMenu'
 import { Overlay } from './overlays/Overlay'
@@ -40,25 +41,26 @@ export function App() {
         <canvas ref={canvas} />
         {view && (
           <>
-            <Overlay view={view.overlay} onTap={() => actions().dismiss()} />
+            <Overlay view={view.overlay} flipped={view.flipped} onTap={() => actions().dismiss()} />
+            <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} />
             <Shell
               hud={view.hud}
+              offence={view.offence}
               defence={view.defence}
               confirm={view.confirm}
               mapOpen={view.mapOpen}
+              minimap={view.minimap}
               flipped={view.flipped}
               onMap={() => actions().map()}
               onRecenter={() => actions().recenter()}
-              onPowerUp={(p) => actions().powerUp(p)}
+              onOffenceArm={(item) => actions().offence.arm(item)}
               onRefund={(n) => actions().refund(n)}
               onConfirm={() => actions().confirmBall()}
-              onMapStretch={() => actions().mapStretch()}
-              onMapClose={() => actions().map(false)}
               onDefenceToggle={() => actions().build.toggle()}
               onDefenceArm={(item) => actions().build.arm(item)}
             />
             {/* Both sit in the stage, so they turn with the flip and open from the viewer's left. */}
-            {!screen && !view.menu.open && <SideMenuButton onOpen={() => actions().menu(true)} />}
+            {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} onOpen={() => actions().menu(true)} />}
             {!screen && <SideMenu menu={view.menu} onResume={() => actions().menu(false)} onHelp={() => setScreen('help')} onRestart={() => actions().restart()} onQuit={() => (actions().quit(), setScreen('title'))} />}
           </>
         )}

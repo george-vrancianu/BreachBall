@@ -5,10 +5,10 @@ import { Button, FONT, ghostCircle } from '../ButtonRow'
 
 const { sideMenu, tokens } = visual
 
-/** The ☰ ghost button that opens the Side menu. Mount inside the rotating stage: it sits at the stage's top-left, which is the viewer's left whichever seat is at the bottom. */
-export function SideMenuButton({ onOpen, className, style }: { onOpen(): void; className?: string; style?: CSSProperties }) {
+/** The ☰ ghost button that opens the Side menu. Mount inside the rotating stage: it sits at the stage's left, just inside the Defence bar at the far edge (below it, or above it when `flipped` puts the bar at the stage's bottom), so it never covers the bar's P1 digit. */
+export function SideMenuButton({ onOpen, flipped, className, style }: { onOpen(): void; flipped: boolean; className?: string; style?: CSSProperties }) {
   return (
-    <button aria-label="Menu" className={className} onClick={onOpen} style={{ ...ghostCircle(sideMenu.buttonPx), position: 'absolute', top: sideMenu.buttonInsetPx, left: sideMenu.buttonInsetPx, zIndex: sideMenu.buttonZ, pointerEvents: 'auto', ...style }}>
+    <button aria-label="Menu" className={className} onClick={onOpen} style={{ ...ghostCircle(sideMenu.buttonPx), position: 'absolute', [flipped ? 'bottom' : 'top']: visual.hud.bar.heightPx + sideMenu.buttonInsetPx, left: sideMenu.buttonInsetPx, zIndex: sideMenu.buttonZ, pointerEvents: 'auto', ...style }}>
       ☰
     </button>
   )

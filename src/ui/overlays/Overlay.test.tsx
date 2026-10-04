@@ -27,3 +27,15 @@ it('lets taps through sweeps and the choosing notice', () => {
   expect((container.firstChild as HTMLElement).style.pointerEvents).toBe('none')
   expect(screen.getByText('Opponent is choosing')).toBeTruthy()
 })
+
+it('clears the Defence bar at the far edge: the top when upright, the bottom when flipped', () => {
+  const { container, rerender } = render(<Overlay view={view({ placement: 'top', text: 'Reveal' })} onTap={() => {}} />)
+  const label = () => screen.getByText('Reveal') as HTMLElement
+  expect((container.firstChild as HTMLElement).style.justifyContent).toBe('flex-start')
+  expect(label().style.marginTop).not.toBe('')
+  expect(label().style.marginBottom).toBe('')
+  rerender(<Overlay view={view({ placement: 'top', text: 'Reveal' })} flipped onTap={() => {}} />)
+  expect((container.firstChild as HTMLElement).style.justifyContent).toBe('flex-end')
+  expect(label().style.marginBottom).not.toBe('')
+  expect(label().style.marginTop).toBe('')
+})

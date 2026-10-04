@@ -1,5 +1,8 @@
-import { MODES, sliderLabel, slidersFor, EXPIRIES, UNITS } from '../../sim/settings'
+import { MODES, sliderLabel, slidersFor, EXPIRIES } from '../../sim/settings'
 import type { SimConfig } from '../../sim/step'
+
+/** What a balance is called in each mode: Rounds banks Credits (ADR-0004), Siege keeps wall points. */
+const UNITS: Record<SimConfig['mode'], string> = { rounds: 'credits', siege: 'pts' }
 
 /** One read-only line of the match's settings. */
 export type SettingRow = { label: string; value: string }
