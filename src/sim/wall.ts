@@ -10,8 +10,8 @@ export type Segment = { a: Point; b: Point }
 
 /** A wall is a drawn segment: `a` to `b` in free world units, at an allowed angle and a whole number of units long. */
 export type WallSpec = { kind: 'wall'; owner: PlayerId; a: Point; b: Point }
-/** A placed wall: one hit point pool (whatever its length) and a stable id assigned by the sim. */
-export type Wall = WallSpec & { id: number; hp: number }
+/** A placed wall: a stable id assigned by the sim, and one health per wall segment (one per unit, index 0 at `a`); a segment at 0 is a Gap (ADR-0007). */
+export type Wall = WallSpec & { id: number; segments: number[] }
 
 /** A one-cell obstacle; `at` is the cell's top-left grid vertex. Follows every wall rule. */
 export type TowerSpec = { kind: 'tower'; owner: PlayerId; at: Vertex; /** Which tower: its Credit price in Rounds, the stock it spends in Siege. */ power: 'repulsor' | 'steal' }
@@ -26,6 +26,7 @@ export type TowerPower = TowerSpec['power']
 const POWER_HP: Record<TowerPower, number> = { repulsor: rules.towerHp, steal: rules.stealHp }
 /** The structures `p` owns, towers included: the HUD count, the end screen and the Siege wipe-out all read this. */
 export const structuresOf = (objects: readonly Structure[], p: PlayerId): Structure[] => objects.filter((o) => o.owner === p)
+/** Full health: a tower's, or one wall segment's. */
 export const maxHp = (s: StructureSpec): number => (s.kind === 'tower' ? POWER_HP[s.power] : rules.wallHp)
 
 export type { WallRules }
@@ -38,6 +39,28 @@ const lengthOf = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y)
 
 /** How many units long the wall is (its length over `wall.unit`, rounded). */
 export const wallUnits = (w: Pick<WallSpec, 'a' | 'b'>, r: WallRules = rules): number => Math.round(lengthOf(w.a, w.b) / r.wall.unit)
+/** How many wall segments the wall has: one per unit. */
+export const segmentCount = (w: Pick<WallSpec, 'a' | 'b'>): number => wallUnits(w)
+/** The index of the wall segment `at` projects onto along the wall, clamped to the wall's ends. */
+export function segmentAt(w: Pick<WallSpec, 'a' | 'b'>, at: Point): number {
+  const [vx, vy] = [w.b.x - w.a.x, w.b.y - w.a.y]
+  const len2 = vx * vx + vy * vy
+  const n = segmentCount(w)
+  const t = len2 === 0 ? 0 : ((at.x - w.a.x) * vx + (at.y - w.a.y) * vy) / len2
+  return Math.max(0, Math.min(n - 1, Math.floor(t * n)))
+}
+/** The two ends of wall segment `i`: the wall cut into equal pieces from `a`. */
+export function segmentEnds(w: Pick<WallSpec, 'a' | 'b'>, i: number): Segment {
+  const n = segmentCount(w)
+  const at = (k: number): Point => (k <= 0 ? w.a : k >= n ? w.b : { x: w.a.x + ((w.b.x - w.a.x) * k) / n, y: w.a.y + ((w.b.y - w.a.y) * k) / n })
+  return { a: at(i), b: at(i + 1) }
+}
+/** The indices of the wall's standing segments (health above 0). */
+export const standing = (w: Pick<Wall, 'segments'>): number[] => w.segments.flatMap((hp, i) => (hp > 0 ? [i] : []))
+/** A fresh structure from its spec: a wall with every segment at full health, a tower at full hp. */
+export const newStructure = (spec: StructureSpec, id: number): Structure =>
+  spec.kind === 'wall' ? { ...spec, id, segments: Array<number>(segmentCount(spec)).fill(maxHp(spec)) } : { ...spec, id, hp: maxHp(spec) }
+
 /** Credits a wall costs: units times the per-unit price, whatever the angle. */
 export const wallCost = (w: Pick<WallSpec, 'a' | 'b'>, r: WallRules = rules): number => wallUnits(w, r) * r.wall.unitCost
 /** A structure's price in Credits: a wall's units, a tower's `rules.towerCost`. Siege spends tower stock instead (see `chargeOf` in step.ts). */
@@ -213,17 +236,40 @@ export function isLegal(w: StructureSpec, existing: readonly StructureSpec[] = [
   })
 }
 
-/** Zero-thickness collision segments in world units: a wall is its one segment, a tower its four edges. */
-export function wallSegments(w: StructureSpec): Segment[] {
-  return w.kind === 'tower' ? towerEdges(w) : [{ a: w.a, b: w.b }]
+/** A placed wall's standing segments with their index; a bare spec or a tower has no index (a bare spec is its one whole segment). */
+export function standingPieces(w: StructureSpec): { index?: number; seg: Segment }[] {
+  if (w.kind === 'tower') return towerEdges(w).map((seg) => ({ seg }))
+  if (!('segments' in w)) return [{ seg: { a: w.a, b: w.b } }]
+  return standing(w as Wall).map((index) => ({ index, seg: segmentEnds(w, index) }))
 }
 
-/** Removes 1 hp from the wall (one pool per wall); the shared damage path for every source. Unknown ids are ignored. */
-export function damageWall(objects: Structure[], id: number, at: Point): { objects: Structure[]; events: SimEvent[] } {
+/** Zero-thickness collision segments in world units: a placed wall's standing segments (Gaps have none), a bare wall spec its one segment, a tower its four edges. */
+export const wallSegments = (w: StructureSpec): Segment[] => standingPieces(w).map((p) => p.seg)
+
+/**
+ * Removes `by` health (1 unless a Breaker) from wall segment `segment` (a tower: 1 hp); the damage path every source ends in. Unknown ids and segments already a Gap are ignored.
+ * A segment that survives is `wall-cracked`; one that breaks leaves a Gap (`segment-broken`), or is the wall's last and removes it (`wall-destroyed`).
+ */
+export function damageSegment(objects: Structure[], id: number, segment: number, at: Point, by = 1): { objects: Structure[]; events: SimEvent[] } {
   const target = objects.find((w) => w.id === id)
   if (!target) return { objects, events: [] }
-  const hp = target.hp - 1
-  return hp > 0
-    ? { objects: objects.map((w) => (w === target ? { ...w, hp } : w)), events: [{ type: 'wall-cracked', id, hp, at }] }
-    : { objects: objects.filter((w) => w !== target), events: [{ type: 'wall-destroyed', wall: { ...target, hp }, at }] }
+  if (target.kind === 'tower') {
+    const hp = target.hp - 1
+    return hp > 0
+      ? { objects: objects.map((w) => (w === target ? { ...target, hp } : w)), events: [{ type: 'wall-cracked', id, hp, at }] }
+      : { objects: objects.filter((w) => w !== target), events: [{ type: 'wall-destroyed', wall: { ...target, hp }, at }] }
+  }
+  if (!(target.segments[segment] > 0)) return { objects, events: [] }
+  const hp = Math.max(0, target.segments[segment] - by)
+  const segments = target.segments.map((h, i) => (i === segment ? hp : h))
+  const wall: Wall = { ...target, segments }
+  if (hp > 0) return { objects: objects.map((w) => (w === target ? wall : w)), events: [{ type: 'wall-cracked', id, hp, segment, at }] }
+  if (standing(wall).length > 0) return { objects: objects.map((w) => (w === target ? wall : w)), events: [{ type: 'segment-broken', id, segment, wall, at }] }
+  return { objects: objects.filter((w) => w !== target), events: [{ type: 'wall-destroyed', wall, segment, at }] }
+}
+
+/** Damages the segment `at` lands on (a tower: its one pool). Unknown ids are ignored. */
+export function damageWall(objects: Structure[], id: number, at: Point): { objects: Structure[]; events: SimEvent[] } {
+  const target = objects.find((w) => w.id === id)
+  return damageSegment(objects, id, target?.kind === 'wall' ? segmentAt(target, at) : 0, at)
 }

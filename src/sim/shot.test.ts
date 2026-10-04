@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import type { Structure, Wall } from './wall'
 import { defaultConfig, step, type SimConfig, type SimInput, type SimState } from './step'
-import { hseg, playState } from './testkit'
+import { healthOf, hseg, playState } from './testkit'
 
 /** No friction, so the velocity after one tick is the launch velocity. */
 const c: SimConfig = { ...defaultConfig, halfLife: Infinity }
@@ -53,13 +53,13 @@ describe('shot', () => {
 })
 
 describe('Splash', () => {
-  const wall = (id: number, owner: 1 | 2, gy: number, gx = 8): Wall => ({ kind: 'wall', owner, ...hseg(gx, gy), id, hp: rules.wallHp })
+  const wall = (id: number, owner: 1 | 2, gy: number, gx = 8): Wall => ({ kind: 'wall', owner, ...hseg(gx, gy), id, segments: [rules.wallHp] })
   const right = { x: 1, y: 0 }
   // Ball at (20, 79.5) under walls running x 16..24: gy 37, 38, 39 are 5.5, 3.5 and 1.5 away; gy 34 is 11.5 away.
   const near = (objects: Structure[], pos = { x: 20, y: 79.5 }): SimState => ({ ...ready(), objects, nextId: 99, ball: { pos, vel: { x: 0, y: 0 }, rolled: 0 } })
   const hpAfter = (s: SimState, shot: SimInput['shot']) => {
     const r = shoot(s, shot)
-    return s.objects.map((w) => [w.id, r.state.objects.find((o) => o.id === w.id)?.hp ?? 0])
+    return s.objects.map((w) => [w.id, (r.state.objects.find((o) => o.id === w.id) ? healthOf(r.state.objects.find((o) => o.id === w.id)!) : 0)])
   }
 
   it('a full Power shot hits enemy structures in range: 1 hp above 0.4 pressure, 2 above 0.8; out of range is untouched', () => {
@@ -81,8 +81,8 @@ describe('Splash', () => {
     expect(hpAfter(near([wall(1, 2, 39)]), { player: 1, dir: right, tier: 0, power: 0.4 })).toEqual([[1, 3]])
   })
   it('reports its damage with the wall events', () => {
-    const r = shoot(near([wall(1, 2, 39, 8)].map((w) => ({ ...w, hp: 2 }))), { player: 1, dir: right, tier: 1, power: 1 })
-    expect(r.events).toContainEqual({ type: 'wall-cracked', id: 1, hp: 1, at: { x: 20, y: 78 } })
+    const r = shoot(near([wall(1, 2, 39, 8)].map((w) => ({ ...w, segments: [2] }))), { player: 1, dir: right, tier: 1, power: 1 })
+    expect(r.events).toContainEqual({ type: 'wall-cracked', id: 1, hp: 1, segment: 0, at: { x: 20, y: 78 } })
     expect(r.events).toContainEqual(expect.objectContaining({ type: 'wall-destroyed', at: { x: 20, y: 78 } }))
   })
   it('leaves the ball\'s launch velocity alone', () => {
@@ -93,7 +93,7 @@ describe('Splash', () => {
   it('still happens on a Breaker shot, which stays armed and charges its Credits', () => {
     const s = near([wall(1, 2, 39)])
     const r = shoot(s, { player: 1, dir: right, tier: 1, power: 1, breaker: true })
-    expect(r.state.objects.find((o) => o.id === 1)?.hp).toBe(1)
+    expect(healthOf(r.state.objects.find((o) => o.id === 1)!)).toBe(1)
     expect(r.state.breaker).toBe(true)
     expect(r.state.credits[1]).toBe(s.credits[1] - rules.breakerCost)
   })

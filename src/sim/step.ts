@@ -6,7 +6,7 @@ import { initialPlayers, type Player, type PowerUp } from './player'
 import { rollBall, type Ball } from './ball'
 import { canPlaceBall, centreRestart, handOver, opponent, resolveRest, type Possession } from './possession'
 import { splashDamage, splashOf } from './splash'
-import { damageWall, isLegal, maxHp, structureCost, wallCost, wallUnits, type Structure, type Tower, type TowerPower, type StructureSpec, type Vertex } from './wall'
+import { damageSegment, isLegal, newStructure, segmentCount, structureCost, wallCost, wallUnits, type Structure, type Tower, type Wall, type TowerPower, type StructureSpec, type Vertex } from './wall'
 
 const ctxOf = (objects: readonly Structure[], possession: Possession, shooter: PlayerId, credits: Record<PlayerId, number>): ModeContext => ({ objects, possession, shooter, credits })
 /** A launch speed (0-1 of maxSpeed) once the ball's `charge` multiplies it. Splash never uses it. */
@@ -101,9 +101,11 @@ export function placeable(s: Ledger & Pick<SimState, 'possession'>, spec: Struct
 }
 
 export type SimEvent =
-  | { type: 'wall-cracked'; id: number; hp: number; at: Point }
-  /** Carries the removed wall (hp 0) so the renderer can shatter it. */
-  | { type: 'wall-destroyed'; wall: Structure; at: Point; /** Broken by a Breaker shot. */ breaker?: true }
+  | { type: 'wall-cracked'; id: number; hp: number; at: Point; /** The wall segment hit (walls only). */ segment?: number }
+  /** A wall segment broke and left a Gap; the wall (carried, health as it now stands) still has standing segments. */
+  | { type: 'segment-broken'; id: number; segment: number; wall: Wall; at: Point }
+  /** Carries the removed structure (hp 0, a wall with every segment at 0) so the renderer can shatter it; for a wall it is its last segment breaking, `segment`. */
+  | { type: 'wall-destroyed'; wall: Structure; at: Point; segment?: number; /** Broken by a Breaker shot. */ breaker?: true }
   | { type: 'ball-hit-wall'; wall: number; speed: number; at: Point }
   /** The ball bounced off a board or net. */
   | { type: 'ball-hit-board'; speed: number; at: Point }
@@ -277,14 +279,14 @@ export function step(
     if (spec.owner !== match.builder || !canPlace({ objects, credits, players, match }, spec)) return false
     players = restocked(match, players, spec, 1)
     built = [...built, nextId]
-    objects = [...objects, { ...spec, id: nextId++, hp: maxHp(spec) }]
+    objects = [...objects, newStructure(spec, nextId++)]
     credits = { ...credits, [spec.owner]: credits[spec.owner] - chargeOf(match, spec) }
     return true
   }
   /** An in-play build: placed at its in-play price and never added to `built`, so it can be neither moved nor demolished. */
   const placeInPlay = (spec: StructureSpec): boolean => {
     if (!placeable({ objects, credits, players, match, possession: state.possession }, spec)) return false
-    objects = [...objects, { ...spec, id: nextId++, hp: maxHp(spec) }]
+    objects = [...objects, newStructure(spec, nextId++)]
     credits = { ...credits, [spec.owner]: credits[spec.owner] - playCost(spec) }
     return true
   }
@@ -294,7 +296,9 @@ export function step(
     const spec: StructureSpec | undefined = it && (it.kind === 'wall' ? ('a' in move ? { kind: 'wall', owner: move.player, a: move.a, b: move.b } : undefined) : 'at' in move ? { kind: 'tower', owner: move.player, power: it.power, at: move.at } : undefined)
     // A wall's length may change by its ends: the Credit difference is charged (or refunded).
     if (it && spec && move.player === match.builder && it.owner === move.player && built.includes(move.id) && canMove({ objects, credits, players, match }, move.id, spec)) {
-      objects = objects.map((o) => (o.id === move.id ? { ...it, ...spec } : o))
+      // A resize re-creates full segments (a build turn's own pieces are undamaged); a plain move keeps every segment's health, Gaps included.
+      const moved: Structure = it.kind === 'wall' && spec.kind === 'wall' ? (segmentCount(spec) !== it.segments.length ? newStructure(spec, it.id) : { ...it, ...spec }) : it.kind === 'tower' && spec.kind === 'tower' ? { ...it, ...spec } : it
+      objects = objects.map((o) => (o.id === move.id ? moved : o))
       credits = { ...credits, [it.owner]: credits[it.owner] - moveDiff(it, spec) }
     } else events.push({ type: 'refused' })
   }
@@ -393,9 +397,9 @@ export function step(
       ball = { ...ball, vel: { x: shot.dir.x * v, y: shot.dir.y * v } }
       const splash = splashOf(shot.tier, shot.power, config)
       if (splash) {
-        for (const { wall, loss, at } of splashDamage(objects, ball.pos, splash, shot.player)) {
+        for (const { wall, segment, loss, at } of splashDamage(objects, ball.pos, splash, shot.player)) {
           for (let i = 0; i < loss; i++) {
-            const r = damageWall(objects, wall.id, at)
+            const r = damageSegment(objects, wall.id, segment ?? 0, at)
             objects = r.objects
             events.push(...r.events)
           }

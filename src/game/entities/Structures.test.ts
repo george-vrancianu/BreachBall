@@ -7,7 +7,7 @@ import { costLabelAt, Structures } from './Structures'
 import { Tower } from './Tower'
 import { Wall } from './Wall'
 
-const wall = (id: number): Structure => ({ id, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 })
+const wall = (id: number): Structure => ({ id, kind: 'wall', owner: 1, ...hseg(10, 40), segments: [3] })
 const tower = (id: number): Structure => ({ id, kind: 'tower', owner: 2, power: 'repulsor', at: { gx: 5, gy: 10 }, hp: 3 })
 const from = { x: 20, y: 80 }
 const run = (s: Structures, ms: number) => s.update(ms / 1000)
@@ -77,7 +77,7 @@ describe('Structures', () => {
 })
 
 describe('Splash preview', () => {
-  const at = (id: number, owner: 1 | 2, gy: number): Structure => ({ id, kind: 'wall', owner, ...hseg(8, gy), hp: 3 })
+  const at = (id: number, owner: 1 | 2, gy: number): Structure => ({ id, kind: 'wall', owner, ...hseg(8, gy), segments: [3] })
   // P1's ball at (20, 79.5) under walls running x 16..24: own gy 39 is 1.5 away, enemy gy 37 5.5 away, enemy gy 34 11.5 away.
   const state = { ...playState(), objects: [at(1, 1, 39), at(2, 2, 37), at(3, 2, 34)], ball: { pos: { x: 20, y: 79.5 }, vel: { x: 0, y: 0 }, rolled: 0 }, possession: { shooter: 1 as const, shots: 3, inHand: false, live: false } }
   const previewOf = (aim?: { tier: number; power?: number }) => {

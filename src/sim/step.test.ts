@@ -20,8 +20,8 @@ describe('step', () => {
     let s = step(buildState(2), { placeWall: wall }, defaultConfig).state
     s = step(s, { placeWall: next }, defaultConfig).state
     expect(s.objects).toEqual([
-      { ...wall, id: 1, hp: 3 },
-      { ...next, id: 2, hp: 3 },
+      { ...wall, id: 1, segments: [3] },
+      { ...next, id: 2, segments: [3] },
     ])
     const again = step(s, { placeWall: wall }, defaultConfig)
     expect(again.state.objects).toHaveLength(2)
@@ -38,7 +38,7 @@ describe('placement and demolition rules', () => {
   })
   const legal = { kind: 'wall', owner: 1, ...hseg(2, 40) } as const
   const illegal = { ...legal, ...hseg(2, 10) }
-  const placed = { ...legal, id: 1, hp: 3 }
+  const placed = { ...legal, id: 1, segments: [3] }
   it('places a legal wall and refuses an illegal one', () => {
     expect(step(buildState(1), { placeWall: legal }, defaultConfig).state.objects).toEqual([placed])
     const bad = step(buildState(1), { placeWall: illegal }, defaultConfig)

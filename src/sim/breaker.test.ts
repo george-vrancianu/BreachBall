@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import { canArm, defaultConfig, step, type SimInput, type SimState } from './step'
-import { emptied, hseg, place, playState } from './testkit'
-import type { WallSpec } from './wall'
+import { healthOf, emptied, hseg, place, playState } from './testkit'
+import type { Wall, WallSpec } from './wall'
 
 const c = defaultConfig
 const run = (s: SimState, input: SimInput = {}) => step(s, input, c)
@@ -81,7 +81,7 @@ describe('breaker', () => {
     const s = place(wall(2, 16), place(wall(2, 22)).state).state
     let t = flying(s, -40)
     for (let i = 0; i < 300 && t.breaker; i++) t = run(t).state
-    expect(t.objects.map((w) => w.hp)).toEqual([3])
+    expect(t.objects.map((w) => healthOf(w))).toEqual([3])
   })
   it('clears when the shot comes to rest', () => {
     let t = flying(playState(), 0)
@@ -97,5 +97,35 @@ describe('breaker', () => {
     expect(canArm({ ...s, possession: { ...s.possession, live: true } }, p)).toBe(false)
     expect(canArm({ ...s, possession: { ...s.possession, inHand: true } }, p)).toBe(false)
     expect(canArm(credits(s, p, rules.breakerCost - 1), p)).toBe(false)
+  })
+})
+
+describe('breaker on a wall segment', () => {
+  const two = (): SimState => ({ ...playState(), objects: [{ kind: 'wall', owner: 2, ...hseg(5, 30, 2), id: 1, segments: [3, 3] } as Wall], nextId: 2 })
+  it('breaks the segment it touches, not the whole wall, then carries on', () => {
+    let t = flying({ ...two(), ball: { ...two().ball, pos: { x: 22, y: 70 } } }, -40, 70)
+    t = { ...t, ball: { ...t.ball, pos: { x: 22, y: 70 } } }
+    const events = []
+    for (let i = 0; i < 60 && t.breaker; i++) {
+      const r = run(t)
+      t = r.state
+      events.push(...r.events)
+    }
+    expect((t.objects[0] as Wall).segments).toEqual([3, 0])
+    expect(events.find((e) => e.type === 'segment-broken')).toBeDefined()
+    expect(events.some((e) => e.type === 'wall-destroyed')).toBe(false)
+    expect(t.ball.vel.y).toBeLessThan(0)
+  })
+  it('on a last standing segment it destroys the wall with breaker: true', () => {
+    let t = flying({ ...two(), objects: [{ kind: 'wall', owner: 2, ...hseg(5, 30, 2), id: 1, segments: [0, 3] } as Wall] }, -40, 70)
+    t = { ...t, ball: { ...t.ball, pos: { x: 22, y: 70 } } }
+    const events = []
+    for (let i = 0; i < 60 && t.breaker; i++) {
+      const r = run(t)
+      t = r.state
+      events.push(...r.events)
+    }
+    expect(t.objects).toEqual([])
+    expect(events.find((e) => e.type === 'wall-destroyed')).toMatchObject({ breaker: true, segment: 1 })
   })
 })

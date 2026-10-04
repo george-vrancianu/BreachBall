@@ -3,7 +3,7 @@ import type { Structure, Tower } from '../../sim/wall'
 import type { SimEvent } from '../../sim/step'
 import { countDestroyed, defenceBar } from './defenceBar'
 
-const wall = (id: number, owner: 1 | 2): Structure => ({ kind: 'wall', id, owner, hp: 3, a: { x: 0, y: 0 }, b: { x: 8, y: 0 } })
+const wall = (id: number, owner: 1 | 2): Structure => ({ kind: 'wall', id, owner, segments: [3], a: { x: 0, y: 0 }, b: { x: 8, y: 0 } })
 const tower = (id: number, owner: 1 | 2): Structure => ({ kind: 'tower', id, owner, hp: 1, power: 'steal', at: { gx: 0, gy: 0 } })
 
 describe('defenceBar', () => {

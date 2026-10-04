@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { coinFlip, firstBuilder } from './match'
 import { opponent } from './possession'
 import type { PlayerId } from './pitch'
-import { isLegal, type Structure, type TowerSpec, type WallSpec } from './wall'
+import { structuresOf, isLegal, type Structure, type TowerSpec, type WallSpec } from './wall'
 import { canFinishBuild, defaultConfig, initialState, step, type SimConfig, type SimEvent, type SimState } from './step'
-import { emptied, funded, hseg, siegeBuild } from './testkit'
+import { healthOf, emptied, funded, hseg, siegeBuild } from './testkit'
 
 const siege: SimConfig = { ...defaultConfig, mode: 'siege' }
-const wall = (id: number, owner: PlayerId, hp = 3, gy = owner === 1 ? 40 : 26): Structure => ({ id, kind: 'wall', owner, ...hseg(5, gy), hp })
+const wall = (id: number, owner: PlayerId, hp = 3, gy = owner === 1 ? 40 : 26): Structure => ({ id, kind: 'wall', owner, ...hseg(5, gy), segments: [hp] })
 const steal = (id: number, owner: PlayerId): Structure => ({ id, kind: 'tower', owner, power: 'steal', at: { gx: 10, gy: 40 }, hp: 1 })
 /** Play phase with `objects` on the pitch (default: one wall each, so nobody is wiped out). */
 const playing = (seed = 1, objects: Structure[] = [wall(1, 1), wall(2, 2)]): SimState => {
@@ -141,7 +141,7 @@ describe('Siege', () => {
 })
 
 describe('Siege defence turn: Repair', () => {
-  const wallAt = (owner: 1 | 2, id: number, hp: number, gx: number): Structure => ({ kind: 'wall', owner, ...hseg(gx, owner === 1 ? 40 : 10), id, hp })
+  const wallAt = (owner: 1 | 2, id: number, hp: number, gx: number): Structure => ({ kind: 'wall', owner, ...hseg(gx, owner === 1 ? 40 : 10), id, segments: [hp] })
   /** Player 1 has just scored: the sim waits on their choice. */
   const scored = (): SimState => {
     const s = playing()
@@ -169,8 +169,15 @@ describe('Siege defence turn: Repair', () => {
 
   it("Repair restores the scorer's surviving structures to full HP and emits one repaired event each", () => {
     const r = step(scored(), repair(1), siege)
-    expect(r.state.objects.map((o) => [o.id, o.hp])).toEqual([[1, 3], [2, 3], [3, 1]])
+    expect(r.state.objects.map((o) => [o.id, healthOf(o)])).toEqual([[1, 3], [2, 3], [3, 1]])
     expect(r.events.filter((e) => e.type === 'repaired')).toEqual([{ type: 'repaired', id: 1, player: 1 }, { type: 'repaired', id: 2, player: 1 }])
+  })
+
+  it('restores standing segments to full and leaves a Gap as it is', () => {
+    const s = scored()
+    const gapped: Structure = { kind: 'wall', owner: 1, ...hseg(10, 40, 2), id: 2, segments: [0, 1] }
+    const r = step({ ...s, objects: s.objects.map((o) => (o.id === 2 ? gapped : o)) }, repair(1), siege)
+    expect(r.state.objects.find((o) => o.id === 2)).toMatchObject({ segments: [0, 3] })
   })
 
   it('does not bring destroyed structures back', () => {
@@ -215,6 +222,15 @@ describe('Siege wipe-out', () => {
     expect(r.events.flat().some((e) => e.type === 'wall-destroyed')).toBe(true)
     expect(ended(r.events)).toEqual([{ type: 'match-ended', winner: 1 }])
     expect(r.s.match.winner).toBe(1)
+  })
+
+  it('a wall with a Gap still counts as standing: the wipe-out waits for its last segment', () => {
+    const gapped: Structure = { kind: 'wall', owner: 2, ...hseg(5, 26, 2), id: 2, segments: [0, 1] }
+    const s = playing(1, [wall(1, 1), gapped])
+    expect(siege.mode).toBe('siege')
+    const r = step(s, {}, siege)
+    expect(r.state.match.winner).toBeNull()
+    expect(structuresOf(r.state.objects, 2)).toHaveLength(1)
   })
 
   it('destroying your own last structure with your shot loses the match', () => {
@@ -353,7 +369,7 @@ describe('Siege build timeout', () => {
 })
 
 describe('Siege defence turn: Rearrange', () => {
-  const wallAt = (owner: 1 | 2, id: number, hp: number, gx: number): Structure => ({ kind: 'wall', owner, ...hseg(gx, owner === 1 ? 40 : 10), id, hp })
+  const wallAt = (owner: 1 | 2, id: number, hp: number, gx: number): Structure => ({ kind: 'wall', owner, ...hseg(gx, owner === 1 ? 40 : 10), id, segments: [hp] })
   /** `scorer` has just scored and owes a choice; they own a cracked wall (1) and a full one (2), the other player owns wall 3. */
   const scored = (scorer: 1 | 2 = 1, cfg: SimConfig = siege): SimState => {
     const init = initialState(1, cfg)
@@ -381,9 +397,9 @@ describe('Siege defence turn: Rearrange', () => {
     const r1 = step(s, { moveStructure: { player: 1, id: 1, a: { x: 40, y: 88 }, b: { x: 40, y: 96 } } }, siege)
     expect(r1.events).toEqual([])
     s = r1.state
-    expect(s.objects.find((o) => o.id === 1)).toMatchObject({ a: { x: 40, y: 88 }, b: { x: 40, y: 96 }, hp: 1 })
+    expect(s.objects.find((o) => o.id === 1)).toMatchObject({ a: { x: 40, y: 88 }, b: { x: 40, y: 96 }, segments: [1] })
     s = step(s, move(2, 10, 46), siege).state
-    expect(s.objects.find((o) => o.id === 2)).toMatchObject({ ...hseg(10, 46), hp: 3 })
+    expect(s.objects.find((o) => o.id === 2)).toMatchObject({ ...hseg(10, 46), segments: [3] })
   })
 
   it('refuses moves off the pitch, off their half, into the no-build zone, and of the opponent structure', () => {
@@ -431,7 +447,7 @@ describe('Siege defence turn: Rearrange', () => {
     let s = rearranging()
     expect(step(s, { defence: { player: 1, choice: 'repair' } }, siege).events).toContainEqual({ type: 'refused' })
     s = step(s, { done: 1 }, siege).state
-    expect(s.objects.map((o) => o.hp)).toEqual([1, 3, 1])
+    expect(s.objects.map((o) => healthOf(o))).toEqual([1, 3, 1])
     expect(step(s, { defence: { player: 1, choice: 'repair' } }, siege).events).toContainEqual({ type: 'refused' })
   })
 
@@ -459,7 +475,7 @@ describe('Siege defence turn: Rearrange', () => {
   })
 
   it('refuses a move onto another wall, and accepts a 45 degree swing off its end with HP kept', () => {
-    const w = (id: number, gx: number, gy: number, hp = 3, owner: 1 | 2 = 1): Structure => ({ kind: 'wall', owner, ...hseg(gx, gy), id, hp })
+    const w = (id: number, gx: number, gy: number, hp = 3, owner: 1 | 2 = 1): Structure => ({ kind: 'wall', owner, ...hseg(gx, gy), id, segments: [hp] })
     const init = initialState(1, siege)
     const objects = [w(1, 0, 40), w(2, 4, 40), w(3, 8, 40, 2), w(4, 12, 40), w(5, 16, 46, 1), w(6, 2, 10, 3, 2)]
     const pre: SimState = { ...init, match: { ...init.match, builder: null, opening: false, choosing: 1 } as SimState['match'], objects, nextId: 7, possession: { shooter: 2, shots: 3, inHand: true, live: false } }
@@ -470,7 +486,7 @@ describe('Siege defence turn: Rearrange', () => {
     const d = 8 * Math.SQRT1_2
     const ok = step(s, { moveStructure: { player: 1, id: 5, a: { x: 32, y: 80 }, b: { x: 32 + d, y: 80 + d } } }, siege)
     expect(ok.events).toEqual([])
-    expect(ok.state.objects.find((o) => o.id === 5)).toMatchObject({ a: { x: 32, y: 80 }, hp: 1 })
+    expect(ok.state.objects.find((o) => o.id === 5)).toMatchObject({ a: { x: 32, y: 80 }, segments: [1] })
   })
 
   it('marks the opening build until play begins, and not the rearrange turn', () => {

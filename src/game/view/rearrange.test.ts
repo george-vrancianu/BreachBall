@@ -7,7 +7,7 @@ import { advance, blocking, newTransition, overlayView, revealing, type Transiti
 import { hseg } from '../../sim/testkit'
 
 const siege = { ...defaultConfig, mode: 'siege' as const }
-const w = (id: number, owner: 1 | 2, gx: number) => ({ kind: 'wall' as const, owner, ...hseg(gx, owner === 1 ? 40 : 10), id, hp: 2 })
+const w = (id: number, owner: 1 | 2, gx: number) => ({ kind: 'wall' as const, owner, ...hseg(gx, owner === 1 ? 40 : 10), id, segments: [2] })
 
 /** Drives step and advance as the shell does: the view derivations are the ones Game uses, computed from the state after each tick. */
 function play() {

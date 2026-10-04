@@ -13,7 +13,7 @@ import { Tower } from './entities/Tower'
 import { routeEvents } from './events'
 
 const at = { x: 20, y: 30 }
-const wall: Structure = { id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 0 }
+const wall: Structure = { id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), segments: [0] }
 const tower: Structure = { id: 2, kind: 'tower', owner: 2, power: 'repulsor', at: { gx: 5, gy: 10 }, hp: 3 }
 
 function setup(objects: Structure[]) {
