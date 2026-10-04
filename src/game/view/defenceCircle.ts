@@ -128,10 +128,10 @@ const POWER_LABEL: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: '
 
 export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection; /** A blocking hold or the map is up. */ blocked?: boolean; /** Whether this device plays a seat (hot-seat: every seat). */ mine(p: PlayerId): boolean }, a: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'>): DefenceCircle | undefined {
   if (!s.match.builder) return undefined
-  const mine = s.match.builder === viewer && v.mine(viewer)
+  const builds = s.match.builder === viewer && v.mine(viewer)
   // A turn that may only move pieces (Rearrange) has no placing and no demolish.
   const edit = canEdit(s)
-  const sel = mine && !v.blocked ? v.selection : undefined
+  const sel = builds && !v.blocked ? v.selection : undefined
   // The price on the item is one unit's; a longer wall is drawn and costed live.
   const piece = (item: Item, label: string): ItemSpec => ({ item, label, disabled: itemDisabled(s, viewer, item), pressed: v.item === item })
   return {
@@ -142,7 +142,7 @@ export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed 
       ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => piece(power, POWER_LABEL[power])),
       { item: 'cannon', label: 'Cannon', disabled: true, pressed: false, soon: true },
     ],
-    available: mine && edit && !v.blocked,
+    available: builds && edit && !v.blocked,
     ...(sel && {
       selection: {
         buttons: [

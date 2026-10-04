@@ -129,7 +129,7 @@ export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRec
           return (
             <Button key={p} spec={{ label: ICONS[p], onClick: () => onPowerUp(p), disabled: p === 'breaker' && !live }} style={{ position: 'relative', width: 44, height: 44, padding: 0, borderRadius: '50%', border: `2px solid ${columnOpen ? dim : color}`, color: columnOpen ? dim : armed ? visual.hud.dark : color, background: armed && !columnOpen ? color : 'none', opacity: n > 0 ? 1 : 0.35 }}>
               {ICONS[p]}
-              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: color, color: visual.hud.dark, fontSize: 12 }}>{n}</span>
+              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: columnOpen ? dim : color, color: visual.hud.dark, fontSize: 12 }}>{n}</span>
             </Button>
           )
         })}
