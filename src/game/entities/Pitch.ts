@@ -1,5 +1,6 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
+import type { PalletSpot } from '../../sim/pallet'
 import { centreSpot, halfSpan, type BoostZone, type Charge, type PlayerId } from '../../sim/pitch'
 import { boostColor, boostZones as zones, zoneLabels } from '../boost'
 import { Entity } from './Entity'
@@ -14,7 +15,7 @@ const ends = [
 /** A dash pattern in reference px, scaled to world units. */
 const dashed = (dashPx: readonly number[]): number[] => dashPx.map((d) => d * visual.pitch.unit)
 
-/** The ground, markings, goal mouths and nets; during a build turn also the snap grid on the builder's half and the build-zone edge on the halfway line, in the builder's colour. */
+/** The ground, markings, goal mouths and nets; during a build turn also the snap grid on the builder's half, the build-zone edge on the halfway line and each Activation ring, in the builder's colour. */
 export class Pitch extends Entity {
   /** Whose build turn it is, if any. */
   builder?: PlayerId
@@ -22,6 +23,8 @@ export class Pitch extends Entity {
   charge: Charge | null = null
   /** Turns the labels upright for Player 2's view. */
   flipped = false
+  /** The map's Pallet pivots, whose Activation rings are drawn during a build. */
+  pallets: readonly PalletSpot[] = []
   private arrivals: { zone: BoostZone; born: number }[] = []
   private credits: { player: PlayerId; credits: number; born: number }[] = []
 
@@ -120,7 +123,10 @@ export class Pitch extends Entity {
       ctx.stroke()
     }
 
-    if (this.builder) this.drawBuildEdge(ctx, this.builder)
+    if (this.builder) {
+      this.drawBuildEdge(ctx, this.builder)
+      this.drawPalletRings(ctx, this.builder)
+    }
   }
 
   /** The alpha of the `zone` tint: steady, pulsing slowly, stronger while it holds a Charged ball, flashing on an arrival. */
@@ -289,6 +295,20 @@ export class Pitch extends Entity {
     ctx.strokeStyle = this.builder === owner ? visual.player.colors[owner] : visual.pitch.line
     ctx.lineWidth = keepOut.widthPx * visual.pitch.unit
     ctx.stroke()
+    ctx.setLineDash([])
+  }
+
+  /** Each Activation ring, a no-build zone: dashed like the keep-out arc, in the builder's colour. The Pallet itself is drawn elsewhere. */
+  private drawPalletRings(ctx: CanvasRenderingContext2D, builder: PlayerId): void {
+    const { palletRing } = visual.pitch
+    ctx.setLineDash(dashed(palletRing.dashPx))
+    ctx.strokeStyle = visual.player.colors[builder]
+    ctx.lineWidth = palletRing.widthPx * visual.pitch.unit
+    for (const at of this.pallets) {
+      ctx.beginPath()
+      ctx.arc(at.x, at.y, rules.pallet.ringRadius, 0, 2 * Math.PI)
+      ctx.stroke()
+    }
     ctx.setLineDash([])
   }
 

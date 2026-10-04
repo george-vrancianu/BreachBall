@@ -415,6 +415,7 @@ export class Game implements Sink {
     // The snap grid and build edge show for an in-play build too, while an item is armed.
     this.pitch.builder = builder ?? (input.item ? builderNow(state) ?? undefined : undefined)
     this.pitch.charge = this.ball.charge = state.charge
+    this.pitch.pallets = this.config.pallets
     this.ball.radius = this.config.ballRadius
     this.ball.tracer.pxPerUnit = this.camera.view(this.canvas).sy / this.dpr
     this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.gauge.flipped = this.viewerTurned()

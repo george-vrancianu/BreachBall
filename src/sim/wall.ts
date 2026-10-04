@@ -1,5 +1,6 @@
 import { rules, type WallRules } from '../config/rules'
 import { centreSpot, halfOf, type PlayerId, type Point } from './pitch'
+import type { PalletSpot } from './pallet'
 import type { SimEvent } from './step'
 
 /** A grid vertex: world position is (gx, gy) * rules.cellSize. */
@@ -220,18 +221,19 @@ export function isDrawable(w: Pick<WallSpec, 'a' | 'b'>, r: WallRules = rules): 
 
 /**
  * Legal when the wall is an allowed shape (a tower always is), the whole structure lies inside the pitch, on the owner's half (a segment lying on the halfway line belongs to neither),
- * outside the owner's goal no-build zone and outside the Centre zone, and, against `existing`, crosses no wall, overlaps no wall and
+ * outside the owner's goal no-build zone, the Centre zone and the Activation ring of each Pallet at `pallets`, and, against `existing`, crosses no wall, overlaps no wall and
  * passes through no tower's cell. Touching (end to end, or an end on another wall's body) is fine.
  */
-export function isLegal(w: StructureSpec, existing: readonly StructureSpec[] = [], r: WallRules = rules): boolean {
+export function isLegal(w: StructureSpec, existing: readonly StructureSpec[] = [], pallets: readonly PalletSpot[] = [], r: WallRules = rules): boolean {
   const goal: Point = { x: rules.pitchWidth / 2, y: w.owner === 2 ? 0 : rules.pitchHeight }
   // A tower is judged as its whole square, so an edge resting on the halfway line is fine.
   const [p, q] = w.kind === 'tower' ? [vertexToWorld(w.at), vertexToWorld({ gx: w.at.gx + 1, gy: w.at.gy + 1 })] : [w.a, w.b]
   const [min, max] = [{ x: Math.min(p.x, q.x), y: Math.min(p.y, q.y) }, { x: Math.max(p.x, q.x), y: Math.max(p.y, q.y) }]
   const side = (y: number) => (w.owner === 1 ? y >= rules.halfHeight : y <= rules.halfHeight)
-  const [zoneDist, centreDist] = w.kind === 'tower' ? [distToBox(min, max, goal), distToBox(min, max, centre)] : [distToSegment(w, goal), distToSegment(w, centre)]
+  const dist = (at: Point) => (w.kind === 'tower' ? distToBox(min, max, at) : distToSegment(w, at))
   const placed = min.x >= 0 && max.x <= rules.pitchWidth && min.y >= 0 && max.y <= rules.pitchHeight && side(min.y) && side(max.y) && halfOf((min.y + max.y) / 2) === w.owner
-  if (!placed || (w.kind === 'wall' && !isDrawable(w, r)) || zoneDist <= rules.noBuildRadius || centreDist <= rules.centreZoneRadius) return false
+  if (!placed || (w.kind === 'wall' && !isDrawable(w, r)) || dist(goal) <= rules.noBuildRadius || dist(centre) <= rules.centreZoneRadius) return false
+  if (pallets.some((at) => dist(at) <= rules.pallet.ringRadius)) return false
   return existing.every((o) => {
     if (w.kind === 'wall') return o.kind === 'wall' ? !wallsOverlap(w, o, EPS, r) : lengthInside(w, o) <= EPS
     return o.kind === 'wall' ? lengthInside(o, w) <= EPS : o.at.gx !== w.at.gx || o.at.gy !== w.at.gy

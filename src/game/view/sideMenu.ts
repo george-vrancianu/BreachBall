@@ -1,4 +1,4 @@
-import { MODES, sliderLabel, slidersFor, EXPIRIES } from '../../sim/settings'
+import { MODES, sliderLabel, slidersFor, EXPIRIES, PALLETS } from '../../sim/settings'
 import { UNITS } from './units'
 import type { SimConfig } from '../../sim/step'
 
@@ -8,13 +8,14 @@ export type SettingRow = { label: string; value: string }
 /** What the Side menu draws from. `hotSeat` gates Restart: online has none, and never pauses. */
 export type SideMenuView = { open: boolean; hotSeat: boolean; settings: SettingRow[] }
 
-/** The settings the match was started with, as the Side menu lists them: mode, then the sliders its mode uses (Rounds: Rounds, Credits per round, Opening Credits, Refund rate; Siege: Wall points), with the balance's unit where it has one (the refund rate is credits back per refunded piece, not a percentage), then On time out. Shots per possession is left to the settings screen. */
-export function settingRows(c: Pick<SimConfig, 'mode' | 'rounds' | 'credits' | 'openingCredits' | 'refundRate' | 'expiry'>): SettingRow[] {
+/** The settings the match was started with, as the Side menu lists them: mode, then the sliders its mode uses (Rounds: Rounds, Credits per round, Opening Credits, Refund rate; Siege: Wall points), with the balance's unit where it has one (the refund rate is credits back per refunded piece, not a percentage), then On time out and Pallets. Shots per possession is left to the settings screen. */
+export function settingRows(c: Pick<SimConfig, 'mode' | 'rounds' | 'credits' | 'openingCredits' | 'refundRate' | 'expiry' | 'pallets'>): SettingRow[] {
   const sliders = slidersFor(c.mode).filter((k) => k !== 'shots')
   return [
     { label: 'Mode', value: MODES.find((m) => m.mode === c.mode)!.label },
     ...sliders.map((k) => ({ label: sliderLabel(c.mode, k), value: k === 'rounds' ? String(c[k]) : `${c[k]} ${UNITS[c.mode].menu}` })),
     { label: 'On time out', value: EXPIRIES.find((e) => e.expiry === c.expiry)!.label },
+    { label: 'Pallets', value: PALLETS.find((p) => p.pallets === c.pallets.length > 0)!.label },
   ]
 }
 

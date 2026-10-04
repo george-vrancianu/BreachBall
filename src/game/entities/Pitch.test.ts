@@ -27,6 +27,7 @@ function recorder() {
 
 const { unit } = visual.pitch
 const keepOut = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.keepOut.dashPx[0] * unit)
+const rings = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.palletRing.dashPx[0] * unit)
 const buildEdges = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.buildEdge.dashPx[0] * unit)
 const snapDots = (calls: Call[]) => calls.filter((c) => c.fn === 'fillRect' && c.alpha === visual.pitch.snapGrid.alpha && c.args[2] === visual.pitch.snapGrid.dotPx * unit)
 
@@ -49,6 +50,19 @@ describe('Pitch markings', () => {
     expect(edges).toHaveLength(1)
     expect(edges[0].strokeStyle).toBe(visual.player.colors[1])
     expect(edges[0].alpha).toBe(visual.pitch.buildEdge.alpha)
+  })
+
+  it('draws each Activation ring, dashed in the builder\'s colour, during a build only', () => {
+    const pitch = new Pitch()
+    pitch.pallets = rules.pallet.spots
+    const idle = recorder()
+    pitch.draw(idle.ctx)
+    expect(rings(idle.calls)).toHaveLength(0)
+    pitch.builder = 2
+    const { ctx, calls } = recorder()
+    pitch.draw(ctx)
+    expect(rings(calls).map((c) => c.strokeStyle)).toEqual([visual.player.colors[2], visual.player.colors[2]])
+    expect(calls.filter((c) => c.fn === 'arc' && c.args[2] === rules.pallet.ringRadius).map((c) => c.args.slice(0, 2))).toEqual(rules.pallet.spots.map((p) => [p.x, p.y]))
   })
 
   it('draws a goal line across each mouth', () => {

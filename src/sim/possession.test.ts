@@ -86,6 +86,15 @@ describe('ball-in-hand', () => {
     expect(canPlaceBall(2, at(41.5, 22), [wall], c)).toBe(true)
     expect(canPlaceBall(2, at(40.9, 22), [wall], c)).toBe(false)
   })
+  it('rejects a point whose ball would reach into an Activation ring, accepts one clear of it', () => {
+    const pc = { ...c, pallets: rules.pallet.spots }
+    // Ring radius 5 around (6, 54) and a ball radius of 1: the ball's centre must be over 6 away.
+    expect(canPlaceBall(2, at(50, 6), [], c)).toBe(true)
+    expect(canPlaceBall(2, at(50, 6), [], pc)).toBe(false)
+    expect(canPlaceBall(2, at(48, 6), [], pc)).toBe(false)
+    expect(canPlaceBall(2, at(47.9, 6), [], pc)).toBe(true)
+    expect(canPlaceBall(1, at(58, 34), [], pc)).toBe(false)
+  })
   it('rejects points outside the boards', () => {
     expect(canPlaceBall(2, at(30, 0.5), [], c)).toBe(false)
   })

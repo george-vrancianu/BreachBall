@@ -70,6 +70,19 @@ it('settings: the On time out toggle shows in both modes and reports the choice'
   }
 })
 
+it('settings: the Pallets toggle shows in both modes, on by default, and reports the choice', () => {
+  for (const mode of ['siege', 'rounds'] as const) {
+    const change = vi.fn()
+    render(<SettingsScreen settings={{ ...defaultSettings, mode }} onChange={change} tabletop={false} onTabletop={() => {}} onStart={() => {}} />)
+    expect(screen.getByText('Pallets')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'On' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Off' }).getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: 'Off' }))
+    expect(change).toHaveBeenLastCalledWith(expect.objectContaining({ mode, pallets: false }))
+    cleanup()
+  }
+})
+
 it('match end names the winner and offers rematch and menu', () => {
   const [rematch, menu] = [vi.fn(), vi.fn()]
   render(<MatchEndScreen winner={2} result="1 structure left" onRematch={rematch} onMenu={menu} />)

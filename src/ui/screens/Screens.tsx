@@ -1,7 +1,7 @@
 import { type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import type { PlayerId } from '../../game/Game'
-import { expiryPicker, modePicker, sliderRows, withMode, type Settings } from '../../game/view/settings'
+import { expiryPicker, modePicker, palletsPicker, sliderRows, withMode, type Settings } from '../../game/view/settings'
 import { ButtonRow, TabletopToggle, FONT, ghostCircle } from '../ButtonRow'
 import { AttractHero } from './Attract'
 
@@ -98,7 +98,7 @@ export function HelpScreen({ onBack, ...look }: { onBack(): void } & Look) {
   )
 }
 
-/** The mode picker, then the sliders that mode uses, then the On time out toggle, then the device's Tabletop mode toggle (not part of the match), then Start. */
+/** The mode picker, then the sliders that mode uses, then the On time out and Pallets toggles, then the device's Tabletop mode toggle (not part of the match), then Start. */
 export function SettingsScreen({ settings, onChange, tabletop, onTabletop, onStart, ...look }: { settings: Settings; onChange(s: Settings): void; tabletop: boolean; onTabletop(on: boolean): void; onStart(): void } & Look) {
   return (
     <Screen {...look}>
@@ -116,6 +116,10 @@ export function SettingsScreen({ settings, onChange, tabletop, onTabletop, onSta
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
         <span>On time out</span>
         <ButtonRow specs={expiryPicker(settings.expiry, (expiry) => onChange({ ...settings, expiry }))} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+        <span>Pallets</span>
+        <ButtonRow specs={palletsPicker(settings.pallets, (pallets) => onChange({ ...settings, pallets }))} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: 'min(80vw,320px)' }}>
         <TabletopToggle on={tabletop} onChange={onTabletop} />

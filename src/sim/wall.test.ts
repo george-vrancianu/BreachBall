@@ -263,6 +263,23 @@ describe('isLegal', () => {
     expect(isLegal(tower(2, 12, 24))).toBe(false)
     expect(isLegal(tower(2, 13, 24))).toBe(true)
   })
+  it('refuses a wall or tower in an Activation ring, by distance to the segment or cell, and accepts one just outside', () => {
+    const spots = rules.pallet.spots
+    const tower = (owner: 1 | 2, gx: number, gy: number): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx, gy } })
+    // Ring radius 5 around (6, 54). A horizontal wall on y=59 is 5 away (inside, inclusive); on y=59.5, clear. Neither is near the Centre zone.
+    expect(isLegal(wall(1, p(2, 59), p(10, 59)))).toBe(true)
+    expect(isLegal(wall(1, p(2, 59), p(10, 59)), [], spots)).toBe(false)
+    expect(isLegal(wall(1, p(2, 59.5), p(10, 59.5)), [], spots)).toBe(true)
+    // The far ring, from the other half, ends outside it but the middle through it.
+    expect(isLegal(wall(2, p(30, 49), p(38, 49)), [], spots)).toBe(false)
+    expect(isLegal(wall(2, p(30, 48.5), p(38, 48.5)), [], spots)).toBe(true)
+    // Cell (6..8, 56..58) has its nearest edge 2 below (6, 54); cell (10..12, 58..60) 5.66.
+    expect(isLegal(tower(1, 3, 28), [], spots)).toBe(false)
+    expect(isLegal(tower(1, 5, 29), [], spots)).toBe(true)
+    // Cell (32..34, 48..50) is 4 above (34, 54); cell (28..30, 48..50) 5.66 away.
+    expect(isLegal(tower(2, 16, 24), [], spots)).toBe(false)
+    expect(isLegal(tower(2, 14, 24), [], spots)).toBe(true)
+  })
   it('judges a tower by its whole cell against the halfway line', () => {
     const tower = (owner: 1 | 2, gy: number): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx: 2, gy } })
     // The halfway line is at grid row 27: a cell resting on it, wholly on the owner's side, is legal.
@@ -366,7 +383,7 @@ describe('isLegal with custom wall rules', () => {
   it('reads the rules it is given: a three-unit wall is legal only where three units are allowed', () => {
     const w: WallSpec = { kind: 'wall', owner: 1, ...hseg(1, 40, 3) }
     expect(isLegal(w)).toBe(false)
-    expect(isLegal(w, [], { ...rules, wall: { ...rules.wall, units: [1, 2, 3] } })).toBe(true)
+    expect(isLegal(w, [], [], { ...rules, wall: { ...rules.wall, units: [1, 2, 3] } })).toBe(true)
   })
 })
 
