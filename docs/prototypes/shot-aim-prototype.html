@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shot Aim Prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;700&display=swap" />
+<style>
+  :root { --bg:#070a14; --ground:#0f1626; --ink:#e8eaf0; --muted:#8d94ab; --ghost:#4a5068; --panel:#141a2a; --safe:#4ade80; --power:#f87171; --p1:#22d3ee; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink); font:700 13px "Chakra Petch","Trebuchet MS",sans-serif; text-transform:uppercase; display:flex; flex-wrap:wrap; gap:24px; justify-content:center; align-items:flex-start; padding:16px; }
+  .phone { position:relative; width:min(390px, 100%); height:760px; border-radius:28px; overflow:hidden; border:2px solid #232b42; box-shadow:0 20px 60px #0009; background:var(--ground); touch-action:none; }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+  .hint { position:absolute; left:0; right:0; bottom:14px; text-align:center; color:var(--muted); font-size:11px; letter-spacing:.12em; pointer-events:none; }
+  .side { width:min(360px,100%); display:flex; flex-direction:column; gap:14px; }
+  h1 { font-family:Bungee,Impact,sans-serif; font-weight:400; font-size:26px; margin:0; letter-spacing:.02em; }
+  h1 span { color:var(--safe); } h1 b { color:var(--power); font-weight:400; }
+  .card { background:var(--panel); border:1px solid #232b42; border-radius:16px; padding:14px; }
+  .card h2 { margin:0 0 8px; font-size:12px; letter-spacing:.14em; color:var(--muted); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  button { font:inherit; text-transform:inherit; color:var(--ink); background:transparent; border:2px solid var(--ghost); border-radius:999px; padding:8px 14px; cursor:pointer; letter-spacing:.06em; }
+  button[aria-pressed=true] { background:var(--ink); color:#0b0f1a; border-color:var(--ink); }
+  button.safe[aria-pressed=true] { background:var(--safe); border-color:var(--safe); }
+  button.power[aria-pressed=true] { background:var(--power); border-color:var(--power); }
+  ul { margin:0; padding-left:18px; color:#c3c8d6; text-transform:none; font-weight:500; line-height:1.45; font-size:13px; }
+  li + li { margin-top:4px; }
+  .legend { display:grid; grid-template-columns:auto 1fr; gap:8px 10px; align-items:center; text-transform:none; font-weight:500; color:#c3c8d6; font-size:13px; }
+  .sw { width:34px; height:14px; border-radius:7px; }
+  label { display:flex; gap:8px; align-items:center; text-transform:none; font-weight:500; color:#c3c8d6; cursor:pointer; }
+</style>
+</head>
+<body>
+  <div class="phone"><canvas id="c"></canvas><div class="hint" id="hint">Drag back from the ball · hold 1 s for Power</div></div>
+  <div class="side">
+    <h1>Shot <span>Safe</span> / <b>Power</b></h1>
+    <div class="card">
+      <h2>Try it</h2>
+      <ul>
+        <li>Press on the ball and drag back: the shot goes the other way.</li>
+        <li><b style="color:var(--safe)">Safe</b>: big ring. Power grows as you pull <i>out</i> toward the limit.</li>
+        <li>Hold still on the ball for 1&nbsp;s: the ring shrinks to <b style="color:var(--power)">Power</b>. Power is strongest <i>near the ball</i> and fades toward the limit.</li>
+        <li>Let go back inside the small inner circle to cancel.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Demo</h2>
+      <div class="row">
+        <button id="auto" aria-pressed="true">Auto demo</button>
+        <button id="tSafe" class="safe" aria-pressed="true">Safe</button>
+        <button id="tPower" class="power" aria-pressed="false">Power</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Legend</h2>
+      <div class="legend">
+        <span class="sw" style="background:linear-gradient(90deg,#4ade8011,#4ade8099)"></span><span>Safe scale, low near the ball → high at the limit</span>
+        <span class="sw" style="background:linear-gradient(90deg,#f87171aa,#f8717111)"></span><span>Power scale, high near the ball → low at the limit</span>
+        <span class="sw" style="border:2px solid var(--ink)"></span><span>The limit of the current shot type</span>
+        <span class="sw" style="background:linear-gradient(90deg,transparent,var(--ink))"></span><span>Direction comet, its length grows with power, then the predicted path</span>
+        <span class="sw" style="background:linear-gradient(90deg,transparent,#4ade80,#fff)"></span><span>Shot tracer: a glowing tail that tapers and fades, sparks off every bounce</span>
+      </div>
+    </div>
+  </div>
+<script>
+(() => {
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d')
+  const arc0 = ctx.arc.bind(ctx); ctx.arc = (x, y, r, a0, a1, ccw) => arc0(x, y, Math.max(0, r), a0, a1, ccw)
+  const C = { safe: '#4ade80', power: '#f87171', ink: '#e8eaf0', muted: '#8d94ab', lines: '#3b4f7a', dots: '#1c2540', ground: '#0f1626', ball: '#f4f4f0', p1: '#22d3ee', p2: '#fb923c' }
+  // The two shot types: control radius (px), power range, and how the scale runs.
+  const TIERS = {
+    safe:  { name: 'SAFE',  color: C.safe,  R: 150, lo: 0.15, hi: 0.45, dir: 'up' },
+    power: { name: 'POWER', color: C.power, R: 84,  lo: 0.5,  hi: 1.0,  dir: 'down' },
+  }
+  const SLOP = 10, HOLD_MS = 1000, BALL_R = 11
+  let W = 0, H = 0, dpr = 1
+  const s = { tier: 'safe', shownR: TIERS.safe.R, colorMix: 0, press: null, at: null, phase: 'idle', holdStart: 0, flight: null, splash: null, auto: true, autoT: 0, lastPower: 0, pop: null, maxPulse: 0 }
+  let ball = { x: 0, y: 0 }, home = { x: 0, y: 0 }, walls = [], bounds = {}
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1
+    W = cv.clientWidth; H = cv.clientHeight
+    cv.width = W * dpr; cv.height = H * dpr
+    bounds = { l: 18, r: W - 18, t: 18, b: H - 18 }
+    home = { x: W / 2, y: H * 0.62 }
+    if (!s.flight) ball = { ...home }
+    walls = [
+      { a: { x: W * 0.18, y: H * 0.22 }, b: { x: W * 0.46, y: H * 0.22 }, c: C.p2 },
+      { a: { x: W * 0.58, y: H * 0.3 }, b: { x: W * 0.84, y: H * 0.16 }, c: C.p2 },
+      { a: { x: W * 0.3, y: H * 0.86 }, b: { x: W * 0.52, y: H * 0.86 }, c: C.p1 },
+    ]
+  }
+  addEventListener('resize', resize); resize()
+
+  const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})` }
+  const mix = (a, b, t) => { const p = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; const [x, y] = [p(a), p(b)]; return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('') }
+  const ease = (t) => 1 - Math.pow(1 - t, 3)
+  const back = (t) => { const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2) }
+
+  /** The aim from the drag: direction away from the pull, the scale position 0..1 between the inner circle and the limit, and the power. */
+  function aimOf() {
+    if (!s.press || !s.at) return null
+    const dx = s.press.x - s.at.x, dy = s.press.y - s.at.y, d = Math.hypot(dx, dy)
+    if (d <= SLOP) return null
+    const T = TIERS[s.tier]
+    const t = Math.min(1, (d - SLOP) / (T.R - SLOP))
+    const e = T.dir === 'up' ? t : 1 - t
+    const power = T.lo + (T.hi - T.lo) * e * e
+    return { dir: { x: dx / d, y: dy / d }, t, e, power, d: Math.min(d, T.R), over: d > T.R }
+  }
+
+  // ---- input ----
+  const pt = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top } }
+  cv.addEventListener('pointerdown', (e) => {
+    if (s.flight) return
+    const p = pt(e)
+    if (Math.hypot(p.x - ball.x, p.y - ball.y) > BALL_R * 3) return
+    setAuto(false)
+    cv.setPointerCapture(e.pointerId)
+    setTier('safe', true)
+    s.press = { ...ball }; s.at = p; s.phase = 'holding'; s.holdStart = performance.now()
+  })
+  cv.addEventListener('pointermove', (e) => {
+    if (!s.press) return
+    s.at = pt(e)
+    if (s.phase === 'holding' && Math.hypot(s.at.x - s.press.x, s.at.y - s.press.y) > SLOP) s.phase = 'aiming'
+  })
+  const up = () => {
+    if (!s.press) return
+    const a = aimOf()
+    if (a && s.phase === 'aiming') fire(a)
+    s.press = s.at = null; s.phase = 'idle'
+  }
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', () => { s.press = s.at = null; s.phase = 'idle' })
+
+  function setTier(t, instant) {
+    if (s.tier === t && !instant) return
+    s.tier = t
+    if (instant) { s.shownR = TIERS[t].R; s.colorMix = t === 'power' ? 1 : 0 }
+    else s.morph = { from: s.shownR, fromMix: s.colorMix, to: TIERS[t].R, toMix: t === 'power' ? 1 : 0, start: performance.now() }
+    if (!instant) s.pop = { text: TIERS[t].name + '!', start: performance.now(), color: TIERS[t].color }
+    document.getElementById('tSafe').setAttribute('aria-pressed', t === 'safe')
+    document.getElementById('tPower').setAttribute('aria-pressed', t === 'power')
+  }
+  function setAuto(on) { s.auto = on; document.getElementById('auto').setAttribute('aria-pressed', on); if (!on) { s.press = s.at = null; s.phase = 'idle' } else s.autoT = 0 }
+  document.getElementById('auto').onclick = () => setAuto(!s.auto)
+  document.getElementById('tSafe').onclick = () => { setAuto(false); setTier('safe') }
+  document.getElementById('tPower').onclick = () => { setAuto(false); setTier('power') }
+
+  // ---- shot ----
+  function trace(from, dir, len) {
+    // Straight ray reflecting off the pitch sides and the walls, up to `len` px or the first wall (where it stops for the Ghost).
+    const pts = [{ ...from }]; let p = { ...from }, d = { ...dir }, left = len, hits = []
+    for (let k = 0; k < 4 && left > 0; k++) {
+      let best = { t: left, n: null, wall: false }
+      const side = (t, n) => { if (t > 1e-6 && t < best.t) best = { t, n, wall: false } }
+      if (d.x < 0) side((bounds.l - p.x) / d.x, { x: 1, y: 0 }); if (d.x > 0) side((bounds.r - p.x) / d.x, { x: -1, y: 0 })
+      if (d.y < 0) side((bounds.t - p.y) / d.y, { x: 0, y: 1 }); if (d.y > 0) side((bounds.b - p.y) / d.y, { x: 0, y: -1 })
+      for (const w of walls) {
+        const ex = w.b.x - w.a.x, ey = w.b.y - w.a.y, den = d.x * ey - d.y * ex
+        if (Math.abs(den) < 1e-9) continue
+        const t = ((w.a.x - p.x) * ey - (w.a.y - p.y) * ex) / den, u = ((w.a.x - p.x) * d.y - (w.a.y - p.y) * d.x) / den
+        if (u >= 0 && u <= 1 && t > 1e-6 && t - BALL_R * 0.3 < best.t) { const l = Math.hypot(ex, ey); let n = { x: -ey / l, y: ex / l }; if (n.x * d.x + n.y * d.y > 0) n = { x: -n.x, y: -n.y }; best = { t: Math.max(0, t - BALL_R * 0.3), n, wall: true } }
+      }
+      p = { x: p.x + d.x * best.t, y: p.y + d.y * best.t }; pts.push({ ...p }); left -= best.t
+      if (!best.n) break
+      hits.push({ ...p, wall: best.wall })
+      const dot = d.x * best.n.x + d.y * best.n.y; d = { x: d.x - 2 * dot * best.n.x, y: d.y - 2 * dot * best.n.y }
+    }
+    return { pts, hits }
+  }
+  function fire(a) {
+    const T = TIERS[s.tier]
+    const path = trace(ball, a.dir, 120 + 900 * a.power)
+    s.flight = { path, start: performance.now(), dur: 500 + 700 * a.power, color: T.color, power: a.power, heavy: s.tier === 'power', seg: 0 }
+    s.trail = [{ x: ball.x, y: ball.y, t: performance.now() }]
+    burst(ball, T.color, s.tier === 'power' ? 18 : 8, s.tier === 'power' ? 220 : 140)
+    if (s.tier === 'power') s.splash = { at: { ...ball }, r: 26 + 60 * a.power, start: performance.now() }
+  }
+
+  // ---- auto demo: a scripted finger ----
+  function autoStep(now, dt) {
+    if (s.flight) return
+    s.autoT += dt
+    const cyc = 6.2, t = s.autoT % (cyc * 2), power = t >= cyc, u = t % cyc, round = Math.floor(s.autoT / cyc)
+    if (s.firedRound === round) return
+    const want = power ? 'power' : 'safe'
+    const ang = -Math.PI / 2 + (power ? 0.55 : -0.35) * Math.sin(u * 0.9)
+    if (u < 0.15) { s.press = null; s.at = null; s.phase = 'idle'; if (s.tier !== 'safe') setTier('safe', true); return }
+    if (!s.press) { s.press = { ...ball }; s.at = { ...ball }; s.phase = 'holding'; s.holdStart = now }
+    if (power && u < 1.4) { s.at = { ...s.press }; return }
+    if (power && s.tier !== 'power') setTier('power')
+    if (!power && u < 0.4) return
+    s.phase = 'aiming'
+    const R = TIERS[want].R
+    const k = Math.min(1, (u - (power ? 1.4 : 0.4)) / 3.8)
+    const sweep = 0.5 - 0.5 * Math.cos(k * Math.PI * 1.5)
+    // Safe pulls out toward its limit; Power starts at its limit and pushes in toward the ball, where it is strongest.
+    const r = power ? R * 1.06 - (R * 1.06 - SLOP * 1.8) * sweep : SLOP + (R * 1.08 - SLOP) * sweep
+    s.at = { x: s.press.x - Math.cos(ang) * r, y: s.press.y - Math.sin(ang) * r }
+    if (u > 5.6 && s.phase === 'aiming') { const a = aimOf(); if (a) fire(a); s.press = s.at = null; s.phase = 'idle'; s.firedRound = round }
+  }
+
+  // ---- draw ----
+  function pitch() {
+    ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H)
+    ctx.fillStyle = C.dots
+    for (let x = 13; x < W; x += 26) for (let y = 13; y < H; y += 26) { ctx.beginPath(); ctx.arc(x, y, 1.3, 0, 7); ctx.fill() }
+    ctx.strokeStyle = C.lines; ctx.lineWidth = 3
+    ctx.beginPath(); ctx.roundRect(bounds.l, bounds.t, bounds.r - bounds.l, bounds.b - bounds.t, 14); ctx.stroke()
+    ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bounds.l, H * 0.45); ctx.lineTo(bounds.r, H * 0.45); ctx.stroke()
+    ctx.beginPath(); ctx.arc(W / 2, H * 0.45, 52, 0, 7); ctx.stroke()
+    ctx.lineWidth = 4; ctx.strokeStyle = C.ink; ctx.beginPath(); ctx.moveTo(W / 2 - 50, bounds.t); ctx.lineTo(W / 2 + 50, bounds.t); ctx.stroke()
+    for (const w of walls) {
+      ctx.lineCap = 'round'; ctx.strokeStyle = '#05070d'; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(w.a.x, w.a.y); ctx.lineTo(w.b.x, w.b.y); ctx.stroke()
+      ctx.strokeStyle = w.c; ctx.lineWidth = 6; ctx.stroke()
+    }
+  }
+
+  function label(text, x, y, color, bg = '#0b0f1acc', size = 10) {
+    ctx.font = `700 ${size}px "Chakra Petch", sans-serif`
+    const w = ctx.measureText(text).width + 12
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(x - w / 2, y - 9, w, 18, 9); ctx.fill()
+    ctx.strokeStyle = hexA(color, 0.7); ctx.lineWidth = 1.5; ctx.stroke()
+    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 0.5)
+  }
+
+  /** The control ring: the scale as a gradient band from the inner circle to the limit, tick rings, and the limit of the current shot type only. */
+  function gauge(now, a) {
+    const c = ball, R = s.shownR, col = mix(C.safe, C.power, s.colorMix), T = TIERS[s.tier]
+    const inner = SLOP + BALL_R * 0.2
+    const breathe = 1.5 * Math.sin(now / 420)
+    // Scale band: low→high for Safe (brighter outward), high→low for Power (brighter inward).
+    const g = ctx.createRadialGradient(c.x, c.y, inner, c.x, c.y, R)
+    if (s.tier === 'safe') { g.addColorStop(0, hexA(col, 0.03)); g.addColorStop(1, hexA(col, 0.30)) }
+    else { g.addColorStop(0, hexA(col, 0.5)); g.addColorStop(1, hexA(col, 0.03)) }
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, R, 0, Math.PI * 2); ctx.moveTo(c.x + inner, c.y); ctx.arc(c.x, c.y, inner, 0, Math.PI * 2, true); ctx.fill('evenodd')
+    // Tick rings at 25 / 50 / 75 % of the scale, with their power.
+    ctx.lineWidth = 1
+    for (const f of [0.25, 0.5, 0.75]) {
+      const r = inner + (R - inner) * f
+      ctx.strokeStyle = hexA(col, 0.22); ctx.setLineDash([2, 5]); ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, 7); ctx.stroke(); ctx.setLineDash([])
+    }
+    // Inner cancel circle.
+    ctx.strokeStyle = hexA(C.ink, 0.25); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(c.x, c.y, inner, 0, 7); ctx.stroke()
+    // The limit: solid, breathing, with a glow; it flares when the drag pushes past it.
+    const flare = s.maxPulse
+    ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 10 + 18 * flare
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5 + 2 * flare
+    ctx.beginPath(); ctx.arc(c.x, c.y, R + breathe * (1 - flare), 0, 7); ctx.stroke(); ctx.restore()
+    // Scale end labels: where the scale is high and low.
+    const topY = c.y - R
+    if (s.tier === 'safe') { label('MAX', c.x, topY, col); label('LOW', c.x, c.y - inner - 12, hexA(col, 0.85), '#0b0f1a99', 8) }
+    else { label('MIN', c.x, topY, col); label('MAX', c.x, c.y - inner - 12, col, '#0b0f1acc', 8) }
+    label(T.name + ' LIMIT', c.x - R * 0.71, c.y + R * 0.71, col)
+    if (!a) return
+    // Current level: a ring at the finger's distance, plus a lit wedge on the pull side growing from the ball, and the knob.
+    const d = a.d, pullAng = Math.atan2(-a.dir.y, -a.dir.x), spread = 0.32
+    const wedge = ctx.createRadialGradient(c.x, c.y, inner, c.x, c.y, d)
+    wedge.addColorStop(0, hexA(col, s.tier === 'safe' ? 0.08 : 0.55)); wedge.addColorStop(1, hexA(col, s.tier === 'safe' ? 0.55 : 0.12))
+    ctx.fillStyle = wedge; ctx.beginPath(); ctx.arc(c.x, c.y, d, pullAng - spread, pullAng + spread); ctx.arc(c.x, c.y, inner, pullAng + spread, pullAng - spread, true); ctx.closePath(); ctx.fill()
+    ctx.strokeStyle = hexA(col, 0.55 + 0.45 * a.e); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(c.x, c.y, d, 0, 7); ctx.stroke()
+    // Ripple: a ring travels from the ball out to the level, faster with more power.
+    const per = 900 - 500 * a.e, ph = (now % per) / per
+    ctx.strokeStyle = hexA(col, 0.5 * (1 - ph)); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(c.x, c.y, inner + (d - inner) * ph, 0, 7); ctx.stroke()
+    // Elastic band and knob.
+    const k = { x: c.x - a.dir.x * d, y: c.y - a.dir.y * d }
+    ctx.strokeStyle = hexA(C.ink, 0.5); ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(k.x, k.y); ctx.stroke(); ctx.setLineDash([])
+    ctx.fillStyle = '#0b0f1a'; ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(k.x, k.y, 9 + 3 * flare, 0, 7); ctx.fill(); ctx.stroke()
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(k.x, k.y, 3.5, 0, 7); ctx.fill()
+    // Readout beside the knob: a little power meter.
+    const pct = Math.round(a.power * 100)
+    const mx = k.x + (k.x < W - 90 ? 54 : -54), my = k.y + 2
+    ctx.fillStyle = '#0b0f1ae6'; ctx.beginPath(); ctx.roundRect(mx - 40, my - 20, 80, 40, 10); ctx.fill(); ctx.strokeStyle = hexA(col, 0.8); ctx.lineWidth = 1.5; ctx.stroke()
+    ctx.fillStyle = col; ctx.font = '700 9px "Chakra Petch", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(T.name, mx, my - 10)
+    ctx.font = '400 15px Bungee, Impact, sans-serif'; ctx.fillStyle = C.ink; ctx.fillText(pct + '%', mx, my + 5)
+    const segs = 8, lit = Math.round(a.e * segs)
+    for (let i = 0; i < segs; i++) { ctx.fillStyle = i < lit ? col : hexA(col, 0.18); ctx.fillRect(mx - 32 + i * 8, my + 14, 6, 3) }
+  }
+
+  /** The direction comet: a tapered, gradient spear from the ball along the shot, chevrons streaming along it, then the predicted path as fading dots. */
+  function comet(now, a) {
+    const col = mix(C.safe, C.power, s.colorMix), c = ball, n = { x: -a.dir.y, y: a.dir.x }
+    const L = 34 + 120 * ((a.power - 0.15) / 0.85), w0 = 9 + 5 * a.e
+    const tip = { x: c.x + a.dir.x * (BALL_R + L), y: c.y + a.dir.y * (BALL_R + L) }
+    const base = { x: c.x + a.dir.x * (BALL_R + 2), y: c.y + a.dir.y * (BALL_R + 2) }
+    const g = ctx.createLinearGradient(base.x, base.y, tip.x, tip.y)
+    g.addColorStop(0, hexA(col, 0.0)); g.addColorStop(0.55, hexA(col, 0.55)); g.addColorStop(1, hexA(C.ink, 0.95))
+    ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = 14
+    ctx.fillStyle = g; ctx.beginPath()
+    ctx.moveTo(base.x + n.x * w0, base.y + n.y * w0)
+    ctx.quadraticCurveTo(c.x + a.dir.x * (BALL_R + L * 0.6) + n.x * w0 * 0.5, c.y + a.dir.y * (BALL_R + L * 0.6) + n.y * w0 * 0.5, tip.x, tip.y)
+    ctx.quadraticCurveTo(c.x + a.dir.x * (BALL_R + L * 0.6) - n.x * w0 * 0.5, c.y + a.dir.y * (BALL_R + L * 0.6) - n.y * w0 * 0.5, base.x - n.x * w0, base.y - n.y * w0)
+    ctx.closePath(); ctx.fill(); ctx.restore()
+    // Arrow head.
+    const hw = 9, hl = 13
+    ctx.fillStyle = C.ink; ctx.beginPath(); ctx.moveTo(tip.x + a.dir.x * hl, tip.y + a.dir.y * hl); ctx.lineTo(tip.x + n.x * hw, tip.y + n.y * hw); ctx.lineTo(tip.x - n.x * hw, tip.y - n.y * hw); ctx.closePath(); ctx.fill()
+    // Chevrons streaming forward, faster with power.
+    const speed = 0.5 + 1.8 * a.e, count = 3
+    for (let i = 0; i < count; i++) {
+      const f = ((now / 1000) * speed + i / count) % 1
+      const at = BALL_R + 6 + f * (L - 10), cx = c.x + a.dir.x * at, cy = c.y + a.dir.y * at, sz = 4 + 2 * (1 - f)
+      ctx.strokeStyle = hexA('#0b0f1a', 0.75 * Math.sin(f * Math.PI)); ctx.lineWidth = 2.5; ctx.lineCap = 'round'
+      ctx.beginPath(); ctx.moveTo(cx - a.dir.x * sz + n.x * sz, cy - a.dir.y * sz + n.y * sz); ctx.lineTo(cx, cy); ctx.lineTo(cx - a.dir.x * sz - n.x * sz, cy - a.dir.y * sz - n.y * sz); ctx.stroke()
+    }
+    // Predicted path: fading dots to the first wall (Safe) or a short preview (Power), bounce marks on the sides.
+    const reach = s.tier === 'safe' ? 120 + 900 * a.power : (120 + 900 * a.power) * 0.3
+    const { pts, hits } = trace(tip, a.dir, reach)
+    let acc = 0, seg = []
+    for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); seg.push({ a: pts[i - 1], b: pts[i], l, from: acc }); acc += l }
+    const gap = 13, off = (now / 1000) * 40 * (0.6 + a.e) % gap
+    for (let dist = off; dist < acc; dist += gap) {
+      const sg = seg.find((q) => dist >= q.from && dist <= q.from + q.l); if (!sg) continue
+      const t = (dist - sg.from) / sg.l, x = sg.a.x + (sg.b.x - sg.a.x) * t, y = sg.a.y + (sg.b.y - sg.a.y) * t
+      const fade = 1 - dist / acc
+      ctx.fillStyle = hexA(col, 0.15 + 0.75 * fade); ctx.beginPath(); ctx.arc(x, y, 1.6 + 1.6 * fade, 0, 7); ctx.fill()
+    }
+    for (const h of hits) { ctx.strokeStyle = hexA(h.wall ? C.ink : col, 0.8); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(h.x, h.y, 6, 0, 7); ctx.stroke() }
+    // Power: preview the splash it will fire.
+    if (s.tier === 'power') { ctx.setLineDash([4, 5]); ctx.strokeStyle = hexA(C.power, 0.5); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(c.x, c.y, 26 + 60 * a.power, 0, 7); ctx.stroke(); ctx.setLineDash([]) }
+  }
+
+  function holdRing(now) {
+    if (s.phase !== 'holding' || s.tier === 'power') return
+    const p = Math.min(1, (now - s.holdStart) / HOLD_MS)
+    if (p >= 1) { setTier('power'); return }
+    ctx.strokeStyle = hexA(C.power, 0.25); ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(ball.x, ball.y, 26, 0, 7); ctx.stroke()
+    ctx.strokeStyle = C.power; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(ball.x, ball.y, 26, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke()
+    label('HOLD FOR POWER', ball.x, ball.y + 44, C.power, '#0b0f1acc', 9)
+  }
+
+  // ---- shot tracer ----
+  s.trail = []; s.parts = []; s.flashes = []
+  const TRAIL_MS = 520
+  function spark(p, color, speed) {
+    const ang = Math.random() * Math.PI * 2, v = speed * (0.4 + Math.random())
+    s.parts.push({ x: p.x, y: p.y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, life: 0, max: 0.25 + Math.random() * 0.35, color, r: 1 + Math.random() * 1.8 })
+  }
+  function burst(p, color, n, speed) { for (let i = 0; i < n; i++) spark(p, color, speed) }
+  /** The tail: the ball's recent positions as a ribbon that tapers toward the back and fades with age, drawn additively as a coloured glow over a white-hot core. */
+  function tracer(now) {
+    const f = s.flight, color = f ? f.color : C.safe
+    s.trail = s.trail.filter((p) => now - p.t < TRAIL_MS)
+    const tr = s.trail
+    if (tr.length > 1) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'
+      const wMax = f && f.heavy ? 20 : 14
+      for (const [w, alpha, col] of [[1, 0.35, color], [0.45, 0.9, color], [0.18, 1, '#ffffff']]) {
+        for (let i = 1; i < tr.length; i++) {
+          const age = (now - tr[i].t) / TRAIL_MS, along = i / tr.length, k = (1 - age) * along
+          if (k <= 0) continue
+          ctx.strokeStyle = hexA(col, alpha * k); ctx.lineWidth = Math.max(0.5, wMax * w * k)
+          ctx.beginPath(); ctx.moveTo(tr[i - 1].x, tr[i - 1].y); ctx.lineTo(tr[i].x, tr[i].y); ctx.stroke()
+        }
+      }
+      ctx.restore()
+    }
+    // Bounce flashes: a ring that snaps out and a brief glow.
+    s.flashes = s.flashes.filter((fl) => now - fl.t < 360)
+    for (const fl of s.flashes) {
+      const u = (now - fl.t) / 360
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'
+      const g = ctx.createRadialGradient(fl.x, fl.y, 0, fl.x, fl.y, 26)
+      g.addColorStop(0, hexA('#ffffff', 0.8 * (1 - u))); g.addColorStop(1, hexA(fl.c, 0))
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(fl.x, fl.y, 26, 0, 7); ctx.fill()
+      ctx.strokeStyle = hexA(fl.c, 1 - u); ctx.lineWidth = 2.5 * (1 - u) + 0.5; ctx.beginPath(); ctx.arc(fl.x, fl.y, 6 + 22 * ease(u), 0, 7); ctx.stroke()
+      ctx.restore()
+    }
+    // A soft glow around the ball while it is moving fast.
+    if (f && tr.length > 2) {
+      const a2 = tr[tr.length - 1], b2 = tr[Math.max(0, tr.length - 4)], v = Math.hypot(a2.x - b2.x, a2.y - b2.y)
+      const g = ctx.createRadialGradient(ball.x, ball.y, BALL_R * 0.5, ball.x, ball.y, BALL_R * 3)
+      g.addColorStop(0, hexA(color, Math.min(0.5, v / 30))); g.addColorStop(1, hexA(color, 0))
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R * 3, 0, 7); ctx.fill()
+    }
+  }
+  function sparks(now, dt) {
+    s.parts = s.parts.filter((p) => (p.life += dt) < p.max)
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'
+    for (const p of s.parts) {
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9
+      const k = 1 - p.life / p.max
+      ctx.fillStyle = hexA(p.color, k); ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (0.5 + k), 0, 7); ctx.fill()
+    }
+    ctx.restore()
+  }
+
+  function drawBall(x, y) {
+    ctx.save(); ctx.shadowColor = '#0008'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3
+    ctx.fillStyle = C.ball; ctx.strokeStyle = '#05070d'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.arc(x, y, BALL_R, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore()
+    ctx.fillStyle = '#05070d'; ctx.beginPath(); ctx.arc(x + 4, y - 1, 2.6, 0, 7); ctx.fill()
+  }
+
+  let last = performance.now()
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    if (s.auto) autoStep(now, dt)
+    // Tier morph: the ring shrinks or grows with a little overshoot, the colour crossfades.
+    if (s.morph) {
+      const t = Math.min(1, (now - s.morph.start) / 380)
+      s.shownR = s.morph.from + (s.morph.to - s.morph.from) * back(t)
+      s.colorMix = s.morph.fromMix + (s.morph.toMix - s.morph.fromMix) * ease(t)
+      if (t >= 1) s.morph = null
+    }
+    const a = s.phase === 'aiming' ? aimOf() : null
+    s.maxPulse += ((a && a.over ? 1 : 0) - s.maxPulse) * Math.min(1, dt * 10)
+    pitch()
+    if (s.flight) {
+      const f = s.flight, t = Math.min(1, (now - f.start) / f.dur), e = ease(t)
+      const pts = f.path.pts; let total = 0; const ls = pts.slice(1).map((p, i) => { const l = Math.hypot(p.x - pts[i].x, p.y - pts[i].y); total += l; return l })
+      let left = total * e, i = 0; while (i < ls.length - 1 && left > ls[i]) left -= ls[i++]
+      const A = pts[i], B = pts[i + 1] || A, q = ls[i] ? left / ls[i] : 0
+      // Passing a path corner is a bounce: a flash and a spray of sparks there.
+      while (f.seg < i) { f.seg++; const h = pts[f.seg], wall = f.path.hits[f.seg - 1]?.wall; burst(h, wall ? '#ffffff' : f.color, f.heavy ? 16 : 10, 160); s.flashes.push({ x: h.x, y: h.y, t: now, c: f.color }) }
+      const next = { x: A.x + (B.x - A.x) * q, y: A.y + (B.y - A.y) * q }
+      // Fill gaps at speed so the tail stays smooth, and drop sparks along the way.
+      const lastP = s.trail[s.trail.length - 1] ?? next, gapLen = Math.hypot(next.x - lastP.x, next.y - lastP.y), steps = Math.ceil(gapLen / 5)
+      for (let k = 1; k <= steps; k++) s.trail.push({ x: lastP.x + (next.x - lastP.x) * k / steps, y: lastP.y + (next.y - lastP.y) * k / steps, t: now })
+      if (gapLen > 2 && Math.random() < 0.6) spark(next, f.color, 40)
+      ball = next
+      if (t >= 1 && now - f.start > f.dur + 700) { s.flight = null; ball = { ...home }; s.trail = [] }
+    }
+    tracer(now)
+    sparks(now, dt)
+    if (s.splash) {
+      const t = (now - s.splash.start) / 300
+      if (t >= 1) s.splash = null
+      else { ctx.strokeStyle = hexA(C.ball, 1 - t); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(s.splash.at.x, s.splash.at.y, s.splash.r * ease(t), 0, 7); ctx.stroke() }
+    }
+    if (!s.flight && (s.press || s.auto || true)) gauge(now, a)
+    if (a) comet(now, a)
+    holdRing(now)
+    drawBall(ball.x, ball.y)
+    if (s.pop) {
+      const t = (now - s.pop.start) / 700
+      if (t >= 1) s.pop = null
+      else { ctx.globalAlpha = 1 - t; ctx.font = `400 ${22 + 10 * ease(Math.min(1, t * 3))}px Bungee, Impact, sans-serif`; ctx.fillStyle = s.pop.color; ctx.textAlign = 'center'; ctx.fillText(s.pop.text, ball.x, ball.y - s.shownR - 26 - 20 * t); ctx.globalAlpha = 1 }
+    }
+    requestAnimationFrame(frame)
+  }
+  requestAnimationFrame(frame)
+})()
+</script>
+</body>
+</html>

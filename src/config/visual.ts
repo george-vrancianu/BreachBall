@@ -160,8 +160,18 @@ export const visual = {
     slopPx: 8,
     /** Within this many screen px of any canvas edge the aim is cancel-armed: releasing cancels, moving back out re-arms. */
     edgeCancelPx: 24,
-    /** The Ghost: the ball's predicted path while aiming. */
-    ghost: { width: 0.3, /** A Charged ball's Ghost: drawn this much wider, with its "x1.5" / "x2" badge at the tip (size and distance past it, world units). */ chargedWidth: 0.6, badge: { size: 1.6, offset: 1.6, weight: 700 } },
+    /** The Ghost: the ball's predicted path while aiming, drawn as dots from the ball's edge that fade toward the end and drift forward. World units throughout. */
+    ghost: {
+      /** `gap` between dots along the path; `radius` and `alpha` run from the first dot's value to the last's. */
+      dots: { gap: 1.35, radius: [0.33, 0.16], alpha: [0.9, 0.15] },
+      /** How fast the dots drift forward, world units per second: `speed + perPower * power` (power 0-1 of maxSpeed). */
+      drift: { speed: 2.5, perPower: 4 },
+      /** The ring marking each bounce on the path: its radius, line width and alpha; `wallColor` (ink) for a structure, a board's ring takes the tier's colour. */
+      bounce: { radius: 0.6, width: 0.2, alpha: 0.8, wallColor: ink },
+      /** A Charged ball's Ghost: dots this many times larger, with its "x1.5" / "x2" badge at the tip (size and distance past it). */
+      chargedScale: 2,
+      badge: { size: 1.6, offset: 1.6, weight: 700 },
+    },
     /** Each tier's colour, by name: the Ghost and the hold ring. */
     tierColors: { Touch: '#4ade80', Power: '#f87171' } satisfies Record<TierName, string>,
     /** Cancel-armed: the Ghost greys out and an ✕ (half-size `size`, world units) sits on the ball. */

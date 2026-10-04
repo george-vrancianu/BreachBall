@@ -64,16 +64,20 @@ export type Tier = {
   curve: 'direct' | 'inverted'
   /** Final power range, 0-1 of maxSpeed. */
   power: readonly [number, number]
-  /** How far the Ghost reaches, and the share of that path drawn. */
-  ghost: { until: { contacts: number } | 'rest'; scale: number }
+  /**
+   * How far the Ghost reaches: it stops at `maxBounces` hits on a structure or board, or after `reach` world units of path,
+   * whichever comes first. `reach` runs from `min` for the tier's weakest shot to `max` for its strongest, by where the
+   * power sits in `power`. A Charged ball's reach is the same.
+   */
+  ghost: { maxBounces: number; reach: readonly [min: number, max: number] }
   /** Fires a Splash at the ball's launch position. */
   splash: boolean
 }
 
 /** Tiers are data: a new tier is a new entry. Indexed by the Shot's `tier`. */
 const tiers: readonly Tier[] = [
-  { name: 'Touch', holdMs: 0, radiusPx: 220, curve: 'direct', power: [0.15, 0.45], ghost: { until: { contacts: 1 }, scale: 1 }, splash: false },
-  { name: 'Power', holdMs: 1000, radiusPx: 90, curve: 'inverted', power: [0.5, 1], ghost: { until: { contacts: 1 }, scale: 0.3 }, splash: true },
+  { name: 'Touch', holdMs: 0, radiusPx: 220, curve: 'direct', power: [0.15, 0.45], ghost: { maxBounces: 3, reach: [25, 60] }, splash: false },
+  { name: 'Power', holdMs: 1000, radiusPx: 90, curve: 'inverted', power: [0.5, 1], ghost: { maxBounces: 1, reach: [8, 20] }, splash: true },
 ]
 
 const mapTop = -base.board - base.netDepth

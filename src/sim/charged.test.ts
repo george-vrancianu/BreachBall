@@ -175,7 +175,7 @@ describe('The Ghost', () => {
   it('predicts with the multiplied speed, and leaves the real charge alone', () => {
     // Friction ends a plain 0.2 Touch shot short of the side board; at x2 it reaches it.
     const shot: NonNullable<SimInput['shot']> = { player: 1, dir: { x: 1, y: 0 }, tier: 0, power: 0.2 }
-    const contacts = (s: SimState) => predictPath(s, shot, defaultConfig, 'rest').contacts.length
+    const contacts = (s: SimState) => predictPath(s, shot, defaultConfig, { maxBounces: Infinity, maxLength: Infinity }).contacts.length
     const atBullseye = charged(below(1), 'bullseye')
     expect(contacts(charged(below(1), null))).toBe(0)
     expect(contacts(atBullseye)).toBeGreaterThan(0)

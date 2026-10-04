@@ -9,11 +9,11 @@ How the shooter moves the ball, pool-style: press on the ball, drag back, releas
 _Avoid_: Blast, kick, charge
 
 **Tier**:
-The kind of Shot, picked by how long the shooter holds still on the ball before dragging; the first drag locks it. Each tier sets its control radius, power curve and range, and Ghost. **Touch** (drag right away) is weak and precise: a large radius, a longer drag is stronger, a full green Ghost. **Power** (hold 1 s) is strong: a small radius, a shorter drag is stronger, a short red Ghost.
+The kind of Shot, picked by how long the shooter holds still on the ball before dragging; the first drag locks it. Each tier sets its control radius, power curve and range, and Ghost. **Touch** (drag right away) is weak and precise: a large radius, a longer drag is stronger, a long green Ghost. **Power** (hold 1 s) is strong: a small radius, a shorter drag is stronger, a short red Ghost.
 _Avoid_: Mode, level, charge
 
 **Ghost**:
-The ball's predicted path, drawn from the ball while aiming a Shot in its Tier's colour, showing where it will go. Only this is the Ghost: the translucent ball-in-hand disc is the placement, and the translucent piece dragged in a build turn is the build piece.
+The ball's predicted path, drawn from the ball while aiming a Shot in its Tier's colour as drifting, fading dots, showing where it will go. Each Tier caps it at a number of bounces (off structures or boards) and a reach that grows with the shot's power: Touch shows up to 3 bounces and far, Power 1 bounce and a short stub. A goal ends it. Only this is the Ghost: the translucent ball-in-hand disc is the placement, and the translucent piece dragged in a build turn is the build piece.
 _Avoid_: Preview, arrow, trajectory; "ghost" for the ball-in-hand placement or the build piece
 
 **Splash**:
