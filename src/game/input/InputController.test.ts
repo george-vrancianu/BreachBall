@@ -753,6 +753,29 @@ describe('the press model', () => {
         expect(cursor()).toBe('')
       })
 
+      it('clears when the press is cancelled from outside, however it ends', () => {
+        down(b0)
+        move({ x: 36, y: 80 })
+        expect(cursor()).toBe('grabbing')
+        ctl.cancelGestures()
+        expect(cursor()).toBe('')
+        down(a0)
+        move({ x: 20, y: 72 })
+        expect(cursor()).toBe('grabbing')
+        cancel({ x: 20, y: 72 })
+        expect(cursor()).toBe('')
+      })
+
+      it('is a grab hand again when the sim takes the move and re-selects the wall under a still mouse', () => {
+        drag(b0, { x: 36, y: 80 })
+        move({ x: 20, y: 80.5 })
+        expect(sent).toHaveLength(1)
+        expect(cursor()).toBe('')
+        tick()
+        expect(ctl.selection).toMatchObject({ id: 1 })
+        expect(cursor()).toBe('grab')
+      })
+
       it('stays default with nothing selected, and for touch', () => {
         key('Escape')
         move(b0)
@@ -851,7 +874,7 @@ describe('the press model', () => {
         expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 12, y: 70 }, b: { x: 28, y: 70 } } }])
       })
 
-      it('the finger left carries on as an end drag of the end it is nearer', () => {
+      it('the finger left carries on as an end drag of the end it held', () => {
         grab()
         span()
         touch('pointerup', { x: 12, y: 70 }, 1)
@@ -893,6 +916,72 @@ describe('the press model', () => {
         expect(sent).toEqual([])
       })
 
+      it('lifting finger 2 leaves finger 1 dragging a with b fixed; the last lift sends one move', () => {
+        grab()
+        span()
+        touch('pointerup', { x: 28, y: 70 }, 2)
+        touch('pointermove', { x: 16, y: 81 }, 1)
+        const { a, b } = ctl.selection!.spec as { a: Point; b: Point }
+        expect(b).toEqual({ x: 28, y: 70 })
+        expect(a.x).toBeCloseTo(28 - 2 * D, 6)
+        expect(a.y).toBeCloseTo(70 + 2 * D, 6)
+        expect(sent).toEqual([])
+        touch('pointerup', { x: 16, y: 81 }, 1)
+        expect(sent).toHaveLength(1)
+        expect(moved(sent[0]).b).toEqual({ x: 28, y: 70 })
+      })
+
+      it('a cancelled finger 2 puts the wall back; finger 1 then moves and lifts without effect', () => {
+        const origin = ctl.selection!.spec
+        grab()
+        span()
+        fire('pointercancel', { x: 28, y: 70 }, 2, { pointerType: 'touch' })
+        expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+        touch('pointermove', { x: 12, y: 60 }, 1)
+        touch('pointerup', { x: 12, y: 60 }, 1)
+        expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+        expect(sent).toEqual([])
+      })
+
+      it('a third finger mid-edit is no takeover and no pan, and its lift does not end the edit', () => {
+        grab()
+        span()
+        const [y, spec] = [camera.y, ctl.selection!.spec]
+        touch('pointerdown', { x: 20, y: 90 }, 3)
+        touch('pointermove', { x: 20, y: 80 }, 3)
+        expect(camera.y).toBe(y)
+        expect(ctl.selection!.spec).toEqual(spec)
+        touch('pointerup', { x: 20, y: 80 }, 3)
+        expect(sent).toEqual([])
+        touch('pointermove', { x: 12, y: 72 }, 1)
+        expect((ctl.selection!.spec as { a: Point }).a).toEqual({ x: 12, y: 71 })
+        touch('pointerup', { x: 12, y: 72 }, 1)
+        touch('pointerup', { x: 28, y: 70 }, 2)
+        expect(sent).toHaveLength(1)
+      })
+
+      it('fingers pinched under half a unit lift to the last valid shape, committed when legal', () => {
+        grab()
+        span()
+        touch('pointermove', { x: 20, y: 70 }, 1)
+        touch('pointermove', { x: 21, y: 70 }, 2)
+        touch('pointerup', { x: 20, y: 70 }, 1)
+        touch('pointerup', { x: 21, y: 70 }, 2)
+        expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 20, y: 70 }, b: { x: 28, y: 70 } } }])
+      })
+
+      it('fingers pinched under half a unit lift to the last valid shape, reverted when illegal', () => {
+        const origin = ctl.selection!.spec
+        grab()
+        touch('pointermove', { x: 20, y: 50 }, 1)
+        touch('pointermove', { x: 28, y: 50 }, 2)
+        touch('pointermove', { x: 21, y: 50 }, 2)
+        touch('pointerup', { x: 20, y: 50 }, 1)
+        touch('pointerup', { x: 21, y: 50 }, 2)
+        expect(sent).toEqual([])
+        expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      })
+
       it('Esc mid-way puts the wall back too', () => {
         const origin = ctl.selection!.spec
         grab()
@@ -900,6 +989,39 @@ describe('the press model', () => {
         key('Escape')
         expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
       })
+    })
+
+    describe('an unplaced red piece', () => {
+      const cross = { x: 24, y: 72 }
+      beforeEach(() => {
+        turns(older)
+        build()
+      })
+
+      it('stays red and unsent while its end drag is illegal, and is placed when the end is dragged to a legal spot', () => {
+        drag(cross, { x: 24, y: 88 })
+        expect(ctl.selection).toMatchObject({ movable: true })
+        expect(ctl.selection!.id).toBeUndefined()
+        expect(sent).toEqual([])
+        drag({ x: 24, y: 88 }, { x: 24, y: 90 })
+        expect(sent).toEqual([])
+        expect(ctl.selection!.id).toBeUndefined()
+        drag({ x: 24, y: 88 }, { x: 36, y: 88 })
+        expect(sent).toHaveLength(1)
+        expect(sent[0]).toMatchObject({ placeWall: { kind: 'wall', owner: 1, a: cross } })
+      })
+    })
+
+    it('shortening a placed wall from 2 units to 1 commits and refunds the difference', () => {
+      turns({ ...older, id: 1, b: { x: 36, y: 80 } })
+      build()
+      down({ x: 28, y: 80 })
+      up({ x: 28, y: 80 })
+      const before = state.credits[1]
+      drag({ x: 36, y: 80 }, b0)
+      expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: a0, b: b0 } }])
+      tick()
+      expect(state.credits[1]).toBe(before + rules.wall.unitCost)
     })
 
     it('a second finger off the other handle is ignored mid-drag', () => {

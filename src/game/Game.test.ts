@@ -4,6 +4,7 @@ import { defaultSettings } from '../sim/settings'
 import { LocalDriver, type Driver } from './driver'
 import type { Structure } from '../sim/wall'
 import { Game, type HudView } from './Game'
+import type { InputController } from './input/InputController'
 import { hseg } from '../sim/testkit'
 
 // No DOM in the test run: a canvas that is an EventTarget, a window that is one, a context that swallows every call.
@@ -59,6 +60,30 @@ describe('Game', () => {
     frame(t)
     expect(onView).toHaveBeenCalledTimes(settled + 1)
     expect(onView.mock.lastCall![0].mapOpen).toBe(true)
+  })
+
+  describe('end handles', () => {
+    const wall = { kind: 'wall' as const, owner: 1 as const, ...hseg(10, 40) }
+    const shows = (selection: InputController['selection'], mapOpen = false) => {
+      const game = make()
+      game['input'].selection = selection
+      if (mapOpen) game.actions.map(true)
+      frame(performance.now())
+      return game.structures.handles
+    }
+
+    it('show on a selected movable wall', () => {
+      expect(shows({ spec: wall, id: 1, movable: true })).toEqual({ a: wall.a, b: wall.b })
+    })
+    it('are absent for a selected tower', () => {
+      expect(shows({ spec: { kind: 'tower', owner: 1, at: { gx: 5, gy: 45 }, power: 'repulsor' }, id: 2, movable: true })).toBeUndefined()
+    })
+    it('are absent for a selected older wall', () => {
+      expect(shows({ spec: wall, id: 1, movable: false })).toBeUndefined()
+    })
+    it('are absent with the map open', () => {
+      expect(shows({ spec: wall, id: 1, movable: true }, true)).toBeUndefined()
+    })
   })
 
   it('destroy stops the loop and removes every listener', () => {

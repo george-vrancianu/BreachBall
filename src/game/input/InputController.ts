@@ -202,6 +202,7 @@ export class InputController {
 
   /** After each sim tick: drop what the new state has made stale. */
   settle(state: SimState, refused: boolean): void {
+    const before = this.selection
     if (!canArm(state, state.possession.shooter)) this.armed = false
     if (!state.possession.inHand || state.match.choosing) this.placement = undefined
     if (this.landing && (landedAs(state, this.landing) || refused || ++this.landingTicks >= visual.input.landingTimeoutTicks)) {
@@ -224,6 +225,7 @@ export class InputController {
     if (this.item && this.item !== 'wall' && builder && state.players[builder].inventory[this.item] <= 0) this.item = 'wall'
     // The shot clock fired the held aim: the gesture is spent.
     if (this.aim && state.possession.live) this.dropAim()
+    if (this.selection !== before) this.refreshCursor()
   }
 
   private dropAim(): void {
@@ -353,6 +355,7 @@ export class InputController {
     if (live && 'origin' in live && selection) this.selection = { ...selection, spec: live.origin }
     else if (live) this.selection = undefined
     this.press = undefined
+    this.refreshCursor()
   }
 
   /** Mouse cursor: a grab hand over a handle of the selected wall, a closed one while an end or the body is dragged, else the default. */
