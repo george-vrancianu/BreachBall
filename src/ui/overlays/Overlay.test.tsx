@@ -39,3 +39,11 @@ it('clears the Defence bar at the far edge: the top when upright, the bottom whe
   expect(label().style.marginBottom).not.toBe('')
   expect(label().style.marginTop).toBe('')
 })
+
+it('clears the Resource bar too, only when it is shown', () => {
+  const { rerender } = render(<Overlay view={view({ placement: 'top', text: 'Choosing' })} onTap={() => {}} />)
+  const margin = () => parseInt((screen.getByText('Choosing') as HTMLElement).style.marginTop)
+  const without = margin()
+  rerender(<Overlay view={view({ placement: 'top', text: 'Choosing' })} resourceBar onTap={() => {}} />)
+  expect(margin()).toBe(without + 20)
+})

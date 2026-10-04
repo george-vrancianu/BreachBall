@@ -31,6 +31,14 @@ describe('hudModel', () => {
       expect(bar[1]).toEqual({ count: '0', segments: [false, false] })
     })
   })
+  describe('Resource bar', () => {
+    it('shows the banked Credits split in Rounds and is hidden in Siege', () => {
+      const s = { ...initialState(1), credits: { 1: 3, 2: 1 } }
+      expect(hudModel(s, defaultConfig, view).resourceBar?.[1].share).toBe(0.75)
+      const c = { ...defaultConfig, mode: 'siege' as const }
+      expect(hudModel(initialState(1, c), c, view).resourceBar).toBeNull()
+    })
+  })
   describe('score line', () => {
     it('Rounds gives the score once, the active player first', () => {
       const s = { ...initialState(1), match: { ...initialState(1).match, score: { 1: 2, 2: 1 } } }

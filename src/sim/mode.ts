@@ -50,6 +50,8 @@ export type GameMode<M extends Match = Match> = {
   mayEdit(m: M): boolean
   /** Whether the shooter may refund Move points for Credits; Siege has no Credits economy (ADR-0004). */
   mayRefund(m: M): boolean
+  /** Whether the mode has a Credits economy (ADR-0004); the Resource bar shows only where it does. Siege has none. */
+  hasCredits(m: M): boolean
   /** Whether the Breaker is bought with Credits (`rules.breakerCost`) rather than drawn from the 3-each stock; Siege has no Credits economy, so it keeps the stock. */
   paysBreaker(m: M): boolean
   /** Whether the match is in its blind opening build phase (a build turn that is not a Rearrange); fog and the reveal key on it. */
@@ -89,6 +91,7 @@ export const rounds: GameMode<RoundsMatch> = {
   onBuildTimeout: () => null,
   mayEdit: () => true,
   mayRefund: () => true,
+  hasCredits: () => true,
   paysBreaker: () => true,
   opening: () => false,
   // Credits bank: each build turn adds the round's grant to what is left.
@@ -140,6 +143,7 @@ export const siege: GameMode<SiegeMatch> = {
   },
   mayEdit: (m) => m.opening,
   mayRefund: () => false,
+  hasCredits: () => false,
   paysBreaker: () => false,
   opening: (m) => m.opening && m.builder !== null,
   // A Rearrange turn has no wall points and every own structure counts as placed this turn, so all of them can be moved.
