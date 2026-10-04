@@ -103,7 +103,7 @@ export function placeable(s: Ledger & Pick<SimState, 'possession'>, spec: Struct
 export type SimEvent =
   | { type: 'wall-cracked'; id: number; hp: number; at: Point; /** The wall segment hit (walls only). */ segment?: number }
   /** A wall segment broke and left a Gap; the wall (carried, health as it now stands) still has standing segments. */
-  | { type: 'segment-broken'; id: number; segment: number; wall: Wall; at: Point }
+  | { type: 'segment-broken'; id: number; segment: number; wall: Wall; at: Point; /** Broken by a Breaker shot. */ breaker?: true }
   /** Carries the removed structure (hp 0, a wall with every segment at 0) so the renderer can shatter it; for a wall it is its last segment breaking, `segment`. */
   | { type: 'wall-destroyed'; wall: Structure; at: Point; segment?: number; /** Broken by a Breaker shot. */ breaker?: true }
   | { type: 'ball-hit-wall'; wall: number; speed: number; at: Point }

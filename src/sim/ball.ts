@@ -88,7 +88,7 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker
         } else {
           const r = damageSegment(objects, best.wall.id, best.segment ?? segmentAt(best.wall, pos), pos, rules.wallHp)
           objects = r.objects
-          events.push(...r.events.map((e) => (e.type === 'wall-destroyed' ? { ...e, breaker: true as const } : e)))
+          events.push(...r.events.map((e) => (e.type === 'wall-destroyed' || e.type === 'segment-broken' ? { ...e, breaker: true as const } : e)))
         }
         continue
       }

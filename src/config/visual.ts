@@ -114,8 +114,8 @@ export const visual = {
     /** The dashed outline on this turn's pieces and the breathing one on a selection. */
     mark: { pad: 0.6, width: 0.15, movableDash: [0.4, 0.4] },
     selected: { periodMs: 150, alpha: 0.6, alphaSwing: 0.4, pad: 0.8, padSwing: 0.15 },
-    /** Hit sparks (square, in the owner's colour) from a crack not caused by a ball hit (a Splash): life ms, speed range in world units per second, count per crack, side in world units. `cap`: the most particles of every kind (sparks, chunks, dust, rings) alive in the one reused pool. */
-    particles: { ms: 400, minSpeed: 4, speedRange: 8, crack: 4, size: 0.3, cap: 150 },
+    /** Hit sparks (square, in the owner's colour) from a crack not caused by a ball hit (a Splash), and a tower's destruction: life ms, speed range in world units per second, count per crack, count when a tower is destroyed, count when a Breaker destroys a tower, side in world units. `cap`: the most particles of every kind (sparks, chunks, dust, rings) alive in the one reused pool. */
+    particles: { ms: 400, minSpeed: 4, speedRange: 8, crack: 4, destroy: 12, breaker: 24, size: 0.3, cap: 150 },
     /**
      * A wall segment breaking (the pool's particles):
      * `chunks`: spinning pieces of the segment (count; side range in world units; speed range in world units per second; life range in ms; spin in radians per second; `drag` is the fraction of speed left after one second);

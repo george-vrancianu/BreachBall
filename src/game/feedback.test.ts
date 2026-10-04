@@ -40,6 +40,17 @@ describe('feedbackFor', () => {
     expect(visual.wall.break.breakerShake).toBeGreaterThan(visual.wall.break.shake)
     expect(feedbackFor([{ type: 'wall-cracked', id: 1, hp: 2, segment: 0, at }], walls).shakes).toEqual([])
   })
+  it('a Breaker that opens a Gap breaks heavier: breaker scale and the Breaker shake', () => {
+    const gap = { type: 'segment-broken', id: 1, segment: 0, wall: { id: 1, owner: 2 }, at, breaker: true } as never
+    expect(feedbackFor([gap], walls).breaks).toEqual([{ id: 1, segment: 0, at, breaker: true }])
+    expect(feedbackFor([gap], walls).shakes).toEqual([visual.wall.break.breakerShake])
+  })
+  it('a destroyed tower sprays the destroy count, a Breaker the breaker count', () => {
+    const tower = (breaker?: true) => ({ type: 'wall-destroyed', wall: { id: 1, owner: 2 }, at, breaker }) as never
+    expect(feedbackFor([tower()], []).bursts).toEqual([{ at, color: visual.player.colors[2], count: visual.wall.particles.destroy }])
+    expect(feedbackFor([tower(true)], []).bursts).toEqual([{ at, color: visual.player.colors[2], count: visual.wall.particles.breaker }])
+    expect(feedbackFor([tower()], []).breaks).toEqual([])
+  })
   it('several breaks in one tick give a single shake, at the largest amplitude', () => {
     const broken = (segment: number) => ({ type: 'segment-broken', id: 1, segment, wall: { id: 1, owner: 2 }, at }) as never
     const breaker = { type: 'wall-destroyed', wall: { id: 1, owner: 2 }, segment: 0, breaker: true, at } as never

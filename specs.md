@@ -287,7 +287,7 @@ A Charged ball wears a pulsing glow ring and a "×1.5" / "×2" badge that pops i
 - Segment break (`segment-broken`, and `wall-destroyed` as a wall's final break): that segment shatters into spinning chunks in its colour, with a dark outline, that fade, with a dust puff, an expanding elliptical ring along the wall, white sparks, and a camera shake of about 3 px (`visual.wall.break.shake`; the Breaker's is `break.breakerShake`) through `Camera.shake`; the neighbours switch to jagged ends. A tower still shatters whole. The shake is only on breaks, never on cracks, and several breaks in one tick (a Splash) each play in full but shake once, at the largest amplitude. Particles share one capped, reused pool (about 150).
 - Repulsor: square with two concentric rings. On fire the rings burst outward, the tower glows for 300 ms and the Tracer's white core runs wide for 0.5 s. Drawn dimmed once spent for the shot.
 - Steal: square with a vortex glyph. On trigger the ball shrinks into the tower center over 300 ms and vanishes, then the tower collapses like a destroyed tower.
-- Breaker armed: the Powerup tile fills with the shooter's colour, and a pulsing outline on the ball in the shooter's colour. On break, about 1.5 times the chunks and sparks and a bigger shake than a plain break, no speed loss.
+- Breaker armed: the Powerup tile fills with the shooter's colour, and a pulsing outline on the ball in the shooter's colour. On any Wall segment it breaks (opening a Gap or taking a wall's last segment), about 1.5 times the chunks and sparks and a bigger shake than a plain break, no speed loss.
 
 ### Placement previews and buttons
 

@@ -49,11 +49,12 @@ export function feedbackFor(events: SimEvent[], walls: { id: number; owner: Play
     }
     if (ev.type === 'repaired') out.flashes.push({ wall: ev.id, dim: false })
     if (ev.type === 'segment-broken' || (ev.type === 'wall-destroyed' && ev.segment !== undefined)) {
-      const [id, breaker] = ev.type === 'segment-broken' ? [ev.id, false] : [ev.wall.id, !!ev.breaker]
-      out.breaks.push({ id, segment: ev.segment as number, at: ev.at, breaker })
+      const [id, segment] = ev.type === 'segment-broken' ? [ev.id, ev.segment] : [ev.wall.id, ev.segment as number]
+      const breaker = !!ev.breaker
+      out.breaks.push({ id, segment, at: ev.at, breaker })
       amps.push(breaker ? visual.wall.break.breakerShake : visual.wall.break.shake)
     }
-    if (ev.type === 'wall-destroyed' && ev.segment === undefined) out.bursts.push({ at: ev.at, color: visual.player.colors[ev.wall.owner], count: visual.wall.particles.crack })
+    if (ev.type === 'wall-destroyed' && ev.segment === undefined) out.bursts.push({ at: ev.at, color: visual.player.colors[ev.wall.owner], count: ev.breaker ? visual.wall.particles.breaker : visual.wall.particles.destroy })
     if (ev.type === 'shot-fired' && ev.power >= visual.camera.shake.minPower) amps.push(visual.camera.shake.max * ev.power)
     const v = vibration(ev)
     if (v !== undefined) out.vibrations.push(v)

@@ -11,7 +11,7 @@ ADR-0005 made a 2-unit wall "one structure with one HP pool", so a ball that cra
 ## Consequences
 
 - **Balance:** health stays at 3 per segment, so a 2-unit wall now holds 6 HP in total for the same price, and opening a Gap still takes 3 hits. Splash and the Breaker no longer reach past the segment they touch. Siege games may run longer, because a wipe-out needs every segment of every wall gone; watch this in play-testing and tune `rules.wallHp` if it drags.
-- **Events:** `wall-cracked` gains `segment`; the new `segment-broken { id, segment, wall, at }` reports a Gap; `wall-destroyed` gains `segment` and fires only for a wall's last segment (a Breaker sets `breaker: true` on it). The damage path is `damageSegment`; `damageWall` finds the segment from the hit point.
+- **Events:** `wall-cracked` gains `segment`; the new `segment-broken { id, segment, wall, at }` reports a Gap; `wall-destroyed` gains `segment` and fires only for a wall's last segment (a Breaker sets `breaker: true` on both `segment-broken` and `wall-destroyed`, so a Gap it opens plays the heavier break too). The damage path is `damageSegment`; `damageWall` finds the segment from the hit point.
 - **Splash** is judged per segment: each standing segment takes the pressure at its own nearest point to the origin, with the existing thresholds.
 - **Counting:** a wall is one structure while any segment stands, so the Defence bar and the Siege wipe-out are unchanged and a bar segment empties only on `wall-destroyed`.
 - **Geometry:** collision (`wallSegments`) offers only standing segments, so the ball, the Ghost and ball-in-hand pass through a Gap. Placement legality still uses the wall's full footprint, Gaps included, so a new wall cannot be built over one.

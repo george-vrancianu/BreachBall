@@ -114,6 +114,7 @@ describe('breaker on a wall segment', () => {
     expect((t.objects[0] as Wall).segments).toEqual([3, 0])
     expect(events.find((e) => e.type === 'segment-broken')).toBeDefined()
     expect(events.some((e) => e.type === 'wall-destroyed')).toBe(false)
+    expect(events.find((e) => e.type === 'segment-broken')).toMatchObject({ breaker: true, segment: 1 })
     expect(t.ball.vel.y).toBeLessThan(0)
   })
   it('on a last standing segment it destroys the wall with breaker: true', () => {
