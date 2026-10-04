@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import { reducedMotion } from '../../game/feedback'
-import type { BuildMenu as BuildMenuView, Item, ItemSpec } from '../../game/view/buildMenu'
+import type { DefenceCircle as DefenceCircleView, Item, ItemSpec } from '../../game/view/defenceCircle'
 import type { ButtonSpec } from '../../game/view/hudModel'
 import { Button, FONT } from '../ButtonRow'
 
@@ -28,7 +28,7 @@ const Round = ({ spec }: { spec: ButtonSpec }) => {
 
 type Press = { x: number; y: number; slid: boolean; opened: boolean; pulsed: boolean }
 
-/** One piece of the hold menu: a circle with its label pill beside it. Greyed when disabled, but still there (and hit-testable for a slide). */
+/** One piece of the piece column: a circle with its label pill beside it. Greyed when disabled, but still there (and hit-testable for a slide). */
 function ItemButton({ spec, color, onPick }: { spec: ItemSpec; color: string; onPick(item: Item): void }) {
   const off = spec.disabled
   const edge = off ? GREY : spec.pressed ? visual.hud.pressedBorder : ink
@@ -53,8 +53,8 @@ function ItemButton({ spec, color, onPick }: { spec: ItemSpec; color: string; on
  * opens; slide onto a piece and lift to arm it, lift on the circle to keep the column for a tap. When the viewer cannot build, the circle is greyed and a hold pulses it.
  * Beside it, the controls of the selected structure.
  */
-export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, className, style, children }: { menu: BuildMenuView; color: string; flipped?: boolean; onToggle(): void; onArm(item: Item): void; className?: string; style?: CSSProperties; children?: ReactNode }) {
-  const { building, available, items, selection } = menu
+export function DefenceCircle({ defence, color, flipped = false, onToggle, onArm, className, style, children }: { defence: DefenceCircleView; color: string; flipped?: boolean; onToggle(): void; onArm(item: Item): void; className?: string; style?: CSSProperties; children?: ReactNode }) {
+  const { building, available, items, selection } = defence
   const [open, setOpen] = useState(false)
   const hold = useRef<ReturnType<typeof setTimeout>>(undefined)
   const circle = useRef<HTMLButtonElement>(null)

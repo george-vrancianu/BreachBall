@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, it } from 'vitest'
 import { ButtonRow } from './ButtonRow'
-import { BuildMenu } from './hud/BuildMenu'
+import { DefenceCircle } from './hud/DefenceCircle'
 
 afterEach(cleanup)
 
@@ -11,9 +11,9 @@ it('ButtonRow renders its children after the buttons', () => {
   expect(screen.getByText('extra')).toBeTruthy()
 })
 
-it('BuildMenu renders its children with and without a selection', () => {
-  const { rerender } = render(<BuildMenu menu={{ building: false, items: [], available: true }} color="#fff" onToggle={() => {}} onArm={() => {}}><i>extra</i></BuildMenu>)
+it('DefenceCircle renders its children with and without a selection', () => {
+  const { rerender } = render(<DefenceCircle defence={{ building: false, items: [], available: true }} color="#fff" onToggle={() => {}} onArm={() => {}}><i>extra</i></DefenceCircle>)
   expect(screen.getByText('extra')).toBeTruthy()
-  rerender(<BuildMenu menu={{ building: false, items: [], available: true, selection: { buttons: [] } }} color="#fff" onToggle={() => {}} onArm={() => {}}><i>more</i></BuildMenu>)
+  rerender(<DefenceCircle defence={{ building: false, items: [], available: true, selection: { buttons: [] } }} color="#fff" onToggle={() => {}} onArm={() => {}}><i>more</i></DefenceCircle>)
   expect(screen.getByText('more')).toBeTruthy()
 })

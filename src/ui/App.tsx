@@ -42,7 +42,7 @@ export function App() {
             <Overlay view={view.overlay} onTap={() => actions().dismiss()} />
             <Shell
               hud={view.hud}
-              menu={view.menu}
+              defence={view.defence}
               confirm={view.confirm}
               mapOpen={view.mapOpen}
               flipped={view.flipped}
@@ -53,8 +53,8 @@ export function App() {
               onConfirm={() => actions().confirmBall()}
               onMapStretch={() => actions().mapStretch()}
               onMapClose={() => actions().map(false)}
-              onBuildToggle={() => actions().build.toggle()}
-              onBuildArm={(item) => actions().build.arm(item)}
+              onDefenceToggle={() => actions().build.toggle()}
+              onDefenceArm={(item) => actions().build.arm(item)}
             />
           </>
         )}

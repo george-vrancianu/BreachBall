@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { canEdit, defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
 import { buildState, emptied, hseg } from '../../sim/testkit'
 import type { WallSpec } from '../../sim/wall'
-import { anchorOf, buildMenu, commit, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapBody, snapStart, towerAt, type BuildActions } from './buildMenu'
+import { anchorOf, defenceCircle, commit, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapBody, snapStart, towerAt, type BuildActions } from './defenceCircle'
 
-const menuOf = (...a: Parameters<typeof buildMenu>) => buildMenu(...a)!
+const menuOf = (...a: Parameters<typeof defenceCircle>) => defenceCircle(...a)!
 const noop = () => {}
 const actions: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'> = { cancel: noop, rotate: noop, remove: noop }
 const wall: WallSpec = { kind: 'wall', owner: 1, ...hseg(10, 40) }
 const placed = (): SimState => step(buildState(1), { placeWall: wall }, c).state
-const labels = (s: SimState, v: Parameters<typeof buildMenu>[2]) => {
+const labels = (s: SimState, v: Parameters<typeof defenceCircle>[2]) => {
   return menuOf(s, 1, v, actions).selection?.buttons.map((b) => b.label)
 }
 
@@ -121,7 +121,7 @@ describe('selection', () => {
   })
 })
 
-describe('build menu', () => {
+describe('Defence circle', () => {
   it('not building: four items, none pressed, Cannon soon, available on the build turn', () => {
     const m = menuOf(buildState(1), 1, {}, actions)
     expect(m).toMatchObject({ building: false, available: true })
@@ -136,8 +136,8 @@ describe('build menu', () => {
     expect(m.items.map((i) => [i.item, i.pressed, i.disabled])).toEqual([['wall', false, false], ['repulsor', true, false], ['steal', false, true], ['cannon', false, true]])
   })
   it('is absent in play, when no build turn is running', () => {
-    expect(buildMenu(emptied(buildState(1), 1, 'steal'), 1, {}, actions)).toBeDefined()
-    expect(buildMenu({ ...buildState(1), match: { ...buildState(1).match, builder: null } }, 1, {}, actions)).toBeUndefined()
+    expect(defenceCircle(emptied(buildState(1), 1, 'steal'), 1, {}, actions)).toBeDefined()
+    expect(defenceCircle({ ...buildState(1), match: { ...buildState(1).match, builder: null } }, 1, {}, actions)).toBeUndefined()
   })
   it('is unavailable to the other player, and while blocked', () => {
     expect(menuOf(buildState(1), 2, {}, actions).available).toBe(false)

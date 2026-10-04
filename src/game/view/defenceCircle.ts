@@ -108,11 +108,11 @@ export function landedAs(s: SimState, sel: Selection): Selection | undefined {
   return o && { spec: sel.spec, id: o.id, movable: true }
 }
 
-/** One Defence piece in the hold menu: `disabled` greys it (no Credits or stock; Cannon is not built yet, `soon`), `pressed` marks the armed one. */
+/** One Defence piece in the piece column: `disabled` greys it (no Credits or stock; Cannon is not built yet, `soon`), `pressed` marks the armed one. */
 export type ItemSpec = { item: Item | 'cannon'; label: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
 /** What the Defence circle shows (nothing when no build turn is running): whether the viewer is building, the pieces to offer, whether they can build now (else the circle is greyed), and the controls of the selected structure. */
-export type BuildMenu = { building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: ButtonSpec[] } }
+export type DefenceCircle = { building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: ButtonSpec[] } }
 
 export type BuildActions = { toggle(): void; arm(item: Item): void; cancel(): void; rotate(): void; remove(): void }
 
@@ -123,7 +123,7 @@ const oneUnitCost = () => wallCost({ a: { x: 0, y: 0 }, b: { x: rules.wall.unit 
 
 const POWER_LABEL: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: 'Steal' }
 
-export function buildMenu(s: SimState, viewer: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection; /** A blocking hold or the map is up. */ blocked?: boolean }, a: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'>): BuildMenu | undefined {
+export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection; /** A blocking hold or the map is up. */ blocked?: boolean }, a: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'>): DefenceCircle | undefined {
   if (!s.match.builder) return undefined
   const mine = s.match.builder === viewer
   // A turn that may only move pieces (Rearrange) has no placing and no demolish.

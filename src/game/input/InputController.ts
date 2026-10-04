@@ -5,7 +5,7 @@ import { canArm, canPlaceBall } from '../../sim/possession'
 import { canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
 import { snapWallBetween, snapWallEnd, type StructureSpec } from '../../sim/wall'
 import { screenDown, type Camera } from '../entities/Camera'
-import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapBody, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/buildMenu'
+import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapBody, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/defenceCircle'
 import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, type AimGesture, type GestureView } from './gesture'
 
 /** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
