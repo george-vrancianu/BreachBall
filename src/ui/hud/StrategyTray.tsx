@@ -14,9 +14,9 @@ export function StrategyPreview({ pieces, color, width = card.w - card.previewIn
   const line = visual.tokens.lines
   // The goal end of the half, where every layout sits; the strip by the halfway line stays out of the frame.
   const top = HALF + preview.crop
-  const { margin: m } = preview
+  const { margin } = preview
   return (
-    <svg viewBox={`${-m} ${top} ${W + 2 * m} ${H - top + m}`} width={width} height={(width * (H - top + m)) / (W + 2 * m)} aria-hidden style={{ display: 'block', transform: turned ? 'rotate(180deg)' : undefined }}>
+    <svg viewBox={`${-margin} ${top} ${W + 2 * margin} ${H - top + margin}`} width={width} height={(width * (H - top + margin)) / (W + 2 * margin)} aria-hidden style={{ display: 'block', transform: turned ? 'rotate(180deg)' : undefined }}>
       <rect x={0} y={HALF} width={W} height={H - HALF} rx={preview.cornerR} fill={visual.pitch.ground} stroke={line} strokeWidth={preview.outline} />
       <path d={`M${W / 2 - centreZoneRadius} ${HALF}a${centreZoneRadius} ${centreZoneRadius} 0 0 0 ${2 * centreZoneRadius} 0`} fill="none" stroke={line} strokeWidth={preview.zoneLine} />
       <path d={`M${W / 2 - noBuildRadius} ${H}a${noBuildRadius} ${noBuildRadius} 0 0 1 ${2 * noBuildRadius} 0`} fill="none" stroke={line} strokeWidth={preview.zoneLine} strokeDasharray={preview.dash.join(' ')} />

@@ -45,16 +45,16 @@ function Recenter({ onClick }: { onClick(): void }) {
 function CreditsChip({ balance, color }: { balance: NonNullable<HudModel['balance']>; color: string }) {
   const ref = useRef<HTMLSpanElement>(null)
   const last = useRef(balance.amount)
-  const c = dock.credits
+  const chip = dock.credits
   useEffect(() => {
-    if (last.current !== balance.amount) ref.current?.animate?.([{ transform: `scale(${c.pop.scale})` }, { transform: 'scale(1)' }], c.pop.ms)
+    if (last.current !== balance.amount) ref.current?.animate?.([{ transform: `scale(${chip.pop.scale})` }, { transform: 'scale(1)' }], chip.pop.ms)
     last.current = balance.amount
   }, [balance.amount])
   return (
-    <div role="status" aria-label={`${balance.amount} ${balance.unit}`} style={{ ...FONT, flex: 'none', boxSizing: 'border-box', height: dock.chipPx, padding: `0 ${c.padEndPx}px 0 ${c.padStartPx}px`, display: 'flex', alignItems: 'center', gap: c.gapPx, borderRadius: dock.chipPx / 2, border: `${c.borderPx}px solid ${color}`, background: `linear-gradient(135deg, ${color}2e, ${color}0a 60%)`, color: visual.hud.ink, boxShadow: `inset 0 0 ${c.glowPx}px ${color}22` }}>
-      <span style={{ width: c.tokenPx, height: c.tokenPx, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: color, color: visual.hud.dark }}>{CREDIT(c.iconPx)}</span>
+    <div role="status" aria-label={`${balance.amount} ${balance.unit}`} style={{ ...FONT, flex: 'none', boxSizing: 'border-box', height: dock.chipPx, padding: `0 ${chip.padEndPx}px 0 ${chip.padStartPx}px`, display: 'flex', alignItems: 'center', gap: chip.gapPx, borderRadius: dock.chipPx / 2, border: `${chip.borderPx}px solid ${color}`, background: `linear-gradient(135deg, ${color}2e, ${color}0a 60%)`, color: visual.hud.ink, boxShadow: `inset 0 0 ${chip.glowPx}px ${color}22` }}>
+      <span style={{ width: chip.tokenPx, height: chip.tokenPx, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: color, color: visual.hud.dark }}>{CREDIT(chip.iconPx)}</span>
       <span ref={ref} style={{ fontFamily: visual.hud.display, fontSize: dock.creditFontPx, lineHeight: 1, display: 'inline-block' }}>{balance.amount}</span>
-      <span style={{ fontSize: c.unitFontPx, letterSpacing: `${c.unitSpacingEm}em`, color: visual.tokens.muted }}>{balance.unit}</span>
+      <span style={{ fontSize: chip.unitFontPx, letterSpacing: `${chip.unitSpacingEm}em`, color: visual.tokens.muted }}>{balance.unit}</span>
     </div>
   )
 }
@@ -62,9 +62,9 @@ function CreditsChip({ balance, color }: { balance: NonNullable<HudModel['balanc
 /** The primary pill of a dock (OK to submit the build; Repair or Rearrange): filled in the player's colour, a check when it submits. */
 function Primary({ spec, color, icon, label, aria, grow = false }: { spec: ButtonSpec; color: string; icon?: ReactNode; label?: string; aria?: string; /** Fill the space it is given (the defence choice's two halves). */ grow?: boolean }) {
   const off = !!spec.disabled
-  const p = dock.primary
+  const pill = dock.primary
   return (
-    <button disabled={spec.disabled} aria-label={aria ?? spec.label} onClick={spec.onClick} style={{ ...FONT, flex: grow ? 1 : 'none', boxSizing: 'border-box', minWidth: dock.okMinPx, height: grow ? p.choicePx : dock.chipPx, padding: `0 ${p.padPx}px`, borderRadius: dock.chipPx / 2, border: `${p.borderPx}px solid ${off ? visual.tokens.ghostBorder : color}`, background: off ? 'transparent' : color, color: off ? visual.tokens.muted : visual.hud.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: p.gapPx, fontSize: p.fontPx, letterSpacing: `${p.spacingEm}em`, boxShadow: off ? 'none' : `0 0 ${p.glowPx}px ${color}55`, cursor: off ? 'default' : 'pointer', pointerEvents: 'auto' }}>
+    <button disabled={spec.disabled} aria-label={aria ?? spec.label} onClick={spec.onClick} style={{ ...FONT, flex: grow ? 1 : 'none', boxSizing: 'border-box', minWidth: dock.okMinPx, height: grow ? pill.choicePx : dock.chipPx, padding: `0 ${pill.padPx}px`, borderRadius: dock.chipPx / 2, border: `${pill.borderPx}px solid ${off ? visual.tokens.ghostBorder : color}`, background: off ? 'transparent' : color, color: off ? visual.tokens.muted : visual.hud.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: pill.gapPx, fontSize: pill.fontPx, letterSpacing: `${pill.spacingEm}em`, boxShadow: off ? 'none' : `0 0 ${pill.glowPx}px ${color}55`, cursor: off ? 'default' : 'pointer', pointerEvents: 'auto' }}>
       {icon}
       {label ?? spec.label}
     </button>

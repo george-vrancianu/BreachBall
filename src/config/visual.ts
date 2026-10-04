@@ -196,7 +196,7 @@ export const visual = {
       borderPx: 1, shadowPx: { y: 8, blur: 24 },
       /** The shadow under what floats over the pitch above the dock (the Strategies cards, the selection bar): offset and blur (px). */
       floatShadowPx: { y: 6, blur: 18 },
-      /** The divider between Build (or an open ability) and its options: its height and the extra space beside it, on top of `gapPx` (px). Its width is `dividerPx`. */
+      /** The divider between Build (or an open ability) and its options: its height, and the extra space beside it on top of `gapPx` (px): on both sides in the build dock, on the options' side in the play dock. Its width is `dividerPx`. */
       dividerHeightPx: 36, dividerPadPx: 2,
       /** Every dock tile (px unless noted): the gap between its icon and label, its border, the glow around a filled tile, and how long a fill change eases (ms). Its corner badge (a price, a stock count): how far it overhangs the corner (negative offset), its height (also its minimum width; its corners are fully round), its side padding and font size. */
       tile: { gapPx: 3, borderPx: 2, glowPx: 14, easeMs: 120, badge: { offsetPx: -6, px: 18, padPx: 4, fontPx: 11 } },
@@ -208,7 +208,7 @@ export const visual = {
       refundPx: 58,
       /** The balance chip (px unless noted): padding before the token and after the unit, the gap between its parts, the ring in the player's colour and the inner glow; the Credit token's disc and icon; the unit's font size and letter spacing (em). A change in the amount pops it to `pop.scale` and back over `pop.ms`. The amount's font size is `creditFontPx`. */
       credits: { padStartPx: 6, padEndPx: 12, gapPx: 6, borderPx: 2, glowPx: 12, tokenPx: 28, iconPx: 18, unitFontPx: 10, unitSpacingEm: 0.1, pop: { scale: 1.35, ms: 260 } },
-      /** The primary pill (OK, Confirm, Repair, Rearrange), px unless noted: side padding, border, the gap between check and label, font size, letter spacing (em), the glow around it, the check icon, and its height as one of the defence choice's two halves (it is `chipPx` elsewhere). Its minimum width is `okMinPx`. */
+      /** The primary pill (OK, Confirm, Repair, Rearrange), px unless noted: side padding, border, the gap between check and label, font size, letter spacing (em), the glow around it, the check icon (OK's and Confirm's), and its height as one of the defence choice's two halves (it is `chipPx` elsewhere). Its minimum width is `okMinPx`. */
       primary: { padPx: 14, borderPx: 2, gapPx: 6, fontPx: 15, spacingEm: 0.06, glowPx: 16, iconPx: 18, choicePx: 48 },
       /** The shots left (px): a ball per Move point, its border and the glow of an unspent one, the gap between balls and the gap above the `Shots 2/3` label; an unspent ball shades from `shine` through the ball's fill to `shade`. */
       shots: { px: 14, borderPx: 2, glowPx: 6, gapPx: 5, labelGapPx: 4, shine: white, shade: '#c9c9c0' },
@@ -216,7 +216,7 @@ export const visual = {
       selection: { buttonPx: 40, buttonBorderPx: 2, iconPx: 20, gapPx: 8, padPx: 6, radiusPx: 26, disabledOpacity: 0.4 },
       /** The action row's prompt (Rearrange, waiting for the defence choice): font size (px) and letter spacing (em). */
       prompt: { fontPx: 12, spacingEm: 0.08 },
-      /** The Strategies tray's padding (px), vertical and horizontal. */
+      /** The Strategies tray's padding (px), vertical and horizontal; the dock widens the sides to `padPx` where it mounts the tray. */
       trayPadPx: { y: 4, x: 2 },
       /** A Strategies card (px unless noted): its size, corner radius, padding and border; how much narrower than the card its preview is; the name's and cost's font size and letter spacing (em), the gap between the Credit icon and the cost, the icon's size, and the card's opacity (0 to 1) where nothing fits. */
       card: { w: 84, h: 126, radiusPx: 16, padPx: 6, borderPx: 2, previewInsetPx: 12, fontPx: 11, spacingEm: 0.06, costGapPx: 3, creditPx: 12, disabledOpacity: 0.55 },
