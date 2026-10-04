@@ -1,4 +1,5 @@
-import { MODES, UNITS, sliderLabel, slidersFor, EXPIRIES } from '../../sim/settings'
+import { MODES, sliderLabel, slidersFor, EXPIRIES } from '../../sim/settings'
+import { UNITS } from './units'
 import type { SimConfig } from '../../sim/step'
 
 /** One read-only line of the match's settings. */

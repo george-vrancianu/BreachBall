@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import type { DefenceCircle as DefenceCircleView, Item, SelectionAction, SelectionButton } from '../../game/view/defenceCircle'
-import { BALANCE_UNIT, type ButtonSpec, type HudModel } from '../../game/view/hudModel'
+import { type ButtonSpec, type HudModel } from '../../game/view/hudModel'
 import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
+import { UNITS } from '../../game/view/units'
 import type { StrategyCard } from '../../game/view/strategies'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
@@ -134,7 +135,7 @@ function RefundButton({ rate, left, refundable, color, onRefund }: { rate: numbe
       style={{ ...tileStyle({ color, available: refundable }), width: dock.refundPx, ...(pressed && { background: visual.hud.pressed, borderColor: visual.hud.pressedBorder }), ...(refundable && { borderColor: color }) }}
     >
       <span style={{ color: refundable ? color : 'inherit', display: 'flex' }}>{REFUND(dock.iconPx)}</span>
-      <span style={tileLabel}>{`+${rate} ${BALANCE_UNIT.rounds}`}</span>
+      <span style={tileLabel}>{`+${rate} ${UNITS.rounds.chip}`}</span>
     </button>
   )
 }
@@ -265,7 +266,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
   const safeEdge = `max(${dock.padPx}px, env(safe-area-inset-bottom))`
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
-      {building && strategies && <StrategyTray cards={strategies} color={color} unit={m.balance?.unit ?? BALANCE_UNIT.rounds} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `${dock.trayPadPx.y}px ${dock.padPx}px` }} />}
+      {building && strategies && <StrategyTray cards={strategies} color={color} unit={m.balance?.unit ?? UNITS.rounds.chip} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `${dock.trayPadPx.y}px ${dock.padPx}px` }} />}
       {defence?.selection && <SelectionBar buttons={defence.selection.buttons} />}
       {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(dock.primary.iconPx)} />}
       {mapOpen && <MapHint />}

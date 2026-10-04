@@ -196,10 +196,10 @@ describe('Defence circle balance', () => {
   }
   const inRounds = (credits: number): SimState => ({ ...buildState(1), credits: { 1: credits, 2: 99 } })
   it('Rounds: the builder\'s own Credits, never the opponent\'s', () => {
-    expect(menuOf(inRounds(14), 1, {}, actions).balance).toEqual({ amount: 14, unit: 'Credits' })
+    expect(menuOf(inRounds(14), 1, {}, actions).balance).toEqual({ amount: 14, unit: 'CR' })
   })
   it('Siege: the builder\'s wall points', () => {
-    expect(menuOf(siegeOpening(), 1, {}, actions).balance).toEqual({ amount: 14, unit: 'wall points' })
+    expect(menuOf(siegeOpening(), 1, {}, actions).balance).toEqual({ amount: 14, unit: 'PTS' })
   })
   it('follows the state: placing spends, demolishing refunds', () => {
     const s = inRounds(14)

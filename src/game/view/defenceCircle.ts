@@ -3,7 +3,7 @@ import { rules } from '../../config/rules'
 import { modeFor } from '../../sim/mode'
 import { nearestOnWall } from '../../sim/near'
 import { halfSpan, type PlayerId, type Point } from '../../sim/pitch'
-import { UNITS } from '../../sim/settings'
+import { UNITS } from './units'
 import { canAffordTower, canEdit, canMove, canPlayBuild, placeable, type SimInput, type SimState } from '../../sim/step'
 import { rotatedWall, translatedWall, vertexToWorld, wallCost, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
 import type { ButtonSpec } from './hudModel'
@@ -150,7 +150,7 @@ function playBuildCircle(s: SimState, viewer: PlayerId, v: { item?: Item; blocke
   const { wallUnitCost, towerCost } = rules.playBuild
   const piece = (item: Item, price: number, name: string, unit = ''): ItemSpec => ({ item, label: `${name} · ${price}${unit}`, name, badge: String(price), disabled: itemDisabled(s, viewer, item), pressed: v.item === item })
   return {
-    balance: { amount: s.credits[viewer], unit: UNITS[s.match.mode].long },
+    balance: { amount: s.credits[viewer], unit: UNITS[s.match.mode].chip },
     building: v.item !== undefined,
     ...(v.item && { item: v.item }),
     items: [piece('wall', wallUnitCost, 'Wall', '/unit'), piece('repulsor', towerCost.repulsor, 'Repulsor'), piece('steal', towerCost.steal, 'Steal'), { item: 'cannon', label: 'Cannon', name: 'Cannon', disabled: true, pressed: false, soon: true }],
@@ -173,7 +173,7 @@ export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed 
   const pays = modeFor(s.match).paysTowers(s.match)
   const towerBadge = (power: TowerPower) => (pays ? String(rules.towerCost[power]) : `×${s.players[viewer].inventory[power]}`)
   return {
-    ...(spending && { balance: { amount: s.credits[viewer], unit: UNITS[s.match.mode].long } }),
+    ...(spending && { balance: { amount: s.credits[viewer], unit: UNITS[s.match.mode].chip } }),
     building: v.item !== undefined,
     ...(v.item && { item: v.item }),
     items: [
