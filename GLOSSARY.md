@@ -104,6 +104,18 @@ _Avoid_: Attack, power-ups (as the family name)
 The family of items you build on your half (walls, towers), bought with Credits during your build turn.
 _Avoid_: Build menu, structures (as the family name)
 
+**Wall**:
+The Defence item drawn on your half as one straight segment in a single drag: it starts where the drag starts and ends where it ends, at one of the allowed angles (default 0°, 45°, 90°, 135°) and a whole number of units long (default 1 or 2). Walls may touch end to end or in a T but never cross or overlap; a corner is two walls whose ends meet (ADR-0005).
+_Avoid_: Straight wall, L wall, piece, block, barrier
+
+**Unit**:
+The length a wall is measured in and priced by: every unit costs the same Credits at any angle. One unit is the old straight wall's length end to end.
+_Avoid_: Segment, cell (for wall length), tile
+
+**Centre zone**:
+The no-build circle around the centre spot that a wall must stay wholly outside, beside the goal no-build zone and the own-half rule.
+_Avoid_: Kick-off circle, centre ring (that is the Attract loop's), middle zone
+
 **Breaker**:
 The Offence item that makes the armed shot destroy the first structure it touches, either player's, then carry on.
 _Avoid_: Breach Ball, piercing shot
