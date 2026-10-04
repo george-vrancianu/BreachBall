@@ -4,7 +4,7 @@ import { modeFor } from '../../sim/mode'
 import { nearestOnWall } from '../../sim/near'
 import { halfSpan, type PlayerId, type Point } from '../../sim/pitch'
 import { UNITS } from '../../sim/settings'
-import { canAffordTower, canEdit, canMove, canPlace, type SimInput, type SimState } from '../../sim/step'
+import { canAffordTower, canEdit, canMove, canPlayBuild, placeable, type SimInput, type SimState } from '../../sim/step'
 import { rotatedWall, translatedWall, vertexToWorld, wallCost, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
 import type { ButtonSpec } from './hudModel'
 
@@ -79,10 +79,13 @@ export function snapBody(w: WallSpec, objects: SimState['objects'], selfId: numb
   return { ...moved, [best.end]: { x: best.to.x, y: best.to.y } }
 }
 
-/** Legal where it stands (ignoring itself when moved) and affordable: the sim's own `canPlace` for a new piece, `canMove` for one of the builder's structures. */
+/** Legal where it stands (ignoring itself when moved) and affordable: the sim's own `placeable` for a new piece (a build turn's prices, or in-play prices), `canMove` for one of the builder's structures. */
 export function legal(s: SimState, sel: Selection): boolean {
-  return sel.id === undefined ? canPlace(s, sel.spec) : canMove(s, sel.id, sel.spec)
+  return sel.id === undefined ? placeable(s, sel.spec) : canMove(s, sel.id, sel.spec)
 }
+
+/** Who builds now: the build turn's builder, else the shooter while an in-play build is open to them (Rounds, before the round's first shot). */
+export const builderNow = (s: SimState): PlayerId | null => s.match.builder ?? (canPlayBuild(s, s.possession.shooter) ? s.possession.shooter : null)
 
 /** How far to pan while a piece is held near the top or bottom `edgeBand` of the view: toward any of the builder's half that is off screen, never past it. */
 export function edgeScrollDy(camY: number, visibleHeight: number, builder: PlayerId, pointerY: number, dt: number): number {
@@ -107,10 +110,11 @@ export function commit(sel: Selection): SimInput | undefined {
 /** The Defence item of a selection the sim does not hold yet (being drawn, or unplaced and red); none for a placed structure. */
 export const placingOf = (sel?: Selection): Item | undefined => (!sel || sel.id !== undefined ? undefined : sel.spec.kind === 'wall' ? 'wall' : sel.spec.power)
 
-/** The structure the sim now holds in place of a landed selection, selected as it stands. */
+/** The structure the sim now holds in place of a landed selection, selected as it stands: movable when it is this build turn's (an in-play build never is). */
 export function landedAs(s: SimState, sel: Selection): Selection | undefined {
-  const o = s.objects.find((o) => (sel.id === undefined ? s.built.includes(o.id) : o.id === sel.id) && sameSpec(o, sel.spec))
-  return o && { spec: sel.spec, id: o.id, movable: true }
+  // A build turn's new piece joins `built`; an in-play build never does, so in play any standing match is it (an identical older piece would have made it illegal).
+  const o = s.objects.find((o) => (sel.id === undefined ? !s.match.builder || s.built.includes(o.id) : o.id === sel.id) && sameSpec(o, sel.spec))
+  return o && { spec: sel.spec, id: o.id, movable: sel.id !== undefined || s.built.includes(o.id) }
 }
 
 /** One Defence piece in the piece column: `disabled` greys it (no Credits, or no stock in Siege; Cannon is not built yet, `soon`), `pressed` marks the armed one. */
@@ -124,18 +128,35 @@ export type DefenceCircle = { balance?: Balance; building: boolean; item?: Item;
 
 export type BuildActions = { toggle(): void; arm(item: Item): void; cancel(): void; rotate(): void; remove(): void }
 
-/** Whether the menu item for `item` is greyed out: no Credits for a unit of wall or for the tower's price (Siege: no stock of the tower). */
-export const itemDisabled = (s: SimState, b: PlayerId, item: Item): boolean => (item === 'wall' ? s.credits[b] < oneUnitCost() : !canAffordTower(s, b, item))
+/** Whether the menu item for `item` is greyed out: no Credits for a unit of wall or for the tower's price (Siege: no stock of the tower); in play, at the in-play prices. */
+export const itemDisabled = (s: SimState, b: PlayerId, item: Item): boolean => {
+  if (!s.match.builder) return s.credits[b] < (item === 'wall' ? rules.playBuild.wallUnitCost : rules.playBuild.towerCost[item])
+  return item === 'wall' ? s.credits[b] < oneUnitCost() : !canAffordTower(s, b, item)
+}
 
 const oneUnitCost = () => wallCost({ a: { x: 0, y: 0 }, b: { x: rules.wall.unit * Math.min(...rules.wall.units), y: 0 } })
 
 const POWER_NAME: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: 'Steal' }
 
+/** The Build tile in play: offered (with the in-play prices) while the viewer may build in play, else absent. Pieces built in play are final, so there are no selection controls. */
+function playBuildCircle(s: SimState, viewer: PlayerId, v: { item?: Item; blocked?: boolean; mine(p: PlayerId): boolean }): DefenceCircle | undefined {
+  if (!v.mine(viewer) || !canPlayBuild(s, viewer)) return undefined
+  const { wallUnitCost, towerCost } = rules.playBuild
+  const piece = (item: Item, price: number, name: string, unit = ''): ItemSpec => ({ item, label: `${name} · ${price}${unit}`, name, badge: String(price), disabled: itemDisabled(s, viewer, item), pressed: v.item === item })
+  return {
+    balance: { amount: s.credits[viewer], unit: UNITS[s.match.mode].long },
+    building: v.item !== undefined,
+    ...(v.item && { item: v.item }),
+    items: [piece('wall', wallUnitCost, 'Wall', '/unit'), piece('repulsor', towerCost.repulsor, 'Repulsor'), piece('steal', towerCost.steal, 'Steal'), { item: 'cannon', label: 'Cannon', name: 'Cannon', disabled: true, pressed: false, soon: true }],
+    available: !v.blocked,
+  }
+}
+
 /** A tower's pill: `Repulsor · 3` with its price in Rounds, the bare name in Siege (stock, no price). */
 const towerLabel = (s: SimState, power: TowerPower): string => (modeFor(s.match).paysTowers(s.match) ? `${POWER_NAME[power]} · ${rules.towerCost[power]}` : POWER_NAME[power])
 
 export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection; /** A blocking hold or the map is up. */ blocked?: boolean; /** Whether this device plays a seat (hot-seat: every seat). */ mine(p: PlayerId): boolean }, a: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'>): DefenceCircle | undefined {
-  if (!s.match.builder) return undefined
+  if (!s.match.builder) return playBuildCircle(s, viewer, v)
   const builds = s.match.builder === viewer && v.mine(viewer)
   // A turn that may only move pieces (Rearrange) has no placing and no demolish.
   const edit = canEdit(s)

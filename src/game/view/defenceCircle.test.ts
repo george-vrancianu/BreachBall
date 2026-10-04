@@ -152,9 +152,19 @@ describe('Defence circle', () => {
     const stock = emptied(siegeBuild(1), 1, 'steal')
     expect(menuOf(stock, 1, {}, actions).items.map((i) => i.badge)).toEqual(['2', '×3', '×0', undefined])
   })
-  it('is absent in play, when no build turn is running', () => {
-    expect(defenceCircle(funded(buildState(1), 1, 0), 1, { mine: hotSeat }, actions)).toBeDefined()
-    expect(defenceCircle({ ...buildState(1), match: { ...buildState(1).match, builder: null } }, 1, { mine: hotSeat }, actions)).toBeUndefined()
+  it('in play, is offered to the shooter before the round\'s first shot at the in-play prices, with no selection controls', () => {
+    const play = { ...buildState(1), match: { ...buildState(1).match, builder: null }, possession: { shooter: 1 as const, shots: 3, inHand: false, live: false } }
+    const m = defenceCircle(play, 1, { mine: hotSeat, item: 'wall', selection: { spec: wall, movable: true } }, actions)!
+    expect(m).toMatchObject({ building: true, available: true, item: 'wall' })
+    expect(m.selection).toBeUndefined()
+    const { wallUnitCost, towerCost } = rules.playBuild
+    expect(m.items.map((i) => [i.label, i.badge])).toEqual([[`Wall · ${wallUnitCost}/unit`, String(wallUnitCost)], [`Repulsor · ${towerCost.repulsor}`, String(towerCost.repulsor)], [`Steal · ${towerCost.steal}`, String(towerCost.steal)], ['Cannon', undefined]])
+  })
+  it('is absent in play for the other player, and once the round\'s first shot is away', () => {
+    const play = { ...buildState(1), match: { ...buildState(1).match, builder: null }, possession: { shooter: 1 as const, shots: 3, inHand: false, live: false } }
+    expect(defenceCircle(play, 2, { mine: hotSeat }, actions)).toBeUndefined()
+    const shot = { ...play, match: { ...play.match, roundShots: 1 } }
+    expect(defenceCircle(shot, 1, { mine: hotSeat }, actions)).toBeUndefined()
   })
   it('is unavailable to the other player, and while blocked', () => {
     expect(menuOf(buildState(1), 2, {}, actions).available).toBe(false)

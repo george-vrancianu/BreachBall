@@ -169,12 +169,35 @@ describe('Shell', () => {
     afterEach(() => vi.useRealTimers())
     const refund = () => screen.getByRole('button', { name: 'Refund a shot for 2 Credits' })
 
-    it('lays out the shots, Refund, then Powerup and Subterfuge', () => {
+    it('lays out the shots and Refund, then the three actions: Build, Powerup and Subterfuge', () => {
       render(<Shell {...props()} hud={hud({ refundRate: 2 })} subterfuge={{ available: true, queued: [], items: [] }} />)
       const shots = screen.getByRole('img', { name: '2 of 3 shots left' })
+      const build = screen.getByRole('button', { name: 'Build' })
       const power = screen.getByRole('button', { name: /^Offence/ })
       const trick = screen.getByRole('button', { name: 'Subterfuge' })
-      expect(follows(shots, refund()) && follows(refund(), power) && follows(power, trick)).toBe(true)
+      expect(follows(shots, refund()) && follows(refund(), build) && follows(build, power) && follows(power, trick)).toBe(true)
+    })
+
+    it('greys Build when the viewer cannot build in play (no model), and it does nothing', () => {
+      const p = props()
+      render(<Shell {...p} />)
+      const build = screen.getByRole('button', { name: 'Build' })
+      expect(build.getAttribute('aria-disabled')).toBe('true')
+      fireEvent.click(build)
+      expect(p.onDefenceToggle).not.toHaveBeenCalled()
+    })
+
+    it('an in-play build: Build enters build mode, and the row becomes the pieces until Build is tapped again', () => {
+      const p = props()
+      const { rerender } = render(<Shell {...p} defence={defence({ building: false, item: undefined })} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Build' }))
+      expect(p.onDefenceToggle).toHaveBeenCalledTimes(1)
+      rerender(<Shell {...p} defence={defence()} />)
+      expect(screen.getByRole('button', { name: 'Wall · 2/unit' })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /^Offence/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Strategies' })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Leave building' }))
+      expect(p.onDefenceToggle).toHaveBeenCalledTimes(2)
     })
 
     it('has no Refund where refunds do not exist (Siege)', () => {

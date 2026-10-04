@@ -8,7 +8,7 @@ import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/s
 import type { SubterfugeItem } from '../../game/Game'
 import { FONT } from '../ButtonRow'
 import { CANNON, CHECK, CLOSE, CREDIT, LAYERS, LOCK, RECENTER, REFUND, REPULSOR, ROTATE, STEAL, TOWER, TRASH, WALL } from './icons'
-import { NO_CALLOUT, noMenu } from './ItemButton'
+import { noMenu } from './ItemButton'
 import { OffenceCircle } from './OffenceCircle'
 import { StrategyTray } from './StrategyTray'
 import { SubterfugeCircle } from './SubterfugeCircle'
@@ -129,13 +129,10 @@ function RefundButton({ rate, left, refundable, color, onRefund }: { rate: numbe
       onPointerCancel={cancel}
       onContextMenu={noMenu}
       onClick={(e) => e.detail === 0 && refundable && onRefund(1)}
-      style={{ ...FONT, flex: 'none', boxSizing: 'border-box', height: dock.tilePx, padding: '0 12px 0 8px', borderRadius: dock.radiusPx, border: `2px solid ${refundable ? color : visual.tokens.dimOutline}`, background: pressed ? visual.hud.pressed : refundable ? visual.hud.panel : 'transparent', color: refundable ? visual.hud.ink : visual.tokens.ghostBorder, display: 'flex', alignItems: 'center', gap: 6, touchAction: 'none', cursor: refundable ? 'pointer' : 'default', ...NO_CALLOUT }}
+      style={{ ...tileStyle({ color, available: refundable }), width: dock.tilePx + 6, ...(pressed && { background: visual.hud.pressed, borderColor: visual.hud.pressedBorder }), ...(refundable && { borderColor: color }) }}
     >
-      <span style={{ color: refundable ? color : 'inherit', display: 'flex' }}>{REFUND(22)}</span>
-      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
-        <span style={{ fontSize: 12, lineHeight: 1 }}>Refund</span>
-        <span style={{ fontSize: 11, lineHeight: 1, color: refundable ? color : 'inherit' }}>{`+${rate} CR`}</span>
-      </span>
+      <span style={{ color: refundable ? color : 'inherit', display: 'flex' }}>{REFUND(dock.iconPx)}</span>
+      <span style={tileLabel}>{`+${rate} CR`}</span>
     </button>
   )
 }
@@ -151,15 +148,24 @@ function Status({ m }: { m: HudModel }) {
   )
 }
 
+/** The Build tile (a chess rook): filled in build mode; tap to enter or leave it. Greyed (and inert) when the viewer cannot build now, e.g. in play after the round's first shot. */
+function BuildTile({ defence, color, onToggle }: { defence?: DefenceCircleView; color: string; onToggle(): void }) {
+  const available = !!defence?.available
+  const building = !!defence?.building
+  return (
+    <button aria-label={building ? 'Leave building' : 'Build'} aria-pressed={building} aria-disabled={!available} onClick={() => available && onToggle()} onContextMenu={noMenu} style={tileStyle({ color, active: building && available, available })}>
+      {TOWER(dock.iconPx)}
+      <span style={tileLabel}>Build</span>
+    </button>
+  )
+}
+
 /** The build dock's tool row: Build (a chess rook) on the left, then the pieces it can place, then Strategies on the right. */
 function BuildTools({ defence, color, trayOpen, strategies, onToggle, onArm, onStrategies }: { defence: DefenceCircleView; color: string; trayOpen: boolean; strategies: boolean; onToggle(): void; onArm(item: Item): void; onStrategies(): void }) {
-  const { building, available, items } = defence
+  const { available, items } = defence
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: dock.gapPx, minWidth: 0 }}>
-      <button aria-label={building ? 'Leave building' : 'Build'} aria-pressed={building} aria-disabled={!available} onClick={() => available && onToggle()} onContextMenu={noMenu} style={tileStyle({ color, active: building && available, available })}>
-        {TOWER(dock.iconPx)}
-        <span style={tileLabel}>Build</span>
-      </button>
+      <BuildTile defence={defence} color={color} onToggle={onToggle} />
       <span aria-hidden style={{ flex: 'none', width: dock.dividerPx, height: dock.tilePx - 16, background: dock.border, margin: '0 2px' }} />
       <div role="toolbar" aria-label="Pieces" style={{ display: 'flex', gap: dock.gapPx, minWidth: 0 }}>
         {items.map((s) => {
@@ -272,11 +278,13 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
           {m.dock === 'build' && defence && <div style={{ flex: 1, minWidth: 0 }}><BuildTools defence={defence} color={color} trayOpen={!!strategies} strategies={!!defence.available} onToggle={onDefenceToggle} onArm={onDefenceArm} onStrategies={onStrategies} /></div>}
           {m.dock === 'rearrange' && <Prompt text="Drag your pieces to new spots, then OK" />}
           {m.dock === 'choice' && (choices.length ? choices.map((b) => <Primary key={b.label} spec={b} color={color} grow />) : <Prompt text="Waiting for the defence choice" />)}
-          {m.dock === 'play' && (
+          {m.dock === 'play' && defence?.building && <div style={{ flex: 1, minWidth: 0 }}><BuildTools defence={defence} color={color} trayOpen={false} strategies={false} onToggle={onDefenceToggle} onArm={onDefenceArm} onStrategies={onStrategies} /></div>}
+          {m.dock === 'play' && !defence?.building && (
             <>
               <ShotPips left={m.shotsLeft} max={m.shotsMax} color={color} />
               {m.refundRate !== null && <RefundButton rate={m.refundRate} left={m.shotsLeft} refundable={m.refundable} color={color} onRefund={onRefund} />}
               <span style={{ flex: 1 }} />
+              <BuildTile defence={defence} color={color} onToggle={onDefenceToggle} />
               <OffenceCircle offence={offence} color={color} flipped={flipped} onArm={onOffenceArm} />
               {subterfuge && <SubterfugeCircle subterfuge={subterfuge} color={color} flipped={flipped} onBuy={onSubterfuge} />}
             </>

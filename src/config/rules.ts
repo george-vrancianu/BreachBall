@@ -32,6 +32,11 @@ const base = {
   kickoffGap: 5,
   /** Half the drawn wall thickness; the ball cannot be placed on it. */
   wallHalf: 0.35,
+  /**
+   * An in-play build: in Rounds the shooter may place pieces in play before the round's first shot, at a premium over the build turn's prices.
+   * Such a piece is final: it is never in `built`, so it cannot be moved or demolished.
+   */
+  playBuild: { wallUnitCost: 3, towerCost: { repulsor: 4, steal: 3 } },
   /** Credits it costs to demolish a piece placed in an earlier turn. */
   demolishCost: 1,
   /** Credits an armed Breaker shot costs when it fires (Rounds); Siege has no Credits economy and spends the stock instead. */

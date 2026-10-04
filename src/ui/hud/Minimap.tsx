@@ -2,14 +2,14 @@ import type { CSSProperties } from 'react'
 import { visual } from '../../config/visual'
 import type { Band, MinimapView } from '../../game/view/minimap'
 
-/** How far in from the far edge the top-left cluster (the minimap chip, then ☰) sits: just inside the Defence bar, and the Resource bar when it is shown. */
+/** How far in from the far edge the minimap chip (top-left) and the ☰ button (top-right) sit: just inside the Defence bar, and the Resource bar when it is shown. */
 export const underBars = (resourceBar: boolean): number => visual.hud.bar.heightPx + (resourceBar ? visual.hud.bar.resourceRowPx : 0) + visual.sideMenu.buttonInsetPx
 
-/** Where the ☰ button starts: just right of the minimap chip's tap area. */
-export const menuLeft = (): number => visual.sideMenu.buttonInsetPx + visual.hud.minimap.hitPx + visual.sideMenu.buttonInsetPx / 2
+/** How much of the stage's left edge the minimap chip takes, inset included: what the queued Subterfuge icons keep clear of. */
+export const chipClear = (): number => visual.sideMenu.buttonInsetPx + visual.hud.minimap.hitPx
 
 /**
- * The minimap chip at the top-left, under the far-edge bars (beside the ☰ button): a thumbnail of the whole pitch with the main camera's frame
+ * The minimap chip at the top-left, under the far-edge bars: a thumbnail of the whole pitch with the main camera's frame
  * on it, and the opening of the map view. While the map is open it is a filled ✕ in the player's `color` that closes it. Its tap area is wider than the chip.
  */
 export function Minimap({ minimap, open, color, flipped, resourceBar = false, onToggle, style }: { minimap: MinimapView; open: boolean; color: string; flipped: boolean; /** The Resource bar is shown, so the chip sits below it too. */ resourceBar?: boolean; onToggle(): void; style?: CSSProperties }) {

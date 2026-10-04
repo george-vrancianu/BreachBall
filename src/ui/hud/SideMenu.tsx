@@ -2,14 +2,14 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { visual } from '../../config/visual'
 import type { SideMenuView } from '../../game/view/sideMenu'
 import { Button, FONT, ghostCircle } from '../ButtonRow'
-import { menuLeft, underBars } from './Minimap'
+import { underBars } from './Minimap'
 
 const { sideMenu, tokens } = visual
 
-/** The ☰ ghost button that opens the Side menu. Mount inside the rotating stage: it sits at the stage's top-left beside the minimap chip, just inside the Defence bar at the far edge (below it, or above it when `flipped` puts the bar at the stage's bottom), so it never covers the bar's P1 digit. With the Resource bar shown (`resourceBar`) it sits below that too. */
+/** The ☰ ghost button that opens the Side menu. Mount inside the rotating stage: it sits at the stage's top-right (the minimap chip has the top-left), just inside the Defence bar at the far edge (below it, or above it when `flipped` puts the bar at the stage's bottom), so it never covers the bar's P1 digit. With the Resource bar shown (`resourceBar`) it sits below that too. */
 export function SideMenuButton({ onOpen, flipped, resourceBar = false, className, style }: { onOpen(): void; flipped: boolean; resourceBar?: boolean; className?: string; style?: CSSProperties }) {
   return (
-    <button aria-label="Menu" className={className} onClick={onOpen} style={{ ...ghostCircle(sideMenu.buttonPx), position: 'absolute', [flipped ? 'bottom' : 'top']: underBars(resourceBar), left: menuLeft(), background: visual.hud.dock.fill, zIndex: sideMenu.buttonZ, pointerEvents: 'auto', ...style }}>
+    <button aria-label="Menu" className={className} onClick={onOpen} style={{ ...ghostCircle(sideMenu.buttonPx), position: 'absolute', [flipped ? 'bottom' : 'top']: underBars(resourceBar), right: sideMenu.buttonInsetPx, background: visual.hud.dock.fill, zIndex: sideMenu.buttonZ, pointerEvents: 'auto', ...style }}>
       ☰
     </button>
   )

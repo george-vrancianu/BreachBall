@@ -143,12 +143,13 @@ describe('Side menu', () => {
     expect(flipped.style.top).toBe('')
   })
 
-  it('the ☰ button sits beside the minimap chip at the top-left, under the bars', () => {
+  it('the ☰ button sits at the top-right, level with the minimap chip at the top-left, under the bars', () => {
     inMatch()
     const menu = screen.getByRole('button', { name: 'Menu' })
     const chip = screen.getByRole('button', { name: 'Map' })
     expect(chip.style.top).toBe(menu.style.top)
-    expect(parseFloat(chip.style.left)).toBeLessThan(parseFloat(menu.style.left))
+    expect([menu.style.right, menu.style.left]).toEqual(['8px', ''])
+    expect(chip.style.left).toBe('8px')
     fireEvent.click(chip)
     expect(games[0]!.actions.map).toHaveBeenCalled()
   })

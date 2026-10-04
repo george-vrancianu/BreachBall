@@ -58,6 +58,8 @@ export type GameMode<M extends Match = Match> = {
   paysTowers(m: M): boolean
   /** Whether the Breaker is bought with Credits (`rules.breakerCost`) rather than drawn from the 3-each stock; Siege has no Credits economy, so it keeps the stock. */
   paysBreaker(m: M): boolean
+  /** Whether the shooter may still build in play this round (an in-play build: place only, at `rules.playBuild` prices): Rounds before the round's first shot; never in Siege. */
+  mayPlayBuild(m: M): boolean
   /** Whether the match is in its blind opening build phase (a build turn that is not a Rearrange); fog and the reveal key on it. */
   opening(m: M): boolean
   /** A build turn just opened for `m.builder`: the Credits they hold for it (they hold `ctx.credits` now) and the ids they may move. */
@@ -97,6 +99,7 @@ export const rounds: GameMode<RoundsMatch> = {
   maySubterfuge: () => true,
   paysTowers: () => true,
   paysBreaker: () => true,
+  mayPlayBuild: (m) => m.roundShots === 0,
   opening: () => false,
   // Credits bank: each build turn adds the round's grant to what is left.
   onBuildStart: (m, ctx, c) => ({ credits: (m.builder ? ctx.credits[m.builder] : 0) + c.credits, built: [] }),
@@ -151,6 +154,7 @@ export const siege: GameMode<SiegeMatch> = {
   maySubterfuge: () => false,
   paysTowers: () => false,
   paysBreaker: () => false,
+  mayPlayBuild: () => false,
   opening: (m) => m.opening && m.builder !== null,
   // A Rearrange turn has no wall points and every own structure counts as placed this turn, so all of them can be moved.
   onBuildStart: (m, ctx, c) => (m.opening ? { credits: c.credits, built: [] } : { credits: 0, built: m.builder ? structuresOf(ctx.objects, m.builder).map((o) => o.id) : [] }),

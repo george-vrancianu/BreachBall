@@ -6,7 +6,7 @@ import { initialPlayers, type Player, type PowerUp } from './player'
 import { rollBall, type Ball } from './ball'
 import { canPlaceBall, centreRestart, handOver, opponent, resolveRest, type Possession } from './possession'
 import { splashDamage, splashOf } from './splash'
-import { damageWall, isLegal, maxHp, structureCost, wallCost, type Structure, type Tower, type TowerPower, type StructureSpec, type Vertex } from './wall'
+import { damageWall, isLegal, maxHp, structureCost, wallCost, wallUnits, type Structure, type Tower, type TowerPower, type StructureSpec, type Vertex } from './wall'
 
 const ctxOf = (objects: readonly Structure[], possession: Possession, shooter: PlayerId, credits: Record<PlayerId, number>): ModeContext => ({ objects, possession, shooter, credits })
 /** A launch speed (0-1 of maxSpeed) once the ball's `charge` multiplies it. Splash never uses it. */
@@ -85,6 +85,19 @@ export function canMove(s: Ledger, id: number, spec: StructureSpec): boolean {
   if (!was || was.kind !== spec.kind) return false
   const diff = moveDiff(was, spec)
   return (diff === 0 || (canEdit(s) && s.credits[spec.owner] >= diff)) && isLegal(spec, s.objects.filter((o) => o.id !== id))
+}
+
+/** Credits an in-play build of `spec` costs (`rules.playBuild`): a wall by its units, a tower at its in-play price. */
+export const playCost = (spec: StructureSpec): number => (spec.kind === 'wall' ? wallUnits(spec) * rules.playBuild.wallUnitCost : rules.playBuild.towerCost[spec.power])
+
+/** Whether `p` may build in play now: the mode allows it (Rounds, before the round's first shot), it is `p`'s own possession, no build turn or defence choice is running, no shot is in flight and the match is not over. */
+export const canPlayBuild = (s: Pick<SimState, 'match' | 'possession'>, p: PlayerId): boolean =>
+  modeFor(s.match).mayPlayBuild(s.match) && !s.match.builder && !s.match.choosing && !s.match.winner && s.possession.shooter === p && !s.possession.live
+
+/** Whether `spec` may be placed now, by whichever way is open: a build turn's `canPlace`, else an in-play build at its in-play price. */
+export function placeable(s: Ledger & Pick<SimState, 'possession'>, spec: StructureSpec): boolean {
+  if (s.match.builder) return canPlace(s, spec)
+  return canPlayBuild(s, spec.owner) && s.credits[spec.owner] >= playCost(spec) && isLegal(spec, s.objects)
 }
 
 export type SimEvent =
@@ -265,7 +278,14 @@ export function step(
     credits = { ...credits, [spec.owner]: credits[spec.owner] - chargeOf(match, spec) }
     return true
   }
-  if (placeWall && !(edit && place(placeWall))) events.push({ type: 'refused' })
+  /** An in-play build: placed at its in-play price and never added to `built`, so it can be neither moved nor demolished. */
+  const placeInPlay = (spec: StructureSpec): boolean => {
+    if (!placeable({ objects, credits, players, match, possession: state.possession }, spec)) return false
+    objects = [...objects, { ...spec, id: nextId++, hp: maxHp(spec) }]
+    credits = { ...credits, [spec.owner]: credits[spec.owner] - playCost(spec) }
+    return true
+  }
+  if (placeWall && !(building ? edit && place(placeWall) : placeInPlay(placeWall))) events.push({ type: 'refused' })
   if (move) {
     const it = objects.find((o) => o.id === move.id)
     const spec: StructureSpec | undefined = it && (it.kind === 'wall' ? ('a' in move ? { kind: 'wall', owner: move.player, a: move.a, b: move.b } : undefined) : 'at' in move ? { kind: 'tower', owner: move.player, power: it.power, at: move.at } : undefined)

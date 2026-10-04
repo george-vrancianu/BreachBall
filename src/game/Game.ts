@@ -18,7 +18,7 @@ import { Structures } from './entities/Structures'
 import { routeEvents } from './events'
 import { reducedMotion, tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
-import { defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
+import { builderNow, defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { countDestroyed, type Destroyed } from './view/defenceBar'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
 import { minimapOf, type MinimapView } from './view/minimap'
@@ -360,6 +360,7 @@ export class Game implements Sink {
     structures.handles = !mapOpen && sel?.movable && sel.spec.kind === 'wall' ? { a: sel.spec.a, b: sel.spec.b } : undefined
     structures.costLabel = !mapOpen && !!sel?.movable && sel.id === undefined && sel.spec.kind === 'wall'
     structures.pieceBlocked = !!sel && !legal(state, sel)
+    structures.inPlay = !builder
     structures.flipped = this.transition.shown === 2
     structures.landing = mapOpen ? undefined : input.landing?.spec
     structures.hidden = mapOpen ? [] : [sel?.movable ? sel.id : undefined, input.landing?.id].filter((id) => id !== undefined)
@@ -374,7 +375,8 @@ export class Game implements Sink {
     structures.previewSplash(state, aim?.cancel ? undefined : aim, this.config)
     this.ball.reduced = reduced
     structures.mark()
-    this.pitch.builder = builder ?? undefined
+    // The snap grid and build edge show for an in-play build too, while an item is armed.
+    this.pitch.builder = builder ?? (input.item ? builderNow(state) ?? undefined : undefined)
     this.pitch.charge = this.ball.charge = state.charge
     this.ball.radius = this.config.ballRadius
     this.pitch.reduced = reduced

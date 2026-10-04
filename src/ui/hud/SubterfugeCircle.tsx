@@ -7,7 +7,7 @@ import { FONT } from '../ButtonRow'
 import { ItemButton, noMenu, useColumn, type ColumnItemSpec } from './ItemButton'
 import { JAM, LOCK, MASK } from './icons'
 import { columnLift, tileLabel, tileStyle } from './tile'
-import { menuLeft } from './Minimap'
+import { chipClear } from './Minimap'
 
 const { panel } = visual.hud
 const { gap, pulseMs, pulseScale, columnZ, itemPx, itemBorderPx } = visual.hud.defence
@@ -129,7 +129,7 @@ export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, on
 
 /**
  * What is queued, for both players: a small icon per item in its caster's colour, near the far edge, until the item takes effect.
- * Mount inside the rotating stage; `flipped` puts it on the stage's bottom, which is the far edge once the stage is turned. It sits just under the targeted player's half of the Defence bar, clear of the Resource bar's row; Player 1's icon is also kept clear of the minimap chip and ☰ button at the stage's left.
+ * Mount inside the rotating stage; `flipped` puts it on the stage's bottom, which is the far edge once the stage is turned. It sits just under the targeted player's half of the Defence bar, clear of the Resource bar's row; Player 1's icon is kept clear of the minimap chip at the stage's left, Player 2's of the ☰ button at its right.
  */
 export function QueuedIcons({ queued, flipped }: { queued: SubterfugeCircleView['queued']; flipped: boolean }) {
   if (!queued.length) return null
@@ -140,7 +140,7 @@ export function QueuedIcons({ queued, flipped }: { queued: SubterfugeCircleView[
       {([1, 2] as const).map((id) => (
         <div key={id} style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', gap: gapPx }}>
           {queued.filter((q) => q.against === id).map((q) => (
-            <div key={q.against} role="img" aria-label={`${ITEMS[q.item].name} queued against Player ${q.against}`} style={{ display: 'flex', alignItems: 'center', gap: 4, height: px, marginLeft: q.against === 1 ? menuLeft() + visual.sideMenu.buttonPx : 0, padding: `0 ${gapPx}px`, borderRadius: px / 2, border: `${itemBorderPx}px solid ${visual.player.colors[q.by]}`, background: panel, color: visual.player.colors[q.by], fontSize: fontPx }}>
+            <div key={q.against} role="img" aria-label={`${ITEMS[q.item].name} queued against Player ${q.against}`} style={{ display: 'flex', alignItems: 'center', gap: 4, height: px, marginLeft: q.against === 1 ? chipClear() : 0, marginRight: q.against === 2 ? visual.sideMenu.buttonInsetPx + visual.sideMenu.buttonPx : 0, padding: `0 ${gapPx}px`, borderRadius: px / 2, border: `${itemBorderPx}px solid ${visual.player.colors[q.by]}`, background: panel, color: visual.player.colors[q.by], fontSize: fontPx }}>
               {ITEMS[q.item].icon(px - 10)}
               <span>{`${ITEMS[q.item].name} · P${q.against}`}</span>
             </div>
