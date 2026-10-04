@@ -156,7 +156,7 @@ export const visual = {
   aim: {
     /** A press this close to the ball's centre (or within its on-screen radius, if larger) starts aiming, in screen px. */
     ballHitPx: 28,
-    /** Pointer travel from the press, in screen px, before a drag counts: releasing within it cancels, and full power range starts at its edge. */
+    /** Pointer travel from the press, in screen px, before a drag counts (until then the hold climbs tiers); the drag's distance from the ball's centre must pass it too: releasing within it cancels, and full power range starts at its edge. */
     slopPx: 8,
     /** Within this many screen px of any canvas edge the aim is cancel-armed: releasing cancels, moving back out re-arms. */
     edgeCancelPx: 24,

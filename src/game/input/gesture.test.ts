@@ -50,6 +50,11 @@ describe('aim gesture drag', () => {
   it('has no aim within the slop', () => {
     expect(aimOf(dragTo(105, 305))).toBeNull()
   })
+  it('measures from the ball\'s centre: a press off the centre aims as one on it', () => {
+    const offCentre = aimOf(aimMove(press(p(120, 290)), p(100, 400), 100))
+    expect(offCentre).toEqual(aimOf(dragTo(100, 400)))
+    expect(offCentre!.dir).toEqual({ x: 0, y: -1 })
+  })
 })
 
 // Power: held still for 1000 ms; radius 84 px, power [0.5, 1], eased inverted curve.

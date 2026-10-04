@@ -12,9 +12,10 @@ export type Press = { at: Point; now: number; ball: Point; ballRadiusPx: number;
 /**
  * The aim gesture, a pure state machine over screen-pixel points. `pan` for a press that was not on the ball (or an abandoned aim);
  * `holding` while the pointer stays within the slop of the press, climbing tiers (`held` ms since the press); `aiming` once it has left it, with the tier locked.
+ * `centre` is the ball's on-screen centre at the press: the drag is measured from it, so the gauge's rings line up with the finger.
  * Either is cancel-armed while the pointer is in the edge zone (see `cancelArmed`).
  */
-export type AimGesture = { phase: 'pan' } | { phase: 'holding' | 'aiming'; press: Point; since: number; at: Point; tier: number; held: number; size: Size }
+export type AimGesture = { phase: 'pan' } | { phase: 'holding' | 'aiming'; press: Point; centre: Point; since: number; at: Point; tier: number; held: number; size: Size }
 
 /** An aim without the Breaker flag: `dir` is the way the ball goes, opposite the drag. */
 export type Aim = Omit<Aiming, 'breaker'>
@@ -23,7 +24,7 @@ const tierOf = (i: number): Tier => rules.shot.tiers[i]
 
 export function aimPress({ at, now, ball, ballRadiusPx, canShoot, size }: Press): AimGesture {
   const onBall = Math.hypot(at.x - ball.x, at.y - ball.y) <= Math.max(ballRadiusPx, visual.aim.ballHitPx)
-  return canShoot && onBall ? { phase: 'holding', press: at, since: now, at, tier: 0, held: 0, size } : { phase: 'pan' }
+  return canShoot && onBall ? { phase: 'holding', press: at, centre: ball, since: now, at, tier: 0, held: 0, size } : { phase: 'pan' }
 }
 
 /** The tier climbs while the pointer stays within the slop (each tier at its `holdMs`); the first move past it locks the tier. */
@@ -84,10 +85,10 @@ export function aimOf(g: AimGesture): Aim | null {
   return cancelArmed(g) ? null : dragAim(g)
 }
 
-/** The aim the drag points at, cancel-armed or not. */
+/** The aim the drag points at, cancel-armed or not, measured from the ball's centre. */
 function dragAim(g: AimGesture): Aim | null {
   if (g.phase !== 'aiming') return null
-  const [dx, dy] = [g.press.x - g.at.x, g.press.y - g.at.y]
+  const [dx, dy] = [g.centre.x - g.at.x, g.centre.y - g.at.y]
   const d = Math.hypot(dx, dy)
   const { slopPx } = visual.aim
   if (d <= slopPx) return null
