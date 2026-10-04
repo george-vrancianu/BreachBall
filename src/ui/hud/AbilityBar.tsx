@@ -22,12 +22,12 @@ export type Ability = 'build' | 'powerup' | 'subterfuge'
 /** One option tile beside an open ability: an icon, a short name, a corner badge (price or stock); greyed when it cannot be used, filled when pressed (armed). */
 export type OptionSpec = { key: string; aria: string; name: string; icon: ReactNode; badge?: string; disabled: boolean; pressed: boolean; onPick(): void }
 
-/** An ability tile (Build, Powerup, Subterfuge): an icon over its label, all three `abilityPx` wide. `open` fills it; `active` (the Breaker armed) fills it too. */
+/** An ability tile (Build, Powerup, Subterfuge): an icon over its label (the option tiles' size), all three `abilityPx` wide. `open` fills it; `active` (the Breaker armed) fills it too. */
 function AbilityTile({ label, aria, icon, color, available, open, active, onTap }: { label: string; aria: string; icon: ReactNode; color: string; available: boolean; open: boolean; active?: boolean; onTap(): void }) {
   return (
     <button aria-label={aria} aria-expanded={open} aria-pressed={open || !!active} aria-disabled={!available} onClick={onTap} onContextMenu={noMenu} style={tileStyle({ color, active: (open || !!active) && available, available, width: dock.abilityPx })}>
       {icon}
-      <span style={tileLabel}>{label}</span>
+      <span style={{ ...tileLabel, fontSize: dock.labelPx - 1 }}>{label}</span>
     </button>
   )
 }
