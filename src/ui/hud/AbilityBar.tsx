@@ -1,19 +1,16 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
-import type { DefenceCircle as DefenceCircleView, Item, ItemSpec } from '../../game/view/defenceCircle'
+import type { DefenceCircle as DefenceCircleView, Item } from '../../game/view/defenceCircle'
 import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
-import { BOLT, BREAKER, CANNON, JAM, LOCK, MASK, OVERDRIVE, REPULSOR, STEAL, TOWER, WALL } from './icons'
+import { BOLT, BREAKER, JAM, LOCK, MASK, OVERDRIVE, PIECE_ICON, TOWER } from './icons'
 import { noMenu } from './press'
 import { tileBadge, tileLabel, tileStyle } from './tile'
 
 const { dock } = visual.hud
-const PIECE_ICON: Record<ItemSpec['item'], (size: number) => ReactNode> = { wall: WALL, repulsor: REPULSOR, steal: STEAL, cannon: CANNON }
 const OFFENCE_ICON: Record<OffenceItemSpec['item'], (size: number) => ReactNode> = { breaker: BREAKER, overdrive: OVERDRIVE }
 const SUBTERFUGE_ICON: Record<SubterfugeItem, (size: number) => ReactNode> = { jam: JAM }
-/** A label's price part as a badge: `2` stays, a Siege stock `3 left` reads `×3`. */
-const stockBadge = (part?: string): string | undefined => (part?.endsWith(' left') ? `×${part.split(' ')[0]}` : part)
 /** How long an ability slides left (and the others fold away), ms. */
 const SLIDE_MS = 220
 
@@ -88,11 +85,11 @@ export function AbilityBar({ defence, offence, subterfuge, color, trailing, onDe
     open === 'build' && defence
       ? pieceOptions(defence, onDefenceArm)
       : open === 'powerup'
-        ? offence.items.map((i) => ({ key: i.item, aria: i.soon ? `${i.label} · soon` : i.label, name: i.item === 'breaker' ? 'Breaker' : 'Overdrive', icon: i.soon ? LOCK(dock.iconPx - 4) : OFFENCE_ICON[i.item](dock.iconPx), badge: i.soon ? undefined : stockBadge(i.label.split(' · ')[1]), disabled: i.disabled, pressed: i.pressed, onPick: () => (onOffenceArm(i.item), setLocal(undefined)) }))
+        ? offence.items.map((i) => ({ key: i.item, aria: i.soon ? `${i.label} · soon` : i.label, name: i.name, icon: i.soon ? LOCK(dock.iconPx - 4) : OFFENCE_ICON[i.item](dock.iconPx), badge: i.soon ? undefined : i.badge, disabled: i.disabled, pressed: i.pressed, onPick: () => (onOffenceArm(i.item), setLocal(undefined)) }))
         : open === 'subterfuge' && subterfuge
           ? subterfuge.items.map((i) => (i.soon
-              ? { key: i.item, aria: 'Locked · soon', name: 'Soon', icon: LOCK(dock.iconPx - 4), disabled: true, pressed: false, onPick: () => {} }
-              : { key: i.item, aria: `${i.label} · ${i.when}`, name: i.label.split(' · ')[0]!, icon: SUBTERFUGE_ICON[i.item](dock.iconPx), badge: i.label.split(' · ')[1], disabled: i.disabled || !subterfuge.available, pressed: false, onPick: () => (onSubterfuge(i.item), setLocal(undefined)) }))
+              ? { key: i.item, aria: 'Locked · soon', name: i.name, icon: LOCK(dock.iconPx - 4), disabled: true, pressed: false, onPick: () => {} }
+              : { key: i.item, aria: `${i.label} · ${i.when}`, name: i.name, icon: SUBTERFUGE_ICON[i.item](dock.iconPx), badge: i.badge, disabled: i.disabled || !subterfuge.available, pressed: false, onPick: () => (onSubterfuge(i.item), setLocal(undefined)) }))
           : []
   return (
     <div onKeyDown={key} style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>

@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
-import type { DefenceCircle as DefenceCircleView, Item, ItemSpec } from '../../game/view/defenceCircle'
-import type { ButtonSpec, HudModel } from '../../game/view/hudModel'
+import type { DefenceCircle as DefenceCircleView, Item, SelectionAction, SelectionButton } from '../../game/view/defenceCircle'
+import { BALANCE_UNIT, type ButtonSpec, type HudModel } from '../../game/view/hudModel'
 import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
 import type { StrategyCard } from '../../game/view/strategies'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
 import { FONT } from '../ButtonRow'
-import { CANNON, CHECK, CLOSE, CREDIT, LAYERS, LOCK, RECENTER, REFUND, REPULSOR, ROTATE, STEAL, TOWER, TRASH, WALL } from './icons'
+import { CHECK, CLOSE, CREDIT, LAYERS, LOCK, PIECE_ICON, RECENTER, REFUND, ROTATE, TOWER, TRASH } from './icons'
 import { noMenu } from './press'
 import { AbilityBar } from './AbilityBar'
 import { StrategyTray } from './StrategyTray'
@@ -16,7 +16,8 @@ import { tileBadge, tileLabel, tileStyle } from './tile'
 const ELLIPSIS: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const ring = (f: number, color: string = visual.hud.ink) => `conic-gradient(${color} ${f * 360}deg,${visual.hud.track} 0)`
 const { dock } = visual.hud
-const PIECE_ICON: Record<ItemSpec['item'], (size: number) => ReactNode> = { wall: WALL, repulsor: REPULSOR, steal: STEAL, cannon: CANNON }
+/** Each selection control's glyph. */
+const SELECTION_ICON: Record<SelectionAction, (size: number) => ReactNode> = { demolish: TRASH, rotate: ROTATE, deselect: CLOSE }
 
 /** The clock ring: a conic drain around a dark disc holding the seconds; at the urgent seconds it turns red with a halo and pulses. */
 function Clock({ clock }: { clock: HudModel['clock'] }) {
@@ -131,7 +132,7 @@ function RefundButton({ rate, left, refundable, color, onRefund }: { rate: numbe
       style={{ ...tileStyle({ color, available: refundable }), width: dock.tilePx + 6, ...(pressed && { background: visual.hud.pressed, borderColor: visual.hud.pressedBorder }), ...(refundable && { borderColor: color }) }}
     >
       <span style={{ color: refundable ? color : 'inherit', display: 'flex' }}>{REFUND(dock.iconPx)}</span>
-      <span style={tileLabel}>{`+${rate} CR`}</span>
+      <span style={tileLabel}>{`+${rate} ${BALANCE_UNIT.rounds}`}</span>
     </button>
   )
 }
@@ -190,15 +191,14 @@ function BuildTools({ defence, color, trayOpen, strategies, onToggle, onArm, onS
 }
 
 /** The selected structure's controls (demolish, rotate, deselect), floating over the pitch above the dock. */
-function SelectionBar({ buttons }: { buttons: ButtonSpec[] }) {
-  const GLYPH: Record<string, { icon: ReactNode; aria: string }> = { '🗑': { icon: TRASH(20), aria: 'Demolish' }, '↻': { icon: ROTATE(20), aria: 'Rotate' }, '✕': { icon: CLOSE(20), aria: 'Deselect' } }
+function SelectionBar({ buttons }: { buttons: SelectionButton[] }) {
   return (
     <div role="toolbar" aria-label="Selected piece" style={{ display: 'flex', gap: 8, padding: 6, borderRadius: 26, background: dock.fill, border: `1px solid ${dock.border}`, boxShadow: `0 6px 18px ${visual.hud.shadow}`, pointerEvents: 'auto' }}>
       {buttons.map((b) => {
-        const g = GLYPH[b.label]
+        const danger = b.action === 'demolish'
         return (
-          <button key={b.label} disabled={b.disabled} aria-label={g?.aria ?? b.label} onClick={b.onClick} style={{ ...FONT, width: 40, height: 40, padding: 0, borderRadius: '50%', border: `2px solid ${b.label === '🗑' ? visual.hud.urgent : visual.tokens.ghostBorder}`, background: visual.hud.panel, color: b.label === '🗑' ? visual.hud.urgent : visual.hud.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: b.disabled ? 0.4 : 1 }}>
-            {g?.icon ?? b.label}
+          <button key={b.action} disabled={b.disabled} aria-label={b.label} onClick={b.onClick} style={{ ...FONT, width: 40, height: 40, padding: 0, borderRadius: '50%', border: `2px solid ${danger ? visual.hud.urgent : visual.tokens.ghostBorder}`, background: visual.hud.panel, color: danger ? visual.hud.urgent : visual.hud.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: b.disabled ? 0.4 : 1 }}>
+            {SELECTION_ICON[b.action](20)}
           </button>
         )
       })}
@@ -262,7 +262,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
   const safeEdge = `max(${dock.padPx}px, env(safe-area-inset-bottom))`
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
-      {building && strategies && <StrategyTray cards={strategies} color={color} unit={m.balance?.unit ?? 'CR'} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `4px ${dock.padPx}px` }} />}
+      {building && strategies && <StrategyTray cards={strategies} color={color} unit={m.balance?.unit ?? BALANCE_UNIT.rounds} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `4px ${dock.padPx}px` }} />}
       {defence?.selection && <SelectionBar buttons={defence.selection.buttons} />}
       {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(18)} />}
       {mapOpen && <MapHint />}

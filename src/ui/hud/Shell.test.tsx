@@ -310,6 +310,13 @@ describe('Shell', () => {
       expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
     })
 
+    it('names and badges each option as its model says (a Siege stock reads ×3)', () => {
+      render(<Shell {...props()} offence={offence({ items: [{ item: 'breaker', label: 'Breaker · 3 left', name: 'Breaker', badge: '×3', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', name: 'Overdrive', disabled: true, pressed: false, soon: true }] })} />)
+      fireEvent.click(circle())
+      expect(screen.getByRole('button', { name: 'Breaker · 3 left' }).textContent).toBe('Breaker×3')
+      expect(screen.getByRole('button', { name: 'Overdrive · soon' }).textContent).toBe('Overdrive')
+    })
+
     it('tapping the Breaker arms it and closes the options', () => {
       const p = props()
       render(<Shell {...p} />)
