@@ -23,7 +23,7 @@ const tower = (power: TowerPower, gx: number, gy: number): StrategyPiece => ({ k
 const vee = (x: number, y: number): StrategyPiece[] => [wall(x, y, x + d1, y + d1), wall(x + d1, y + d1, x + d2, y)]
 
 /**
- * The layouts on offer, each placing whole within the Opening Credits (in Rounds; Siege pays walls in wall points and towers from its stock) and spending within
+ * The layouts on offer, each placing whole within the Opening Credits (in Rounds; Siege pays walls in Wall points and towers from its stock) and spending within
  * five of them, so no Strategy is lean. Grouped by archetype: wall-heavy, then hybrid, then tower-heavy. No layout seals the pitch: every one leaves a path from the Kick-off spot to the goal mouth.
  */
 export const STRATEGIES: readonly Strategy[] = [
@@ -218,8 +218,8 @@ export const STRATEGIES: readonly Strategy[] = [
       wall(4, 64, 12, 64), wall(28, 64, 36, 64), wall(0, 80, 8, 80), wall(32, 80, 40, 80),
     ],
   },
-  // Tower-heavy. Three Repulsors spread across the forward line, backed by one row of short walls: the core is two of the Repulsors; four Steals (two in the gaps, two behind them)
-  // make up the budget, and one row of four short walls backs them, open in the middle.
+  // Tower-heavy. Three Repulsors spread across the forward line, backed by a row of short walls: the core is two of the Repulsors; four Steals (two in the gaps, two behind them)
+  // make up the budget. The row is four walls, open in the middle.
   {
     id: 'watchtowers',
     name: 'Watchtowers',

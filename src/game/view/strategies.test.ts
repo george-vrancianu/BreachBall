@@ -67,7 +67,7 @@ describe('Strategies', () => {
     }
   })
 
-  it.each(STRATEGIES.map((st) => [st.name, st] as const))('%s spends nearly the whole opening budget, and its card shows the plan\'s net cost, whole', (_, st) => {
+  it.each(STRATEGIES.map((st) => [st.name, st] as const))('%s spends nearly the whole opening budget, and its card shows the Strategy\'s net cost, whole', (_, st) => {
     for (const owner of [1, 2] as const) {
       const s = funded(buildState(owner), owner, c.openingCredits)
       const plan = planStrategy(s, owner, st, c)
@@ -118,6 +118,12 @@ describe('Strategies', () => {
     turrets: 'tower', crossfire: 'tower', watchtowers: 'tower',
   }
 
+  it('groups STRATEGIES by archetype: wall-heavy, then hybrid, then tower-heavy', () => {
+    const order = { wall: 0, hybrid: 1, tower: 2 }
+    const ranks = STRATEGIES.map((st) => order[archetype[st.id]])
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b))
+  })
+
   it('the archetype map covers every Strategy and nothing else', () => {
     expect(Object.keys(archetype).sort()).toEqual(STRATEGIES.map((st) => st.id).sort())
   })
@@ -128,6 +134,7 @@ describe('Strategies', () => {
     const towers = pieces.filter((p) => p.kind === 'tower')
     const towerCost = towers.reduce((n, p) => n + structureCost(p), 0)
     const kind = archetype[st.id]
+    // Bands (wall units, tower count, tower cost) are tuned to the sixteen layouts: wall-heavy 26+ units, hybrid 17-23 units with 3-4 towers, tower-heavy 25+ tower cost.
     if (kind === 'wall') {
       expect(wallUnits).toBeGreaterThanOrEqual(26)
       expect(towers.length).toBeLessThanOrEqual(2)
@@ -227,7 +234,7 @@ describe('Strategies', () => {
     expect(plan.cost).toBe(2)
   })
 
-  it('in Siege towers come from the stock and walls from wall points', () => {
+  it('in Siege towers come from the stock and walls from Wall points', () => {
     const s = siegeBuild(1)
     const plan = planStrategy(s, 1, byId('turrets'), c)
     expect(plan.placed).toBe(plan.total)

@@ -75,7 +75,7 @@ describe('Game', () => {
       vi.spyOn(performance, 'now').mockImplementation(() => t)
       const canvas = new FakeCanvas()
       const game = new Game(canvas as unknown as HTMLCanvasElement, (sink) => new LocalDriver(sink))
-      game.actions.start({ ...defaultSettings, mode: 'siege' })
+      game.actions.start(withMode(defaultSettings, 'siege'))
       // The turn flips to Player 1 over the first 400 ms; its card may then be dismissed after a second.
       frame(t)
       t += 1500
@@ -270,7 +270,7 @@ describe('Game', () => {
 
   it('a Siege opening build is blind: the camera clamps to the builder\'s half and the fog hides the other', () => {
     const game = make()
-    game.actions.start({ ...defaultSettings, mode: 'siege' })
+    game.actions.start(withMode(defaultSettings, 'siege'))
     const builder = game.state.match.builder!
     expect([game.camera.blind, game.fog.blind]).toEqual([builder, builder])
     game.actions.start(withMode(defaultSettings, 'rounds'))
@@ -289,7 +289,7 @@ describe('Game', () => {
 
   it('the reveal shows the whole pitch through the map camera with the fog lifted, then returns to the main camera', () => {
     const game = make()
-    game.actions.start({ ...defaultSettings, mode: 'siege' })
+    game.actions.start(withMode(defaultSettings, 'siege'))
     const t = performance.now()
     frame(t)
     const { match } = game.state
