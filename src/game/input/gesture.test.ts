@@ -113,6 +113,11 @@ describe('aim gesture release', () => {
   it('cancels a release after dragging back within the slop', () => {
     expect(aimRelease(aimMove(dragTo(100, 450), p(102, 302), 200)).type).toBe('cancelled')
   })
+  it('cancels a release within the slop of the ball\'s centre, even far from an off-centre press', () => {
+    const offCentre = aimMove(press(p(120, 300)), p(103, 303), 100)
+    expect(offCentre.phase).toBe('aiming')
+    expect(aimRelease(offCentre).type).toBe('cancelled')
+  })
   it('a pan stays a pan', () => {
     expect(aimRelease(aimMove(press(p(0, 0)), p(200, 200), 100)).type).toBe('pan')
   })

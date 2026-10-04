@@ -2,9 +2,11 @@ import { rules, type Tier, type TierName } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
 import type { AimView } from '../input/InputController'
+import { scaleOf } from '../input/gesture'
 import { tierClimbed } from '../feedback'
 import { tierColor } from './Aim'
 import { Entity } from './Entity'
+import { drawLabel } from './label'
 
 /** What the gauge reads of the aim in progress: its phase and tier, the tier's control radius and the finger's pull in screen px, the aim once there is one, and how many screen px a world unit spans. */
 export type GaugeAim = Pick<AimView, 'phase' | 'tier' | 'radiusPx' | 'pxPerUnit'> & Partial<Pick<AimView, 'dir' | 'power' | 'pullPx' | 'cancel'>>
@@ -66,7 +68,7 @@ export class AimGauge extends Entity {
     return { x: this.at.x - aim.dir.x * d, y: this.at.y - aim.dir.y * d }
   }
 
-  /** The readout chip beside the knob (world units): to its screen right, or its left near the screen's right edge; the tier, the power in %, and how many meter segments are lit (by the scale position, all at the tier's strong end). */
+  /** The readout chip beside the knob (world units): to its screen right, or its left near the pitch's right edge as the viewer sees it (the screen's, on a phone); the tier, the power in %, and how many meter segments are lit (by the scale position, all at the tier's strong end). */
   get readout(): { at: Point; tier: string; percent: number; lit: number } | undefined {
     const { aim, knob } = this
     if (!aim || !knob || aim.power === undefined) return undefined
@@ -76,7 +78,7 @@ export class AimGauge extends Entity {
     const roomPx = (this.flipped ? knob.x : rules.pitchWidth - knob.x) * aim.pxPerUnit
     const side = roomPx < edgePx ? -1 : 1
     const at = { x: knob.x + s * side * offsetPx, y: knob.y + s * dropPx }
-    return { at, tier: rules.shot.tiers[aim.tier].name.toUpperCase(), percent: Math.round(aim.power * 100), lit: Math.round(scaleOf(aim) * segments) }
+    return { at, tier: rules.shot.tiers[aim.tier].name.toUpperCase(), percent: Math.round(aim.power * 100), lit: Math.round(scaleOfAim(aim) * segments) }
   }
 
   /** How far the limit ring and the knob have flared, 0-1: easing towards 1 while the drag is past the limit, back to 0 inside it. */
@@ -124,19 +126,15 @@ export class AimGauge extends Entity {
     const curve = rules.shot.tiers[aim.tier].curve
     const knob = this.knob && local(this.knob)
     this.drawScale(ctx, radius * ppu, curve, blur)
-    if (knob && aim.pullPx !== undefined) this.drawPull(ctx, knob, Math.min(aim.pullPx, aim.radiusPx), curve, scaleOf(aim))
+    if (knob && aim.pullPx !== undefined) this.drawPull(ctx, knob, Math.min(aim.pullPx, aim.radiusPx), curve, scaleOfAim(aim))
     const readout = this.readout
     if (readout && knob) this.drawReadout(ctx, local(readout.at), readout)
     const pop = this.pop
     if (pop) {
-      const { sizePx, growPx, growShare, gapPx, risePx } = visual.aim.gauge.pop
-      ctx.globalAlpha = 1 - pop.progress
-      ctx.font = `400 ${sizePx + growPx * easeOut(Math.min(1, pop.progress / growShare))}px ${visual.hud.display}`
-      ctx.fillStyle = this.color
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(pop.text, 0, -(radius * ppu + gapPx + risePx * pop.progress))
-      ctx.globalAlpha = 1
+      const { sizePx, growPx, growShare, gapPx, risePx, weight } = visual.aim.gauge.pop
+      const size = sizePx + growPx * easeOut(Math.min(1, pop.progress / growShare))
+      // In the new tier's colour, not the cross-fade's. The frame is already turned with the stage.
+      drawLabel(ctx, pop.text, { x: 0, y: -(radius * ppu + gapPx + risePx * pop.progress) }, { size, weight, font: visual.hud.display, color: tierColor(aim.tier), alpha: 1 - pop.progress, flipped: false })
     }
     ctx.restore()
   }
@@ -172,11 +170,17 @@ export class AimGauge extends Entity {
     ctx.lineWidth = limit.widthPx + flare.widthPx * k
     circle(ctx, Math.max(0, R + breathe))
     ctx.restore()
-    const ends = visual.aim.gauge.ends[curve]
-    chip(ctx, ends.limit, { x: 0, y: -R }, col, label.sizePx)
-    chip(ctx, ends.near, { x: 0, y: -(inner + label.nearGapPx) }, col, label.nearSizePx)
+    const ends = this.ends
+    if (ends) {
+      chip(ctx, ends.limit, { x: 0, y: -R }, col, label.sizePx)
+      const near = label.near[curve]
+      chip(ctx, ends.near, { x: 0, y: -(inner + label.nearGapPx) }, withAlpha(col, near.alpha), label.nearSizePx, near.fill)
+    }
     const a = (label.chipDeg * Math.PI) / 180
-    for (const l of this.limits) chip(ctx, l.chip, { x: R * Math.cos(a), y: R * Math.sin(a) }, col, label.sizePx)
+    for (const l of this.limits) {
+      const r = l.radius * this.aim!.pxPerUnit
+      chip(ctx, l.chip, { x: r * Math.cos(a), y: r * Math.sin(a) }, l.color, label.sizePx)
+    }
   }
 
   /** While aiming: the lit wedge on the pull side, the ring at the finger's distance `d` (px, clamped to the limit), the ripple, the elastic line and the knob; `e` the scale position. */
@@ -185,13 +189,14 @@ export class AimGauge extends Entity {
     const inner = visual.aim.slopPx
     const col = this.color
     const pull = Math.atan2(knob.y, knob.x)
+    const half = (wedge.halfDeg * Math.PI) / 180
     const w = ctx.createRadialGradient(0, 0, inner, 0, 0, Math.max(inner, d))
     w.addColorStop(0, withAlpha(col, wedge[curve][0]))
     w.addColorStop(1, withAlpha(col, wedge[curve][1]))
     ctx.fillStyle = w
     ctx.beginPath()
-    ctx.arc(0, 0, Math.max(inner, d), pull - wedge.halfAngle, pull + wedge.halfAngle)
-    ctx.arc(0, 0, inner, pull + wedge.halfAngle, pull - wedge.halfAngle, true)
+    ctx.arc(0, 0, Math.max(inner, d), pull - half, pull + half)
+    ctx.arc(0, 0, inner, pull + half, pull - half, true)
     ctx.closePath()
     ctx.fill()
     ctx.strokeStyle = withAlpha(col, level.alpha[0] + (level.alpha[1] - level.alpha[0]) * e)
@@ -234,18 +239,12 @@ export class AimGauge extends Entity {
     ctx.strokeStyle = withAlpha(col, r.borderAlpha)
     ctx.lineWidth = r.borderPx
     ctx.stroke()
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = col
-    ctx.font = `700 ${r.namePx}px ${visual.hud.font}`
-    ctx.fillText(tier, at.x, at.y + r.nameDy)
-    ctx.fillStyle = visual.hud.ink
-    ctx.font = `400 ${r.percentPx}px ${visual.hud.display}`
-    ctx.fillText(`${percent}%`, at.x, at.y + r.percentDy)
-    const left = at.x - (r.segments * r.segPitch - (r.segPitch - r.segW)) / 2
+    drawLabel(ctx, tier, { x: at.x, y: at.y + r.nameDyPx }, { size: r.namePx, weight: r.nameWeight, color: col, flipped: false })
+    drawLabel(ctx, `${percent}%`, { x: at.x, y: at.y + r.percentDyPx }, { size: r.percentPx, weight: r.percentWeight, font: visual.hud.display, color: visual.hud.ink, flipped: false })
+    const left = at.x - (r.segments * r.segPitchPx - (r.segPitchPx - r.segWPx)) / 2
     for (let i = 0; i < r.segments; i++) {
       ctx.fillStyle = i < lit ? col : withAlpha(col, r.unlitAlpha)
-      ctx.fillRect(left + i * r.segPitch, at.y + r.segDy, r.segW, r.segH)
+      ctx.fillRect(left + i * r.segPitchPx, at.y + r.segDyPx, r.segWPx, r.segHPx)
     }
   }
 }
@@ -257,30 +256,25 @@ function circle(ctx: CanvasRenderingContext2D, r: number): void {
   ctx.stroke()
 }
 
-/** A label chip centred on `at` (px): text in `color` on a dark pill with a faint border in the same colour. */
-function chip(ctx: CanvasRenderingContext2D, text: string, at: Point, color: string, sizePx: number): void {
-  const { padPx, heightPx, borderPx, borderAlpha, fill } = visual.aim.gauge.label
-  ctx.font = `700 ${sizePx}px ${visual.hud.font}`
+/** A label chip centred on `at` (px): text in `color` (`#rrggbb` or `rgba()`) on a dark pill (`fill`) with a faint border in the same colour. */
+function chip(ctx: CanvasRenderingContext2D, text: string, at: Point, color: string, sizePx: number, fill: string = visual.aim.gauge.label.fill): void {
+  const { padPx, heightPx, borderPx, borderAlpha, weight } = visual.aim.gauge.label
+  ctx.font = `${weight} ${sizePx}px ${visual.hud.font}`
   const w = ctx.measureText(text).width + padPx
   ctx.fillStyle = fill
   ctx.beginPath()
   ctx.roundRect(at.x - w / 2, at.y - heightPx / 2, w, heightPx, heightPx / 2)
   ctx.fill()
-  ctx.strokeStyle = withAlpha(color, borderAlpha)
+  ctx.strokeStyle = color
+  ctx.globalAlpha = borderAlpha
   ctx.lineWidth = borderPx
   ctx.stroke()
-  ctx.fillStyle = color
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(text, at.x, at.y)
+  ctx.globalAlpha = 1
+  drawLabel(ctx, text, at, { size: sizePx, weight, color, flipped: false })
 }
 
-/** Where the pull sits on the tier's scale, 0 at its weak end and 1 at its strong end: the eased drag before squaring, as `dragAim` computes it. */
-function scaleOf({ tier, radiusPx, pullPx = 0 }: GaugeAim): number {
-  const { slopPx } = visual.aim
-  const t = Math.min(1, Math.max(0, (pullPx - slopPx) / (radiusPx - slopPx)))
-  return rules.shot.tiers[tier].curve === 'direct' ? t : 1 - t
-}
+/** Where the aim's pull sits on its tier's scale, 0-1 (see `scaleOf`). */
+const scaleOfAim = ({ tier, pullPx = 0 }: GaugeAim): number => scaleOf(rules.shot.tiers[tier], pullPx)
 
 /** Eases out (cubic): fast, then settling. */
 const easeOut = (t: number): number => 1 - (1 - t) ** 3
@@ -294,13 +288,13 @@ function backOut(t: number): number {
 const rgb = (hex: string): number[] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
 
 /** `#rrggbb` colours `a` to `b`, `t` (0-1) of the way. */
-export function mixColor(a: string, b: string, t: number): string {
+function mixColor(a: string, b: string, t: number): string {
   const [x, y] = [rgb(a), rgb(b)]
   return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('')
 }
 
 /** A `#rrggbb` colour at `alpha`, 0-1. */
-export function withAlpha(hex: string, alpha: number): string {
+function withAlpha(hex: string, alpha: number): string {
   const [r, g, b] = rgb(hex)
   return `rgba(${r},${g},${b},${alpha})`
 }

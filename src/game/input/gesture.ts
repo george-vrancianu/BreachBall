@@ -88,6 +88,13 @@ export function aimOf(g: AimGesture): Aim | null {
   return cancelArmed(g) ? null : dragAim(g)
 }
 
+/** Where a pull of `pullPx` from the ball's centre sits on the tier's scale: 0 at its weak end, 1 at its strong end (the power curve's input, before squaring). */
+export function scaleOf(tier: Tier, pullPx: number): number {
+  const { slopPx } = visual.aim
+  const t = Math.min(1, Math.max(0, (pullPx - slopPx) / (tier.radiusPx - slopPx)))
+  return tier.curve === 'direct' ? t : 1 - t
+}
+
 /** The aim the drag points at, cancel-armed or not, measured from the ball's centre. */
 function dragAim(g: AimGesture): Aim | null {
   if (g.phase !== 'aiming') return null
@@ -96,9 +103,8 @@ function dragAim(g: AimGesture): Aim | null {
   const { slopPx } = visual.aim
   if (d <= slopPx) return null
   const tier = tierOf(g.tier)
-  const t = Math.min(1, (d - slopPx) / (tier.radiusPx - slopPx))
   // Eased: `direct` climbs slowly from the slop edge, `inverted` is the same curve run from the radius in.
-  const e = tier.curve === 'direct' ? t : 1 - t
+  const e = scaleOf(tier, d)
   const [lo, hi] = tier.power
   // Clamped so float drift never leaves the range the sim checks.
   return { dir: { x: dx / d, y: dy / d }, tier: g.tier, power: Math.min(hi, lo + (hi - lo) * e * e) }
