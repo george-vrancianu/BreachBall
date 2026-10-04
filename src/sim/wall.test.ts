@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import type { Point } from './pitch'
 import { hseg } from './testkit'
-import { isDrawable, isLegal, rotatedWall, segmentsTouchOnly, snapWallEnd, structureCost, translatedWall, wallCost, wallSegments, wallsOverlap, wallUnits, type TowerSpec, type WallSpec } from './wall'
+import { isDrawable, isLegal, rotatedWall, segmentsTouchOnly, snapWallBetween, snapWallEnd, structureCost, translatedWall, wallCost, wallSegments, wallsOverlap, wallUnits, type TowerSpec, type WallSpec } from './wall'
 
 const U = rules.wall.unit
 const D = U * Math.SQRT1_2 // a diagonal unit's run along each axis
@@ -308,5 +308,38 @@ describe('allowed shapes', () => {
     expect(isLegal(wall(1, p(4, 80), p(4 + 16, 80)))).toBe(true)
     expect(isLegal(wall(1, p(30, 80), p(30 - D, 80 - D)))).toBe(true) // 225 degrees is the 45 degree set
     expect(isLegal(wall(1, p(30, 80), p(30 + D, 80 - D)))).toBe(true)
+  })
+})
+
+describe('snapWallBetween', () => {
+  it('a horizontal pair makes a horizontal wall centred between them, a at the first finger', () => {
+    const w = snapWallBetween(p(10, 70), p(30, 70.5))
+    near(w && w.a, p(12, 70.25))
+    near(w && w.b, p(28, 70.25))
+    const r = snapWallBetween(p(30, 70), p(10, 70))
+    near(r && r.a, p(28, 70))
+    near(r && r.b, p(12, 70))
+  })
+  it('a diagonal pair makes a 45 degree wall of the nearest unit count', () => {
+    const w = snapWallBetween(p(20, 60), p(20 + D, 60 + D))
+    near(w && w.a, p(20, 60))
+    near(w && w.b, p(20 + D, 60 + D))
+  })
+  it('caps the length at the longest allowed unit count', () => {
+    const w = snapWallBetween(p(0, 70), p(100, 70))
+    expect(w && wallUnits(w)).toBe(Math.max(...rules.wall.units))
+    near(w && w.a, p(50 - U, 70))
+  })
+  it('is null with the fingers under half a unit apart, and a unit at exactly half', () => {
+    expect(snapWallBetween(p(20, 70), p(20 + U / 2 - 0.01, 70))).toBeNull()
+    expect(snapWallBetween(p(20, 70), p(20 + U / 2, 70))).not.toBeNull()
+  })
+  it('always yields a drawable wall', () => {
+    let seed = 7
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 60
+    for (let i = 0; i < 300; i++) {
+      const w = snapWallBetween(p(rnd(), rnd()), p(rnd(), rnd()))
+      if (w) expect(isDrawable(w)).toBe(true)
+    }
   })
 })

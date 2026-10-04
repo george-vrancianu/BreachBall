@@ -72,6 +72,22 @@ export function snapWallEnd(a: Point, pointer: Point, r: WallRules = rules): Poi
   return along(a, dir, nearestUnits(len, r) * r.wall.unit)
 }
 
+/**
+ * The wall two fingers hold, one on each end: its midpoint is the fingers' midpoint, its direction the fingers' vector snapped to the nearest allowed angle,
+ * its length the fingers' distance snapped to the nearest allowed unit count. `a` is the end nearer `f1`. Null when the fingers are under half a unit apart.
+ */
+export function snapWallBetween(f1: Point, f2: Point, r: WallRules = rules): { a: Point; b: Point } | null {
+  const len = lengthOf(f1, f2)
+  if (len < r.wall.unit / 2) return null
+  const heading = norm360(toDeg(Math.atan2(f2.y - f1.y, f2.x - f1.x)))
+  const gap = (d: number) => Math.abs(((d - heading + 540) % 360) - 180)
+  const dir = directions(r).reduce((best, d) => (gap(d) < gap(best) ? d : best))
+  const span = nearestUnits(len, r) * r.wall.unit
+  // `b` is found from `a` by the same `along` as every drawn wall, so the shape is exact.
+  const a = along({ x: (f1.x + f2.x) / 2, y: (f1.y + f2.y) / 2 }, dir + 180, span / 2)
+  return { a, b: along(a, dir, span) }
+}
+
 /** The wall turned to the next allowed direction (45 degrees by default) around `a`, stepping from the nearest allowed direction and snapping the length to the nearest allowed unit count. */
 export function rotatedWall<W extends Pick<WallSpec, 'a' | 'b'>>(w: W, r: WallRules = rules): W {
   const heading = norm360(toDeg(Math.atan2(w.b.y - w.a.y, w.b.x - w.a.x)))
