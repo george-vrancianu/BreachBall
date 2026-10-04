@@ -93,7 +93,7 @@ The segmented bar at the far edge showing how many structures each player still 
 _Avoid_: Health, health strip, HP bar
 
 **Subterfuge**:
-The third family of actions, beside Offence and Defence: actions that cripple the opponent's next round rather than improving your own shot or structures.
+The third family of actions, beside Offence and Defence: actions that cripple the opponent's next possession rather than improving your own shot or structures.
 _Avoid_: Sabotage, debuff, special
 
 **Credits**:

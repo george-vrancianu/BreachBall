@@ -5,7 +5,7 @@ import type { PowerUp } from '../sim/player'
 import { blindSeat, buildPhase, openingBuild } from '../sim/mode'
 import { canPlaceBall, whoActs } from '../sim/possession'
 import { configFrom, type Settings } from '../sim/settings'
-import { defaultConfig, type SimConfig, type SimEvent, type SimState } from '../sim/step'
+import { defaultConfig, type SimConfig, type SimEvent, type SimState, type SubterfugeItem } from '../sim/step'
 import { structuresOf } from '../sim/wall'
 import type { Driver, DriverFactory, Sink } from './driver'
 import { Aim } from './entities/Aim'
@@ -25,15 +25,18 @@ import { minimapOf, type MinimapView } from './view/minimap'
 import { offenceCircle, type OffenceActions, type OffenceCircle } from './view/offenceCircle'
 import { phaseButtons } from './view/phaseButtons'
 import { pausesSim, settingRows, type SideMenuView } from './view/sideMenu'
+import { subterfugeCircle, type SubterfugeCircle } from './view/subterfugeCircle'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
 
-export type { PlayerId, PowerUp }
+export type { PlayerId, PowerUp, SubterfugeItem }
 
 /** Everything the HUD and screens draw from. Data only: pushed up through `onView` when it changes, never read back. */
 export type HudView = {
   hud: HudModel
   /** The Defence circle's model, for the whole match (greyed when the viewer cannot build; absent when no build turn is running). */
   defence?: DefenceCircle
+  /** The Subterfuge circle's model and what is queued (absent in Siege, which has no Credits). */
+  subterfuge?: SubterfugeCircle
   /** The Offence circle's model, for the whole match (greyed outside the viewer's possession). */
   offence: OffenceCircle
   overlay?: OverlayView
@@ -62,6 +65,8 @@ export type GameActions = {
   offence: OffenceActions
   /** The shooter refunds `count` Move points for Credits; the sim refuses it when not allowed. A count under 1 only buzzes denied. */
   refund(count: number): void
+  /** The player whose turn it is buys a Subterfuge item against the opponent; the sim refuses it when not allowed. */
+  subterfuge(item: SubterfugeItem): void
   confirmBall(): void
   /** Opens or closes the Side menu (the ☰ button; Resume closes it). Hot-seat it pauses the clocks; online it never does. */
   menu(open?: boolean): void
@@ -161,6 +166,11 @@ export class Game implements Sink {
         if (!mine(shooter)) return
         if (count >= 1) this.driver.send({ refund: { player: shooter, count } })
         else if (!reducedMotion()) navigator.vibrate?.([...visual.hud.refund.denied])
+      },
+      subterfuge: (item) => {
+        // Whoever acts (the builder, else the shooter) buys it, on the device that plays their seat.
+        const player = whoActs(this.state)
+        if (mine(player)) this.driver.send({ subterfuge: { player, item } })
       },
       confirmBall: this.input.confirmBall,
       menu: (open) => this.toggleMenu(open),
@@ -360,6 +370,7 @@ export class Game implements Sink {
       hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, destroyed: this.destroyed }),
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
+      subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),
       flipped: transition.shown === 2,

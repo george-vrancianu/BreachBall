@@ -168,7 +168,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 
 ### Breaker shot (play phase)
 
-- The Offence circle (⚡, first of the two circles in the bottom row, beside the Defence circle) opens a column: `Breaker · 2` (its price in Credits, `rules.breakerCost`) and one locked "Overdrive · soon" item. Tap the circle to open or close the column; tap the Breaker to arm it (tap it again to disarm), then shoot as normal (any tier). Outside your own possession (the other seat's possession, a build turn, a pending defence choice) the circle is greyed and the column still opens, with every item greyed.
+- The Offence circle (⚡, first of the three circles in the bottom row, before the Defence and Subterfuge circles) opens a column: `Breaker · 2` (its price in Credits, `rules.breakerCost`) and one locked "Overdrive · soon" item. Tap the circle to open or close the column; tap the Breaker to arm it (tap it again to disarm), then shoot as normal (any tier). Outside your own possession (the other seat's possession, a build turn, a pending defence choice) the circle is greyed and the column still opens, with every item greyed.
 - Arming is refused when the Credits are short, and the Breaker greys out in the column. Nothing is charged for arming: the 2 Credits are charged when the Shot fires (also when the shot clock fires it), whether or not the ball hits anything. A cancelled aim disarms with nothing charged. The sim refuses an armed shot the shooter cannot pay for.
 - Siege has no Credits economy, so its Breaker keeps today's rules: a stock of 3 each, one consumed when the Shot fires, and the column's item reads `Breaker · N left`.
 - The ball destroys the first wall or tower it touches, including your own, then continues at full speed.
@@ -187,6 +187,27 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 - Triggers only on the opponent's shot: the ball stops dead and the tower's owner gets ball-in-hand with a fresh counter.
 - For the owner's own shots it is a plain wall.
 - Consumed when it triggers.
+
+## Subterfuge
+
+The third family of actions (see `GLOSSARY.md`): items that cripple the opponent's next possession rather than improve your own shot or structures. Rounds only; Siege has no Credits, so no Subterfuge circle. Items are bought with Credits (`docs/adr/0004-credits-single-resource.md`).
+
+- Usable in your own possession (ball in hand or placed, never with a shot in flight) or in your build turn, and never during a defence choice or after the match is decided. One Subterfuge item per turn, a turn being one possession or one build turn: a second is refused and costs nothing. A new turn (a hand-over, a build turn starting or ending) allows one again.
+- The sim input is `subterfuge: { player, item }`. The Credits are charged at once and the item is queued against the opponent (`subterfuge.queued[opponent]`), with a `subterfuge-queued` event. An input the sim cannot honour (not the actor, shot in flight, already bought one this turn, too few Credits) is refused with a `refused` event and changes nothing.
+- The queue holds one item per player: a Jam never stacks, so buying a second while one waits against the same opponent is refused.
+
+### Jam
+
+- Price: 2 Credits (`rules.jamCost`). The opponent's next possession starts with one Move point fewer.
+- It lands when that possession begins in play: a hand-over (the ball rests on their half, shots run out, a Steal, a Refund of the last Move point, a clock burn) or, for a Jam queued in a build turn, when the last build turn ends and play begins on a possession that is already theirs. A `subterfuge-landed` event is emitted and the queue entry is cleared, so it affects that possession only and never a later one.
+- A possession never drops below one Move point: with one Move point per possession configured the Jam lands without effect.
+- A Jam stays queued while the caster keeps the ball, through any number of their own shots, until the possession passes to the opponent. It carries across rounds (a goal ends the round, the build turns follow, and it lands when the opponent's possession begins).
+
+### HUD
+
+- The Subterfuge circle (🗡, a drawn dagger) is the last of the three circles in the shell's top row, `⚡ Offence · 🗼 Defence · 🗡 Subterfuge` (the Offence and Defence circles are in the HUD section below). Tap, or hold still, to open its item column; slide onto an item and lift to buy it. Each item's pill gives its price and when it lands (Jam: "next possession"). The two further items are locked placeholders marked 🧪 "Locked · soon".
+- The circle opens greyed out outside the viewer's own possession or build turn, and once this turn's Subterfuge is bought; a tap or hold then only pulses it. A Jam without the Credits, or while one is already queued, is greyed inside the column.
+- A queued Jam shows as a small pill with a Jam icon in its caster's colour under the targeted player's half of the Defence bar (P1 on the stage's left, mirrored with the bar when flipped), to both players, until it lands. It sits below the 20 px row reserved for the Resource bar (`visual.hud.queued.reservedPx`).
 
 ## Presentation
 
