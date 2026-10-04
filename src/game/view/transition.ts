@@ -43,7 +43,7 @@ export function advance(t: Transition, f: Frame): Transition {
     // Even when `to` is already shown the flip runs (rotating 0 degrees), so the hold and the turn card's fade-in are the same as ever.
     if (ms) flip = { at: f.now, ms, from: shown, to, hudSeat: f.active }
     else (shown = to), (hudSeat = f.active)
-    const hint = isFirstRound(f.round) ? (f.phase === 'Build' ? 'Tap the Defence circle, drag on your half to draw a wall, then Done' : f.inHand ? 'Tap to place the ball, then Confirm' : 'Drag back from the ball to shoot; hold first for Power') : undefined
+    const hint = isFirstRound(f.round) ? (f.phase === 'Build' ? 'Drag on your half to draw a wall, or pick a piece below, then OK' : f.inHand ? 'Tap to place the ball, then Confirm' : 'Drag back from the ball to shoot; hold first for Power') : undefined
     overlay = { kind: 'turn', at: f.now, player: f.active, text: `Player ${f.active}'s turn`, hint, ms }
     due = false
   }

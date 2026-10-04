@@ -15,7 +15,7 @@ const hud = (over: Partial<HudModel> = {}): HudModel => ({
   defenceBar: { 1: { count: '3', segments: [true, true, true] }, 2: { count: '?', segments: [] } },
   resourceBar: null,
   active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, score: null, phase: 'Play',
-  dock: 'play', balance: null, refundRate: null, ...over,
+  dock: 'play', balance: over.refundRate ? { amount: 5, unit: 'CR' } : null, refundRate: null, ...over,
 })
 const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', name: 'Breaker', badge: '2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', name: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
 const items = (over: Record<string, Partial<ItemSpec>> = {}): ItemSpec[] => [

@@ -1,4 +1,5 @@
-import { MODES, UNITS, sliderLabel, slidersFor, EXPIRIES } from '../../sim/settings'
+import { MODES, sliderLabel, slidersFor, EXPIRIES } from '../../sim/settings'
+import { UNITS } from './units'
 import type { SimConfig } from '../../sim/step'
 
 /** One read-only line of the match's settings. */
@@ -12,7 +13,7 @@ export function settingRows(c: Pick<SimConfig, 'mode' | 'rounds' | 'credits' | '
   const sliders = slidersFor(c.mode).filter((k) => k !== 'shots')
   return [
     { label: 'Mode', value: MODES.find((m) => m.mode === c.mode)!.label },
-    ...sliders.map((k) => ({ label: sliderLabel(c.mode, k), value: k === 'rounds' ? String(c[k]) : `${c[k]} ${UNITS[c.mode].short}` })),
+    ...sliders.map((k) => ({ label: sliderLabel(c.mode, k), value: k === 'rounds' ? String(c[k]) : `${c[k]} ${UNITS[c.mode].menu}` })),
     { label: 'On time out', value: EXPIRIES.find((e) => e.expiry === c.expiry)!.label },
   ]
 }

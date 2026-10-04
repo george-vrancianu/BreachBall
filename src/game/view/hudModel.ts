@@ -6,6 +6,7 @@ import { opponent } from '../../sim/possession'
 import { canEdit, canRefund, type SimConfig, type SimState } from '../../sim/step'
 import { structuresOf, type Structure } from '../../sim/wall'
 import type { Item } from './defenceCircle'
+import { UNITS } from './units'
 import { resourceBar, type Bullseyes, type ResourceBar } from './resourceBar'
 import { defenceBar, type DefenceBar, type Destroyed } from './defenceBar'
 
@@ -52,9 +53,6 @@ export type HudModel = {
 
 /** What the game knows that the sim state does not. `viewer` is the local player (online: the peer's own seat; hot-seat: whoever holds the device), not necessarily the seat shown at the bottom. */
 export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item; /** Structures each player has lost in play this match (see `countDestroyed`); defaults to none, so no empty segments. */ destroyed?: Destroyed; /** Bullseye Credits each player has earned this match (see `countBullseyes`), for the Resource bar's flash. */ bullseyes?: Bullseyes }
-
-/** The balance chip's short unit: Credits in Rounds, wall points in Siege. */
-export const BALANCE_UNIT: Record<Match['mode'], string> = { rounds: 'CR', siege: 'PTS' }
 
 const PLACING: Record<Item, string> = { wall: 'Placing wall', repulsor: 'Placing Repulsor', steal: 'Placing Steal' }
 
@@ -111,7 +109,7 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
     score: s.match.mode === 'rounds' ? `${s.match.score[v.active]}–${s.match.score[opponent(v.active)]}` : null,
     phase: buildPhase(s.match) === 'Rearrange' ? 'Rearrange' : v.placing ? PLACING[v.placing] : b ? 'Build phase' : aimHint(s, c) ? 'Play phase · Drag to aim' : 'Play phase',
     dock: b ? (canEdit(s) ? 'build' : 'rearrange') : s.match.choosing ? 'choice' : 'play',
-    balance: modeFor(s.match).hasCredits(s.match) || (b && canEdit(s)) ? { amount: s.credits[v.active], unit: BALANCE_UNIT[s.match.mode] } : null,
+    balance: modeFor(s.match).hasCredits(s.match) || (b && canEdit(s)) ? { amount: s.credits[v.active], unit: UNITS[s.match.mode].chip } : null,
     refundRate: modeFor(s.match).mayRefund(s.match) ? c.refundRate : null,
     buttons: v.buttons,
   }

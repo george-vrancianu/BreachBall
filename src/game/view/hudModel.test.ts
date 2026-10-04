@@ -207,6 +207,14 @@ describe('hudModel', () => {
       const play = { ...opening, match: { mode: 'siege' as const, seed: 1, winner: null, builder: null, choosing: null, opening: false } }
       expect(hudModel(play, siege, view).balance).toBeNull()
     })
+    it('shows the amount the state holds for the active player, never the opponent\'s, in both modes', () => {
+      const s = { ...playState(), credits: { 1: 14, 2: 99 } }
+      expect(hudModel(s, defaultConfig, view).balance?.amount).toBe(14)
+      const opening = initialState(1, siege)
+      const builder = opening.match.builder!
+      const funded = { ...opening, credits: { ...opening.credits, [builder]: 14 } }
+      expect(hudModel(funded, siege, { ...view, active: builder }).balance).toEqual({ amount: 14, unit: 'PTS' })
+    })
     it('gives the refund rate where refunds exist, none in Siege', () => {
       expect(hudModel(playState(), { ...defaultConfig, refundRate: 4 }, view).refundRate).toBe(4)
       const s = initialState(1, siege)

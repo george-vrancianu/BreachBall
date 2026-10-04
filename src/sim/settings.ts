@@ -34,12 +34,6 @@ export const slidersFor = (mode: GameModeName): SliderKey[] => {
   }
 }
 
-/** What the builder's balance is called in each mode: `short` beside a number (Side menu), `long` in the build model's balance (`defenceCircle.ts`). Rounds banks Credits (ADR-0004), Siege keeps wall points. */
-export const UNITS: Record<GameModeName, { short: string; long: string }> = {
-  rounds: { short: 'credits', long: 'Credits' },
-  siege: { short: 'pts', long: 'wall points' },
-}
-
 /** A slider's label in `mode`: Siege's Opening Credits slider reads as Wall points for its one opening build, Rounds banks Credits (ADR-0004). */
 export const sliderLabel = (mode: GameModeName, key: SliderKey): string => {
   switch (mode) {

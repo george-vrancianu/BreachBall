@@ -3,7 +3,6 @@ import { rules } from '../../config/rules'
 import { modeFor } from '../../sim/mode'
 import { nearestOnWall } from '../../sim/near'
 import { halfSpan, type PlayerId, type Point } from '../../sim/pitch'
-import { UNITS } from '../../sim/settings'
 import { canAffordTower, canEdit, canMove, canPlayBuild, placeable, type SimInput, type SimState } from '../../sim/step'
 import { rotatedWall, translatedWall, vertexToWorld, wallCost, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
 import type { ButtonSpec } from './hudModel'
@@ -120,11 +119,8 @@ export function landedAs(s: SimState, sel: Selection): Selection | undefined {
 /** One Defence piece in the piece column: `disabled` greys it (no Credits, or no stock in Siege; Cannon is not built yet, `soon`), `pressed` marks the armed one. */
 export type ItemSpec = { item: Item | 'cannon'; label: string; /** The short name on its dock tile. */ name: string; /** The tile's corner badge: the price in Credits (a wall's per unit), or what is left of a Siege tower's stock. */ badge?: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
-/** The builder's own balance, shown beside the priced items: Credits in Rounds, wall points in Siege. */
-export type Balance = { amount: number; unit: string }
-
-/** What the Defence circle shows (nothing when no build turn is running): the viewer's balance on their own spending build turn, whether the viewer is building, the pieces to offer, whether they can build now (else the circle is greyed), and the controls of the selected structure. */
-export type DefenceCircle = { balance?: Balance; building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: SelectionButton[] } }
+/** What the Defence circle shows (nothing when no build turn is running): whether the viewer is building, the pieces to offer, whether they can build now (else the circle is greyed), and the controls of the selected structure. */
+export type DefenceCircle = { building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: SelectionButton[] } }
 
 /** What a selection control does: demolish the structure, rotate the wall, or let go of the selection. */
 export type SelectionAction = 'demolish' | 'rotate' | 'deselect'
@@ -150,7 +146,6 @@ function playBuildCircle(s: SimState, viewer: PlayerId, v: { item?: Item; blocke
   const { wallUnitCost, towerCost } = rules.playBuild
   const piece = (item: Item, price: number, name: string, unit = ''): ItemSpec => ({ item, label: `${name} · ${price}${unit}`, name, badge: String(price), disabled: itemDisabled(s, viewer, item), pressed: v.item === item })
   return {
-    balance: { amount: s.credits[viewer], unit: UNITS[s.match.mode].long },
     building: v.item !== undefined,
     ...(v.item && { item: v.item }),
     items: [piece('wall', wallUnitCost, 'Wall', '/unit'), piece('repulsor', towerCost.repulsor, 'Repulsor'), piece('steal', towerCost.steal, 'Steal'), { item: 'cannon', label: 'Cannon', name: 'Cannon', disabled: true, pressed: false, soon: true }],
@@ -173,7 +168,6 @@ export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed 
   const pays = modeFor(s.match).paysTowers(s.match)
   const towerBadge = (power: TowerPower) => (pays ? String(rules.towerCost[power]) : `×${s.players[viewer].inventory[power]}`)
   return {
-    ...(spending && { balance: { amount: s.credits[viewer], unit: UNITS[s.match.mode].long } }),
     building: v.item !== undefined,
     ...(v.item && { item: v.item }),
     items: [
