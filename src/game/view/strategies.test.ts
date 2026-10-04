@@ -20,6 +20,24 @@ describe('Strategies', () => {
     }
   })
 
+  it.each(STRATEGIES.map((st) => [st.name, st] as const))('Player 2\'s copy of %s is Player 1\'s point-reflected through the centre spot', (_, st) => {
+    const { pitchWidth: W, pitchHeight: H, gridCols, gridRows } = rules
+    const p1 = piecesFor(st, 1)
+    const p2 = piecesFor(st, 2)
+    expect(p2).toHaveLength(p1.length)
+    p1.forEach((a, i) => {
+      const b = p2[i]
+      expect([a.owner, b.owner, b.kind]).toEqual([1, 2, a.kind])
+      if (a.kind === 'wall' && b.kind === 'wall') {
+        expect(b.a).toEqual({ x: W - a.a.x, y: H - a.a.y })
+        expect(b.b).toEqual({ x: W - a.b.x, y: H - a.b.y })
+      } else if (a.kind === 'tower' && b.kind === 'tower') {
+        expect(b.power).toBe(a.power)
+        expect(b.at).toEqual({ gx: gridCols - 1 - a.at.gx, gy: gridRows - 1 - a.at.gy })
+      }
+    })
+  })
+
   it.each(STRATEGIES.map((st) => [st.name, st] as const))('%s fits the Opening Credits in Rounds, whole', (_, st) => {
     for (const owner of [1, 2] as const) {
       const plan = planStrategy(funded(buildState(owner), owner, c.openingCredits), owner, st, c)
