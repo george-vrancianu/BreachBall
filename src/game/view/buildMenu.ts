@@ -15,17 +15,23 @@ export type Selection = { spec: StructureSpec; id?: number; movable: boolean }
 /** The Defence item armed for drawing. */
 export type Item = 'wall' | TowerPower
 
-/** The start of a wall drawn from `at`: the nearest existing wall end (any owner) within `radius`, copied exactly so chained walls share a vertex; else `at` itself. */
-export function snapStart(s: Pick<SimState, 'objects'>, at: Point, radius: number): Point {
+/** The wall end nearest to `p` within `radius` among `owner`'s walls (never `excludeId`'s), with its distance. Only the owner's own walls attract: an opponent's end can be hidden by the blind opening's fog, and snapping to it would reveal it. */
+export function nearestWallEnd(objects: SimState['objects'], p: Point, radius: number, { excludeId, owner }: { excludeId?: number; owner: PlayerId }): { p: Point; d: number } | undefined {
   let best: { p: Point; d: number } | undefined
-  for (const o of s.objects) {
-    if (o.kind !== 'wall') continue
-    for (const p of [o.a, o.b]) {
-      const d = Math.hypot(p.x - at.x, p.y - at.y)
-      if (d <= radius && (!best || d < best.d)) best = { p, d }
+  for (const o of objects) {
+    if (o.kind !== 'wall' || o.id === excludeId || o.owner !== owner) continue
+    for (const end of [o.a, o.b]) {
+      const d = Math.hypot(end.x - p.x, end.y - p.y)
+      if (d <= radius && (!best || d < best.d)) best = { p: end, d }
     }
   }
-  return best ? { x: best.p.x, y: best.p.y } : at
+  return best
+}
+
+/** The start of a wall `owner` draws from `at`: the nearest of their own wall ends within `radius`, copied exactly so chained walls share a vertex; else `at` itself. */
+export function snapStart(s: Pick<SimState, 'objects'>, owner: PlayerId, at: Point, radius: number): Point {
+  const end = nearestWallEnd(s.objects, at, radius, { owner })?.p
+  return end ? { x: end.x, y: end.y } : at
 }
 
 /** The tower build piece on the cell that contains `at`, so the piece is under the finger. */
@@ -57,19 +63,14 @@ export const movedTo = (spec: StructureSpec, to: Point): StructureSpec =>
   spec.kind === 'wall' ? translatedWall(spec, { x: to.x - spec.a.x, y: to.y - spec.a.y }) : { ...spec, at: { gx: Math.round(to.x / rules.cellSize), gy: Math.round(to.y / rules.cellSize) } }
 
 /**
- * The wall translated so that whichever of its ends lies within `radius` of another wall's end (any owner, not `selfId`'s own) sits exactly on it:
+ * The wall translated so that whichever of its ends lies within `radius` of another of the owner's wall ends (not `selfId`'s own) sits exactly on it:
  * the nearest candidate wins. The target's coordinates are copied, so the touch is exact; the other end follows by the same delta.
  */
 export function snapBody(w: WallSpec, objects: SimState['objects'], selfId: number | undefined, radius: number): WallSpec {
   let best: { end: 'a' | 'b'; to: Point; d: number } | undefined
-  for (const o of objects) {
-    if (o.kind !== 'wall' || o.id === selfId) continue
-    for (const end of ['a', 'b'] as const) {
-      for (const to of [o.a, o.b]) {
-        const d = Math.hypot(to.x - w[end].x, to.y - w[end].y)
-        if (d <= radius && (!best || d < best.d)) best = { end, to, d }
-      }
-    }
+  for (const end of ['a', 'b'] as const) {
+    const hit = nearestWallEnd(objects, w[end], radius, { excludeId: selfId, owner: w.owner })
+    if (hit && (!best || hit.d < best.d)) best = { end, to: hit.p, d: hit.d }
   }
   if (!best) return w
   const moved = translatedWall(w, { x: best.to.x - w[best.end].x, y: best.to.y - w[best.end].y })

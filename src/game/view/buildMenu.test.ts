@@ -22,17 +22,20 @@ describe('towerAt', () => {
 
 describe('snapStart', () => {
   const end = { x: 20.123, y: 80.456 }
-  const s = { objects: [{ id: 1, kind: 'wall' as const, owner: 2 as const, hp: 3, a: { x: 12.123, y: 80.456 }, b: end }] }
+  const s = { objects: [{ id: 1, kind: 'wall' as const, owner: 1 as const, hp: 3, a: { x: 12.123, y: 80.456 }, b: end }] }
   it('copies the nearest wall end within the radius exactly, else keeps the point', () => {
-    expect(snapStart(s, { x: 20.5, y: 80 }, 1)).toStrictEqual(end)
-    expect(snapStart(s, { x: 20.5, y: 80 }, 1)).not.toBe(end)
-    expect(snapStart(s, { x: 25, y: 80 }, 1)).toEqual({ x: 25, y: 80 })
+    expect(snapStart(s, 1, { x: 20.5, y: 80 }, 1)).toStrictEqual(end)
+    expect(snapStart(s, 1, { x: 20.5, y: 80 }, 1)).not.toBe(end)
+    expect(snapStart(s, 1, { x: 25, y: 80 }, 1)).toEqual({ x: 25, y: 80 })
+  })
+  it('ignores the opponent\'s wall ends, which the blind opening hides', () => {
+    expect(snapStart(s, 2, { x: 20.5, y: 80 }, 1)).toEqual({ x: 20.5, y: 80 })
   })
 })
 
 describe('snapBody', () => {
   const w: WallSpec = { kind: 'wall', owner: 1, a: { x: 20.123, y: 80.456 }, b: { x: 28.123, y: 80.456 } }
-  const other = (id: number, a: { x: number; y: number }, b: { x: number; y: number }) => ({ id, kind: 'wall' as const, owner: 2 as const, hp: 3, a, b })
+  const other = (id: number, a: { x: number; y: number }, b: { x: number; y: number }, owner: 1 | 2 = 1) => ({ id, kind: 'wall' as const, owner, hp: 3, a, b })
   it('the nearest candidate wins, whichever end of the dragged wall it meets', () => {
     const far = other(2, { x: 20.6, y: 80.456 }, { x: 20.6, y: 90 })
     const near = other(3, { x: 28.3, y: 80.456 }, { x: 36, y: 80.456 })
@@ -55,6 +58,9 @@ describe('snapBody', () => {
     const nudged = other(1, { x: 20.5, y: 80.456 }, { x: 28.5, y: 80.456 })
     expect(snapBody(w, [nudged], undefined, 1).a).toEqual({ x: 20.5, y: 80.456 })
     expect(snapBody(w, [nudged], 1, 1)).toBe(w)
+  })
+  it('ignores the opponent\'s wall ends', () => {
+    expect(snapBody(w, [other(2, { x: 20.5, y: 80.456 }, { x: 20.5, y: 90 }, 2)], undefined, 1)).toBe(w)
   })
   it('returns the wall itself when nothing is in radius', () => {
     expect(snapBody(w, [other(2, { x: 50, y: 50 }, { x: 58, y: 50 })], undefined, 1)).toBe(w)

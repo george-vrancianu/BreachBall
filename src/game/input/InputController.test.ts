@@ -76,6 +76,17 @@ const unit = rules.wall.unit
 describe('drawing a wall', () => {
   beforeEach(() => ctl.build.toggle())
 
+  it('in a Siege blind opening, an opponent wall end on the halfway line does not attract the start', () => {
+    const siege = initialState(1, { ...c, mode: 'siege' })
+    const hidden: Structure = { kind: 'wall', owner: 2, id: 9, hp: 3, a: { x: 10, y: rules.halfHeight }, b: { x: 10 + unit, y: rules.halfHeight } }
+    make({ ...siege, match: { ...siege.match, builder: 1 }, objects: [hidden], nextId: 10 })
+    ctl.build.toggle()
+    const start = { x: 10.5, y: rules.halfHeight + 0.2 }
+    down(start)
+    move({ x: 10.5 + unit, y: start.y })
+    expect(ctl.selection?.spec).toMatchObject({ a: start })
+  })
+
   it('a cancelled pointer aborts the draw and never places', () => {
     down({ x: 10, y: 80 })
     move({ x: 10 + unit, y: 80 })
@@ -164,9 +175,9 @@ describe('drawing a wall', () => {
     expect(sent).toHaveLength(1)
   })
 
-  it('starts exactly on a nearby wall end of either owner', () => {
+  it('starts exactly on a nearby end of the builder own wall', () => {
     const end = { x: 20.123, y: 20.456 }
-    state = { ...state, objects: [{ id: 7, kind: 'wall', owner: 2, hp: 3, a: { x: 12.123, y: 20.456 }, b: end } as Structure] }
+    state = { ...state, objects: [{ id: 7, kind: 'wall', owner: 1, hp: 3, a: { x: 12.123, y: 20.456 }, b: end } as Structure] }
     down({ x: end.x + 0.3, y: end.y })
     move({ x: end.x + 0.3 + unit, y: end.y })
     expect(ctl.selection!.spec).toMatchObject({ a: end })

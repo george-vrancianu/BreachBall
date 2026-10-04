@@ -473,7 +473,7 @@ export class InputController {
     } else if (builder && item === 'wall') {
       // From anywhere but the selected piece: a wall's start snaps to a nearby wall end, which is how a new wall chains from an old one.
       this.selection = undefined
-      this.press = { kind: 'draw', id, a: snapStart(state, at, visual.input.snapPx / this.pxPerUnit), px, py }
+      this.press = { kind: 'draw', id, a: snapStart(state, builder, at, visual.input.snapPx / this.pxPerUnit), px, py }
     } else if (builder && item && item !== 'wall') {
       this.selection = { spec: towerAt(item, builder, at), movable: true }
       this.press = { kind: 'tower', id, offset: towerGrab, px, py }
