@@ -19,16 +19,25 @@ const d2 = 2 * d1
 const wall = (ax: number, ay: number, bx: number, by: number): StrategyPiece => ({ kind: 'wall', a: { x: ax, y: ay }, b: { x: bx, y: by } })
 const tower = (power: TowerPower, gx: number, gy: number): StrategyPiece => ({ kind: 'tower', power, at: { gx, gy } })
 
-/** The layouts on offer, each placing whole within the Opening Credits (in Rounds; Siege pays walls in wall points and towers from its stock). */
+/** A V of two 1-unit diagonals, apex down, its top corners at `(x, y)` and `(x + d2, y)`. */
+const vee = (x: number, y: number): StrategyPiece[] => [wall(x, y, x + d1, y + d1), wall(x + d1, y + d1, x + d2, y)]
+
+/**
+ * The layouts on offer, each placing whole within the Opening Credits (in Rounds; Siege pays walls in wall points and towers from its stock) and spending at least
+ * five short of them, so none is a lean plan. Grouped by archetype: wall-heavy, then hybrid, then tower-heavy. No layout seals the pitch: every one leaves a path from the Kick-off spot to the goal mouth.
+ */
 export const STRATEGIES: readonly Strategy[] = [
-  // A straight line across the front of the goal, with a Steal behind the seam.
-  { id: 'bulwark', name: 'Bulwark', core: 3, pieces: [wall(4, 88, 20, 88), wall(20, 88, 36, 88), tower('steal', 9, 40)] },
-  // An arrowhead pointing up the pitch: shots off its faces glance to the sides.
-  { id: 'chevron', name: 'Chevron', core: 3, pieces: [wall(20, 78, 20 - d2, 78 + d2), wall(20, 78, 20 + d2, 78 + d2), tower('steal', 9, 43)] },
-  // Two Repulsors on the flanks, a Steal in the middle and a short wall in front of the goal.
-  { id: 'turrets', name: 'Turrets', core: 2, pieces: [tower('repulsor', 4, 41), tower('repulsor', 15, 41), tower('steal', 9, 38), wall(16, 92, 24, 92)] },
-  // Staggered lanes: no straight line to the goal.
-  { id: 'zigzag', name: 'Zigzag', core: 3, pieces: [wall(2, 70, 18, 70), wall(22, 81, 38, 81), wall(8, 92, 8 + d1, 92 - d1)] },
+  // Wall-heavy. Three full rows with gaps at the sides, the middle and the right, so the ball must weave: the front row (the core) with a Steal at its seam, then two more rows and a Steal and two Repulsors in the lanes.
+  {
+    id: 'bulwark',
+    name: 'Bulwark',
+    core: 3,
+    pieces: [
+      wall(4, 88, 20, 88), wall(20, 88, 36, 88), tower('steal', 9, 40),
+      wall(0, 76, 16, 76), wall(24, 76, 40, 76), wall(4, 64, 20, 64), wall(20, 64, 36, 64), wall(0, 70, 16, 70), wall(16, 70, 32, 70),
+      tower('repulsor', 4, 41), tower('repulsor', 12, 41), tower('steal', 15, 40), tower('steal', 7, 45),
+    ],
+  },
   // Wall-heavy, the full opening budget: two full-width rows with offset gaps (the core), 45 degree end caps that cover the banks off the side boards, a split row in front of the goal (open at the middle) and short posts on its flanks, then a Repulsor and three Steals in the lanes.
   {
     id: 'fortress',
@@ -39,6 +48,178 @@ export const STRATEGIES: readonly Strategy[] = [
       wall(0, 79, d1, 79 - d1), wall(40, 79, 40 - d1, 79 - d1), wall(0, 95, d2, 95 - d2), wall(40, 95, 40 - d2, 95 - d2),
       wall(4, 92, 12, 92), wall(28, 92, 36, 92), wall(0, 96, 8, 96), wall(32, 96, 40, 96),
       tower('repulsor', 9, 36), tower('steal', 5, 36), tower('steal', 14, 36), tower('steal', 9, 44),
+    ],
+  },
+  // Wall-heavy. A lattice of short staggered diagonals (Vs in offset rows) that bleeds the ball's speed over many contacts: two rows are the core, then three more, and a few towers in the open ground.
+  {
+    id: 'honeycomb',
+    name: 'Honeycomb',
+    core: 8,
+    pieces: [
+      ...vee(2, 62), ...vee(20, 62), ...vee(11, 69), ...vee(28, 69),
+      ...vee(2, 76), ...vee(20, 76), ...vee(11, 83), ...vee(28, 83), ...vee(2, 90), ...vee(28, 90),
+      tower('repulsor', 4, 29), tower('repulsor', 15, 29), tower('repulsor', 9, 45), tower('steal', 5, 28),
+    ],
+  },
+  // Wall-heavy. A box with chamfered corners just outside the goal arc, open at the top (the core), behind two forward screens and a baffle with up-turned tips, and a Repulsor and a Steal each side up front.
+  {
+    id: 'bastion',
+    name: 'Bastion',
+    core: 6,
+    pieces: [
+      wall(8, 88, 16, 88), wall(24, 88, 32, 88), wall(8, 88, 8 - d1, 88 + d1), wall(32, 88, 32 + d1, 88 + d1),
+      wall(8 - d1, 88 + d1, 8 - d1, 96 + d1), wall(32 + d1, 88 + d1, 32 + d1, 96 + d1),
+      wall(4, 74, 20, 74), wall(20, 74, 36, 74), wall(0, 64, 16, 64), wall(24, 64, 40, 64),
+      wall(12, 82, 28, 82), wall(12, 82, 12 - d1, 82 - d1), wall(28, 82, 28 + d1, 82 - d1),
+      tower('repulsor', 4, 29), tower('repulsor', 15, 29), tower('steal', 6, 30), tower('steal', 13, 30),
+    ],
+  },
+  // Wall-heavy. Nine rows in alternating patterns, a gap in the middle and gaps at both edges, from the goal out: no straight lane at any depth.
+  {
+    id: 'layers',
+    name: 'Layers',
+    core: 4,
+    pieces: [
+      wall(0, 92, 16, 92), wall(24, 92, 40, 92), wall(4, 88, 20, 88), wall(20, 88, 36, 88),
+      wall(0, 84, 16, 84), wall(24, 84, 40, 84), wall(4, 80, 20, 80), wall(20, 80, 36, 80),
+      wall(0, 76, 16, 76), wall(24, 76, 40, 76), wall(4, 72, 20, 72), wall(20, 72, 36, 72),
+      wall(0, 68, 16, 68), wall(24, 68, 40, 68), wall(4, 64, 20, 64), wall(20, 64, 36, 64),
+      wall(0, 60, 16, 60), wall(24, 60, 40, 60),
+    ],
+  },
+  // Wall-heavy. Offset baffles, each leaving one end open and alternating sides, force an S-shaped path before the goal arc; the last two baffles are the core, with two Repulsors and a Steal up front.
+  {
+    id: 'labyrinth',
+    name: 'Labyrinth',
+    core: 4,
+    pieces: [
+      wall(8, 92, 24, 92), wall(24, 92, 40, 92), wall(0, 86, 16, 86), wall(16, 86, 32, 86),
+      wall(8, 80, 24, 80), wall(24, 80, 40, 80), wall(0, 74, 16, 74), wall(16, 74, 32, 74),
+      wall(8, 68, 24, 68), wall(24, 68, 40, 68), wall(0, 62, 16, 62), wall(16, 62, 32, 62),
+      tower('repulsor', 3, 28), tower('repulsor', 15, 28), tower('steal', 5, 28),
+    ],
+  },
+  // Hybrid. An arrowhead pointing up the pitch, with a Steal inside: shots off its faces glance to the sides. The core is the first arrowhead; two more nest behind it, a small one and end caps follow, then Steals and Repulsors on the flanks.
+  {
+    id: 'chevron',
+    name: 'Chevron',
+    core: 3,
+    pieces: [
+      wall(20, 78, 20 - d2, 78 + d2), wall(20, 78, 20 + d2, 78 + d2), tower('steal', 9, 43),
+      wall(20, 64, 20 - d2, 64 + d2), wall(20, 64, 20 + d2, 64 + d2), wall(20, 71, 20 - d2, 71 + d2), wall(20, 71, 20 + d2, 71 + d2),
+      wall(20, 88, 20 - d1, 88 + d1), wall(20, 88, 20 + d1, 88 + d1), wall(0, 96, 8, 96), wall(32, 96, 40, 96),
+      tower('steal', 3, 44), tower('steal', 16, 44), tower('repulsor', 2, 38), tower('repulsor', 17, 38),
+    ],
+  },
+  // Hybrid. Staggered lanes (no straight line to the goal): the core is two rows and a deflector; the other rows, hooks and flank towers close the lanes.
+  {
+    id: 'zigzag',
+    name: 'Zigzag',
+    core: 3,
+    pieces: [
+      wall(2, 70, 18, 70), wall(22, 81, 38, 81), wall(8, 92, 8 + d1, 92 - d1),
+      wall(18, 70, 26, 70), wall(14, 81, 22, 81), wall(22, 62, 38, 62), wall(14, 62, 22, 62), wall(2, 92, 18, 92), wall(18, 92, 26, 92),
+      wall(2, 70, 2 + d1, 70 - d1), wall(2, 92, 2 + d1, 92 - d1),
+      tower('repulsor', 3, 30), tower('repulsor', 3, 39), tower('steal', 16, 34), tower('steal', 16, 43), tower('steal', 9, 44),
+    ],
+  },
+  // Hybrid. A V-funnel that steers the ball into a pocket with a Steal at its mouth; a second funnel below, flares at the rim, and Repulsors and Steals along the arms.
+  {
+    id: 'net',
+    name: 'Net',
+    core: 3,
+    pieces: [
+      wall(4, 64, 4 + d2, 64 + d2), wall(36, 64, 36 - d2, 64 + d2), tower('steal', 9, 33),
+      wall(4 + d2, 64 + d2, 4 + d2, 72 + d2), wall(36 - d2, 64 + d2, 36 - d2, 72 + d2), tower('steal', 9, 37),
+      wall(4, 80, 4 + d2, 80 + d2), wall(36, 80, 36 - d2, 80 + d2),
+      tower('repulsor', 5, 33), tower('repulsor', 14, 33), wall(4, 64, 4 + d1, 64 - d1), wall(36, 64, 36 - d1, 64 - d1),
+      tower('steal', 5, 31), tower('steal', 14, 31),
+    ],
+  },
+  // Hybrid. Diagonal bumpers bank shots into two Repulsors: the core is the upper pair and a Repulsor, then a diamond bumper, lower flares, board stubs, the second Repulsor and Steals.
+  {
+    id: 'pinball',
+    name: 'Pinball',
+    core: 3,
+    pieces: [
+      wall(2, 62, 2 + d2, 62 + d2), wall(38, 62, 38 - d2, 62 + d2), tower('repulsor', 8, 34),
+      tower('repulsor', 11, 34), wall(14, 86, 14 - d2, 86 + d2), wall(26, 86, 26 + d2, 86 + d2),
+      wall(20, 83 - d1, 20 + d1, 83), wall(20 + d1, 83, 20, 83 + d1), wall(20, 83 + d1, 20 - d1, 83), wall(20 - d1, 83, 20, 83 - d1),
+      wall(0, 76, d1, 76 + d1), wall(40, 76, 40 - d1, 76 + d1),
+      tower('steal', 3, 38), tower('steal', 16, 38), tower('steal', 9, 36),
+    ],
+  },
+  // Hybrid. Diagonals guard both side boards (the core, with a Repulsor holding the open centre), then a second pair, a back row, a second Repulsor and Steals behind.
+  {
+    id: 'wings',
+    name: 'Wings',
+    core: 3,
+    pieces: [
+      wall(2, 60, 2 + d2, 60 + d2), wall(38, 60, 38 - d2, 60 + d2), tower('repulsor', 9, 36),
+      wall(2, 76, 2 + d2, 76 + d2), wall(38, 76, 38 - d2, 76 + d2), wall(4, 92, 20, 92), wall(20, 92, 36, 92),
+      tower('repulsor', 10, 36), tower('steal', 6, 40), tower('steal', 13, 40), tower('steal', 9, 41), tower('steal', 9, 44),
+    ],
+  },
+  // Hybrid. A walled corridor up the centre that invites the shot in, with a Steal at its end: the core is the two walls and the Steal, then lips and flares, Repulsors and Steals in the side lanes and short flank posts.
+  {
+    id: 'gauntlet',
+    name: 'Gauntlet',
+    core: 5,
+    pieces: [
+      wall(12, 62, 12, 78), wall(12, 78, 12, 86), wall(28, 62, 28, 78), wall(28, 78, 28, 86), tower('steal', 9, 43),
+      wall(12, 86, 12 + d1, 86 + d1), wall(28, 86, 28 - d1, 86 + d1), wall(12, 62, 12 - d1, 62 - d1), wall(28, 62, 28 + d1, 62 - d1),
+      tower('repulsor', 3, 40), tower('repulsor', 16, 40), tower('steal', 2, 36), tower('steal', 17, 36), tower('steal', 9, 34),
+      wall(0, 92, 8, 92), wall(32, 92, 40, 92),
+    ],
+  },
+  // Hybrid. A central hub of radiating diagonals around a Steal (the core is the hub, its inner rays and two arms), then outer rays, spokes, Repulsors at the ends and two more Steals.
+  {
+    id: 'spider',
+    name: 'Spider',
+    core: 7,
+    pieces: [
+      tower('steal', 9, 37),
+      wall(18, 74, 18 - d1, 74 - d1), wall(20, 74, 20 + d1, 74 - d1), wall(18, 76, 18 - d1, 76 + d1), wall(20, 76, 20 + d1, 76 + d1),
+      wall(18, 75, 10, 75), wall(20, 75, 28, 75),
+      wall(18 - d1, 74 - d1, 18 - d2, 74 - d2), wall(20 + d1, 74 - d1, 20 + d2, 74 - d2), wall(18 - d1, 76 + d1, 18 - d2, 76 + d2), wall(20 + d1, 76 + d1, 20 + d2, 76 + d2),
+      wall(19, 74, 19, 66), wall(19, 76, 19, 84),
+      tower('repulsor', 2, 44), tower('repulsor', 15, 44), tower('repulsor', 9, 45), tower('steal', 3, 33), tower('steal', 15, 33),
+    ],
+  },
+  // Tower-heavy. Two Repulsors on the flanks (the core), a Steal in the middle and a short wall in front of the goal, then a third Repulsor and two more Steals, flank posts and two longer walls.
+  {
+    id: 'turrets',
+    name: 'Turrets',
+    core: 2,
+    pieces: [
+      tower('repulsor', 3, 41), tower('repulsor', 16, 41), tower('steal', 9, 38), wall(16, 92, 24, 92),
+      tower('steal', 3, 36), tower('steal', 16, 36), tower('repulsor', 9, 33),
+      wall(0, 96, 8, 96), wall(32, 96, 40, 96), wall(12, 84, 28, 84), wall(12, 72, 28, 72), wall(0, 70, 8, 70), wall(32, 70, 40, 70),
+    ],
+  },
+  // Tower-heavy. Two Repulsors and two Steals in a diamond, a third Repulsor at its hub, and a wall in front of the goal (its first piece in the core) with flank posts.
+  {
+    id: 'crossfire',
+    name: 'Crossfire',
+    core: 3,
+    pieces: [
+      tower('repulsor', 4, 37), tower('steal', 9, 33), wall(16, 92, 24, 92),
+      tower('repulsor', 15, 37), tower('steal', 9, 42), tower('repulsor', 9, 37), tower('steal', 9, 44),
+      wall(8, 92, 16, 92), wall(24, 92, 32, 92), wall(0, 96, 8, 96), wall(32, 96, 40, 96),
+      wall(4, 64, 12, 64), wall(28, 64, 36, 64), wall(0, 80, 8, 80), wall(32, 80, 40, 80),
+    ],
+  },
+  // Tower-heavy. Three Repulsors spread across the forward line (the core is two), a Steal behind each, and three staggered rows of short walls behind them.
+  {
+    id: 'watchtowers',
+    name: 'Watchtowers',
+    core: 2,
+    pieces: [
+      tower('repulsor', 3, 32), tower('repulsor', 16, 32), tower('repulsor', 9, 32),
+      tower('steal', 3, 35), tower('steal', 9, 35), tower('steal', 16, 35),
+      wall(2, 76, 10, 76), wall(14, 76, 22, 76), wall(26, 76, 34, 76),
+      wall(6, 84, 14, 84), wall(18, 84, 26, 84), wall(30, 84, 38, 84),
+      wall(2, 92, 10, 92), wall(14, 92, 22, 92), wall(26, 92, 34, 92),
     ],
   },
 ]

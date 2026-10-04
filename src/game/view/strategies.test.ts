@@ -49,14 +49,13 @@ describe('Strategies', () => {
     }
   })
 
-  it('Fortress spends nearly the whole opening budget, and its card shows the plan\'s net cost, whole', () => {
-    const fortress = STRATEGIES.find((st) => st.id === 'fortress')!
+  it.each(STRATEGIES.map((st) => [st.name, st] as const))('%s spends nearly the whole opening budget, and its card shows the plan\'s net cost, whole', (_, st) => {
     for (const owner of [1, 2] as const) {
       const s = funded(buildState(owner), owner, c.openingCredits)
-      const plan = planStrategy(s, owner, fortress, c)
+      const plan = planStrategy(s, owner, st, c)
       expect(plan.cost).toBeGreaterThanOrEqual(c.openingCredits - 5)
       expect(plan.cost).toBeLessThanOrEqual(c.openingCredits)
-      const card = strategyCards(s, owner, c).find((k) => k.id === 'fortress')!
+      const card = strategyCards(s, owner, c).find((k) => k.id === st.id)!
       expect(card).toMatchObject({ cost: plan.cost, placed: card.total, disabled: false })
     }
   })
@@ -95,7 +94,7 @@ describe('Strategies', () => {
   })
 
   it('applying the plan places every piece and spends what it says', () => {
-    const s = buildState(1)
+    const s = funded(buildState(1), 1, c.openingCredits)
     const plan = planStrategy(s, 1, STRATEGIES[0], c)
     const after = apply(s, plan.inputs)
     expect(after.objects.filter((o) => o.owner === 1)).toHaveLength(plan.total)
@@ -103,7 +102,7 @@ describe('Strategies', () => {
   })
 
   it('clears this turn\'s own pieces first, refunded, so switching layouts costs nothing extra', () => {
-    const s = buildState(1)
+    const s = funded(buildState(1), 1, c.openingCredits)
     const first = apply(s, planStrategy(s, 1, STRATEGIES[0], c).inputs)
     const plan = planStrategy(first, 1, STRATEGIES[1], c)
     const after = apply(first, plan.inputs)
@@ -135,6 +134,7 @@ describe('Strategies', () => {
     const s = siegeBuild(1)
     const plan = planStrategy(s, 1, STRATEGIES.find((st) => st.id === 'turrets')!, c)
     expect(plan.placed).toBe(plan.total)
-    expect(plan.cost).toBe(1)
+    // Its walls only: 9 units against the round's 30 wall points.
+    expect(plan.cost).toBe(9)
   })
 })

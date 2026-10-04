@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { rules } from '../config/rules'
 import { visual } from '../config/visual'
-import { defaultSettings } from '../sim/settings'
+import { defaultSettings, withMode } from '../sim/settings'
 import { LocalDriver, type Driver } from './driver'
 import type { Structure } from '../sim/wall'
 import { Game, type HudView } from './Game'
@@ -131,7 +131,7 @@ describe('Game', () => {
       vi.spyOn(performance, 'now').mockImplementation(() => t)
       let view: HudView | undefined
       const game = new Game(new FakeCanvas() as unknown as HTMLCanvasElement, (sink) => new LocalDriver(sink), (v) => (view = v))
-      game.actions.start({ ...defaultSettings, mode })
+      game.actions.start(withMode(defaultSettings, mode))
       frame(t)
       t += 1500
       frame(t)
@@ -152,7 +152,7 @@ describe('Game', () => {
       expect(view().strategies).toBeUndefined()
       game.actions.strategies.toggle()
       step()
-      expect(view().strategies?.map((c) => c.id)).toEqual(['bulwark', 'chevron', 'turrets', 'zigzag', 'fortress'])
+      expect(view().strategies?.map((c) => c.id)).toEqual(['bulwark', 'fortress', 'honeycomb', 'bastion', 'layers', 'labyrinth', 'chevron', 'zigzag', 'net', 'pinball', 'wings', 'gauntlet', 'spider', 'turrets', 'crossfire', 'watchtowers'])
       game.actions.strategies.toggle()
       step()
       expect(view().strategies).toBeUndefined()
@@ -164,13 +164,13 @@ describe('Game', () => {
       const credits = game.state.credits[builder]
       game.actions.strategies.toggle()
       game.actions.strategies.apply('chevron')
-      for (let i = 0; i < 5; i++) step()
-      expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(3)
+      for (let i = 0; i < 20; i++) step()
+      expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(15)
       expect(view().strategies).toBeUndefined()
       const spent = credits - game.state.credits[builder]
       game.actions.strategies.apply('bulwark')
-      for (let i = 0; i < 8; i++) step()
-      expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(3)
+      for (let i = 0; i < 35; i++) step()
+      expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(13)
       expect(credits - game.state.credits[builder]).toBe(spent)
     })
 
