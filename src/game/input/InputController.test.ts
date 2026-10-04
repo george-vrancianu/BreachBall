@@ -725,6 +725,85 @@ describe('the press model', () => {
       expect((ctl.selection!.spec as { a: Point }).a).toEqual(a0)
     })
 
+    describe('two fingers, one on each end', () => {
+      const f2 = { x: 28, y: 80 }
+      const grab = () => {
+        touch('pointerdown', a0, 1)
+        touch('pointermove', { x: 20, y: 84 }, 1)
+        touch('pointerdown', f2, 2)
+      }
+      const span = () => {
+        touch('pointermove', { x: 12, y: 70 }, 1)
+        touch('pointermove', { x: 28, y: 70 }, 2)
+      }
+
+      it('both ends follow the fingers: midpoint, angle and length from the pair', () => {
+        grab()
+        span()
+        expect(ctl.selection!.spec).toMatchObject({ a: { x: 12, y: 70 }, b: { x: 28, y: 70 } })
+        expect(sent).toEqual([])
+      })
+
+      it('commits one move when the last finger lifts, not when the first does', () => {
+        grab()
+        span()
+        touch('pointerup', { x: 12, y: 70 }, 1)
+        expect(sent).toEqual([])
+        touch('pointerup', { x: 28, y: 70 }, 2)
+        expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 12, y: 70 }, b: { x: 28, y: 70 } } }])
+      })
+
+      it('the finger left carries on as an end drag of the end it is nearer', () => {
+        grab()
+        span()
+        touch('pointerup', { x: 12, y: 70 }, 1)
+        touch('pointermove', { x: 28, y: 78 }, 2)
+        // Finger 2 holds b: a stays at (12, 70) and b swings round it.
+        expect(ctl.selection!.spec).toMatchObject({ a: { x: 12, y: 70 } })
+        expect((ctl.selection!.spec as { b: Point }).b.x).toBeCloseTo(12 + 2 * unit * Math.SQRT1_2, 6)
+        touch('pointerup', { x: 28, y: 78 }, 2)
+        expect(sent).toHaveLength(1)
+      })
+
+      it('fingers closer than half a unit keep the last valid shape', () => {
+        grab()
+        span()
+        touch('pointermove', { x: 20, y: 70 }, 1)
+        const last = ctl.selection!.spec
+        touch('pointermove', { x: 21, y: 70 }, 2)
+        expect(ctl.selection!.spec).toEqual(last)
+      })
+
+      it('an illegal pair reverts to the origin on the last lift', () => {
+        const origin = ctl.selection!.spec
+        grab()
+        touch('pointermove', { x: 12, y: 50 }, 1)
+        touch('pointermove', { x: 28, y: 50 }, 2)
+        touch('pointerup', { x: 12, y: 50 }, 1)
+        touch('pointerup', { x: 28, y: 50 }, 2)
+        expect(sent).toEqual([])
+        expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      })
+
+      it('a cancel mid-way puts the wall back and sends nothing', () => {
+        const origin = ctl.selection!.spec
+        grab()
+        span()
+        fire('pointercancel', { x: 12, y: 70 }, 1, { pointerType: 'touch' })
+        expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+        touch('pointerup', { x: 28, y: 70 }, 2)
+        expect(sent).toEqual([])
+      })
+
+      it('Esc mid-way puts the wall back too', () => {
+        const origin = ctl.selection!.spec
+        grab()
+        span()
+        key('Escape')
+        expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      })
+    })
+
     it('a second finger off the other handle is ignored mid-drag', () => {
       touch('pointerdown', b0)
       touch('pointermove', { x: 28, y: 88 })
