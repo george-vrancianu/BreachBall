@@ -2,7 +2,7 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
 import type { Particle } from './particles'
-import { hexA, litSide, shade, shadeHex, shadowLocal, type EndKind, type SegmentLook } from './wallLook'
+import { hexA, litSide, shade, shadeHex, shadowLocal, type Ends, type SegmentLook } from './wallLook'
 
 const look = visual.wall.look
 
@@ -12,17 +12,23 @@ export const cssPxPerUnit = (ctx: CanvasRenderingContext2D): number => {
   return Math.hypot(t.a, t.b) / (globalThis.devicePixelRatio || 1)
 }
 
+/** Whether the map view's scale is in use: below `look.simplifiedBelowPx` CSS px per world unit walls draw simplified. */
+export const isSimplified = (ctx: CanvasRenderingContext2D): boolean => cssPxPerUnit(ctx) < look.simplifiedBelowPx
+
+/** The chunk's shape: its four corners as fractions of its size (x, y). */
+const CHUNK: readonly (readonly [number, number])[] = [[-1, -0.6], [0.8, -0.4], [0.5, 0.7], [-0.6, 0.5]]
+
 /** What one wall segment is drawn from. */
 export type SegmentPaint = {
   owner: PlayerId
-  /** The segment's start and the direction it runs, world space; `len` is its length. */
+  /** The Wall segment's start and the direction it runs, world space; `len` is its length. */
   from: Point
   angle: number
   len: number
   hp: number
   max: number
   look: SegmentLook
-  ends: { left: EndKind; right: EndKind }
+  ends: Ends
   /** The stage is turned for the other seat: the light stays fixed on screen. */
   flipped: boolean
   clock: number
@@ -31,7 +37,7 @@ export type SegmentPaint = {
   /** Alpha of a white flash (0 for none), and the sideways jolt in world units. */
   flash: number
   jolt: number
-  /** The sheen's centre along the segment, local u; undefined for none. */
+  /** The sheen's centre along the Wall segment, local u; undefined for none. */
   shine?: number
   pips: boolean
   /** The map view: body, joints and gaps only. */
@@ -114,7 +120,7 @@ export function drawSegment(ctx: CanvasRenderingContext2D, p: SegmentPaint): voi
   if (p.ends.right === 'joint') {
     ctx.fillStyle = visual.wall.outline
     ctx.fillRect(p.len - look.jointWidth / 2, -h + look.outlineWidth / 2, look.jointWidth, look.thickness - look.outlineWidth)
-    ctx.fillStyle = shade(col, -0.5)
+    ctx.fillStyle = shade(col, look.boltShade)
     ctx.beginPath()
     ctx.arc(p.len, 0, look.boltRadius, 0, Math.PI * 2)
     ctx.fill()
@@ -123,7 +129,7 @@ export function drawSegment(ctx: CanvasRenderingContext2D, p: SegmentPaint): voi
   ctx.restore()
 }
 
-/** Cracks (a dark line with a thin bright edge, glowing and pulsing in the owner's colour at 1 health), pits and the scorch, in the segment's local frame and clipped to it. */
+/** Cracks (a dark line with a thin bright edge, glowing and pulsing in the owner's colour at 1 health), pits and the scorch, in the Wall segment's local frame and clipped to it. */
 function drawDamage(ctx: CanvasRenderingContext2D, p: SegmentPaint, col: string): void {
   const { crack, pit } = look
   const h = look.thickness / 2
@@ -146,7 +152,7 @@ function drawDamage(ctx: CanvasRenderingContext2D, p: SegmentPaint, col: string)
     ctx.lineWidth = crack.edgeWidth
     trace(c, crack.edgeOffset)
   }
-  ctx.fillStyle = `rgba(5,7,13,${pit.alpha})`
+  ctx.fillStyle = hexA(look.breach.color, pit.alpha)
   for (const q of p.look.pits) {
     ctx.beginPath()
     ctx.arc(q.u, q.v, q.r, 0, Math.PI * 2)
@@ -155,14 +161,14 @@ function drawDamage(ctx: CanvasRenderingContext2D, p: SegmentPaint, col: string)
   if (p.look.scorch !== undefined) {
     const u = p.look.scorch
     const s = ctx.createRadialGradient(u, 0, 0, u, 0, pit.scorchRadius)
-    s.addColorStop(0, `rgba(5,7,13,${pit.scorchAlpha})`)
-    s.addColorStop(1, 'rgba(5,7,13,0)')
+    s.addColorStop(0, hexA(look.breach.color, pit.scorchAlpha))
+    s.addColorStop(1, hexA(look.breach.color, 0))
     ctx.fillStyle = s
     ctx.fillRect(u - pit.scorchRadius, -h, 2 * pit.scorchRadius, look.thickness)
   }
 }
 
-/** One mark per health point, centred on the segment: bright for health left, dark for health lost. */
+/** One mark per health point, centred on the Wall segment: bright for health left, dark for health lost. */
 function drawPips(ctx: CanvasRenderingContext2D, p: SegmentPaint): void {
   const { pitch, width, height, radius, on, off } = look.pips
   for (let k = 0; k < p.max; k++) {
@@ -173,7 +179,7 @@ function drawPips(ctx: CanvasRenderingContext2D, p: SegmentPaint): void {
   }
 }
 
-/** A Gap's Breach mark: a low-alpha dark smudge the size of the segment, with specks of rubble in the owner's colour. */
+/** A Gap's Breach mark: a low-alpha dark smudge the size of the Wall segment, with specks of rubble in the owner's colour. */
 export function drawBreach(ctx: CanvasRenderingContext2D, owner: PlayerId, from: Point, angle: number, len: number, specks: { u: number; v: number; r: number }[], alpha: number): void {
   if (alpha <= 0) return
   const { breach } = look
@@ -187,7 +193,7 @@ export function drawBreach(ctx: CanvasRenderingContext2D, owner: PlayerId, from:
   g.addColorStop(1, hexA(breach.color, 0))
   ctx.fillStyle = g
   ctx.beginPath()
-  ctx.ellipse(len / 2, 0, len / 2, h * 1.2, 0, 0, Math.PI * 2)
+  ctx.ellipse(len / 2, 0, len / 2, h * breach.reach, 0, 0, Math.PI * 2)
   ctx.fill()
   ctx.fillStyle = visual.player.colors[owner]
   ctx.globalAlpha *= breach.speckAlpha
@@ -210,9 +216,9 @@ export function drawTowerBody(ctx: CanvasRenderingContext2D, x: number, y: numbe
   // The lit edge is the one on screen-top: the world's top edge, or its bottom edge when the stage is turned.
   const [top, bottom] = flipped ? [y + size, y] : [y, y + size]
   const g = ctx.createLinearGradient(0, top, 0, bottom)
-  g.addColorStop(0, 'rgba(255,255,255,0.35)')
+  g.addColorStop(0, `rgba(255,255,255,${look.bevel.tower.lit})`)
   g.addColorStop(look.bevel.midAt, 'rgba(255,255,255,0)')
-  g.addColorStop(1, 'rgba(0,0,0,0.35)')
+  g.addColorStop(1, `rgba(0,0,0,${look.bevel.tower.dark})`)
   ctx.fillStyle = g
   ctx.fillRect(x, y, size, size)
   ctx.fillStyle = `rgba(255,255,255,${look.highlight.alpha})`
@@ -230,16 +236,13 @@ export function drawParticle(ctx: CanvasRenderingContext2D, p: Particle, sparkSi
   } else if (p.kind === 'chunk') {
     ctx.translate(p.x, p.y)
     ctx.rotate(p.rot)
-    ctx.globalAlpha = Math.min(1, k * 1.5)
-    ctx.fillStyle = shade(p.color, -0.15)
+    const { alphaGain, shade: darker, outline } = visual.wall.break.chunks
+    ctx.globalAlpha = Math.min(1, k * alphaGain)
+    ctx.fillStyle = shade(p.color, darker)
     ctx.strokeStyle = visual.wall.outline
-    ctx.lineWidth = look.outlineWidth * 0.6
-    const s = p.size
+    ctx.lineWidth = look.outlineWidth * outline
     ctx.beginPath()
-    ctx.moveTo(-s, -s * 0.6)
-    ctx.lineTo(s * 0.8, -s * 0.4)
-    ctx.lineTo(s * 0.5, s * 0.7)
-    ctx.lineTo(-s * 0.6, s * 0.5)
+    CHUNK.forEach(([x, y], i) => (i ? ctx.lineTo(x * p.size, y * p.size) : ctx.moveTo(x * p.size, y * p.size)))
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
@@ -248,8 +251,8 @@ export function drawParticle(ctx: CanvasRenderingContext2D, p: Particle, sparkSi
     const t = 1 - k
     const r = from + (to - from) * t
     const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r)
-    g.addColorStop(0, `${color},${alpha * k})`)
-    g.addColorStop(1, `${color},0)`)
+    g.addColorStop(0, hexA(color, alpha * k))
+    g.addColorStop(1, hexA(color, 0))
     ctx.fillStyle = g
     ctx.beginPath()
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2)

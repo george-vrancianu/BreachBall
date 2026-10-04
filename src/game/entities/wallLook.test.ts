@@ -67,8 +67,31 @@ describe('segmentLook', () => {
   })
   it('chips, pits and jagged ends do not follow the event point', () => {
     const [a, b] = [at(7, 0, 1), at(7, 0, 1, { u: 5, side: -1 })]
-    expect(b.chips).toEqual(a.chips)
+    expect(b.chips.map(({ side, ...c }) => c)).toEqual(a.chips.map(({ side, ...c }) => c))
     expect(b.pits).toEqual(a.pits)
+  })
+  it('with the event point known, the chip is bitten out of the hit edge and the far chip opposite; without it, the seeded side stays', () => {
+    for (let id = 1; id < 20; id++) {
+      for (const side of [-1, 1] as const) {
+        const [first, far] = at(id, 0, 1, { u: 4, side }).chips
+        expect([first.side, far.side]).toEqual([side, -side])
+      }
+      expect(at(id, 0, 1).chips[0].side).toBe(at(id, 0, 1).origin.side)
+    }
+  })
+  it('cracks stay at least endClear from both ends of the segment, so none runs into a joint or a cap', () => {
+    const { endClear } = visual.wall.look.crack
+    expect(endClear).toBeGreaterThanOrEqual(visual.wall.look.jointWidth / 2 + visual.wall.look.crack.width)
+    for (let id = 1; id < 60; id++) {
+      for (const hp of [2, 1]) {
+        for (const origin of [undefined, { u: 0, side: 1 as const }, { u: LEN, side: -1 as const }]) {
+          for (const c of at(id, 0, hp, origin).cracks) for (const p of c.slice(1)) {
+            expect(p.u).toBeGreaterThanOrEqual(endClear)
+            expect(p.u).toBeLessThanOrEqual(LEN - endClear)
+          }
+        }
+      }
+    }
   })
   it('chips stay clear of the caps and joints', () => {
     const m = visual.wall.look.crack.margin

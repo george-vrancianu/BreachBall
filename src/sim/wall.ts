@@ -56,7 +56,9 @@ export function segmentEnds(w: Pick<WallSpec, 'a' | 'b'>, i: number): Segment {
   return { a: at(i), b: at(i + 1) }
 }
 /** The indices of the wall's standing segments (health above 0). */
-export const standing = (w: Pick<Wall, 'segments'>): number[] => w.segments.flatMap((hp, i) => (hp > 0 ? [i] : []))
+export const standing = (w: Pick<Wall, 'segments'>): number[] => standingIn(w.segments)
+/** The indices of `segments` (health per Wall segment) that still stand, or with `up` false the Gaps (health 0). */
+export const standingIn = (segments: readonly number[], up = true): number[] => segments.flatMap((hp, i) => (hp > 0 === up ? [i] : []))
 /** A fresh structure from its spec: a wall with every segment at full health, a tower at full hp. */
 export const newStructure = (spec: StructureSpec, id: number): Structure =>
   spec.kind === 'wall' ? { ...spec, id, segments: Array<number>(segmentCount(spec)).fill(maxHp(spec)) } : { ...spec, id, hp: maxHp(spec) }

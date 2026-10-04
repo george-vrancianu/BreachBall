@@ -10,7 +10,8 @@ import { drawLabel } from './label'
 import { ParticlePool } from './particles'
 import { Tower } from './Tower'
 import { Wall } from './Wall'
-import { cssPxPerUnit, drawParticle } from './wallPaint'
+import { between } from './wallLook'
+import { drawParticle, isSimplified } from './wallPaint'
 
 /** Where the Credit cost reads: `offset` off a wall's midpoint along its unit normal, turned half a revolution with the canvas when it is `flipped`. A tower has no Credit cost, so it sits at its cell's centre. */
 export function costLabelAt(spec: StructureSpec, offset: number, flipped: boolean): Point {
@@ -88,7 +89,7 @@ export class Structures extends Entity {
     }
   }
 
-  /** A hit on structure `id`: a wall flashes only the segment hit (`segment`, or the one `at` lies on). */
+  /** A hit on structure `id`: a wall flashes only the Wall segment hit (`segment`, or the one `at` lies on). */
   hit(id: number, dim: boolean, segment?: number, at?: Point): void {
     this.fixtures.get(id)?.hit(dim, segment, at)
   }
@@ -98,15 +99,15 @@ export class Structures extends Entity {
     if (f instanceof Tower) f.pulse()
   }
 
-  /** The structure left the sim in a break at `from`: a tower stays, shattering, after `delay` ms; a wall breaks every standing segment at once. */
+  /** The structure left the sim in a break at `from`: a tower stays, shattering, after `delay` ms; a wall breaks every standing Wall segment at once. */
   shatter(id: number, from: Point, delay = 0): void {
     const f = this.fixtures.get(id)
-    if (f instanceof Wall) for (const i of standing({ segments: f.data.segments ?? [] })) this.shatterSegment(id, i, from)
+    if (f instanceof Wall) for (const i of standing({ segments: f.data.segments ?? [] })) this.shatterSegment(id, i)
     else f?.shatter(from, delay)
   }
 
-  /** Wall segment `index` of wall `id` broke at `at`: it shatters into spinning chunks in its colour, with a dust puff, a ring along the wall and white sparks; a Breaker's break is heavier. The wall itself stays (or leaves, if that was its last segment). */
-  shatterSegment(id: number, index: number, _at: Point, breaker = false): void {
+  /** Wall segment `index` of wall `id` broke: it shatters into spinning chunks in its colour, with a dust puff, a ring along the wall and white sparks; a Breaker's break is heavier. The wall itself stays (or leaves, if that was its last segment). */
+  shatterSegment(id: number, index: number, breaker = false): void {
     const f = this.fixtures.get(id)
     if (!(f instanceof Wall)) return
     f.breakSegment(index)
@@ -118,14 +119,14 @@ export class Structures extends Entity {
     const [nx, ny] = [-dy / len, dx / len]
     const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
     const { chunks, sparks, dust, ring } = visual.wall.break
-    const between = ([lo, hi]: readonly number[]) => lo + Math.random() * (hi - lo)
+    const rnd = (range: readonly number[]) => between(Math.random, range)
     for (let k = 0; k < Math.round(chunks.count * scale); k++) {
       const t = Math.random()
       const v = (Math.random() - 0.5) * visual.wall.look.thickness
       // Thrown across the wall, either way.
-      const ang = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.8
-      const speed = between(chunks.speed)
-      this.pool.spawn({ kind: 'chunk', x: a.x + dx * t + nx * v, y: a.y + dy * t + ny * v, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, rot: Math.random() * 6, spin: (Math.random() - 0.5) * chunks.spin, size: between(chunks.size), life: between(chunks.lifeMs), color, drag: chunks.drag })
+      const ang = Math.atan2(ny, nx) + (Math.random() < 0.5 ? 0 : Math.PI) + (Math.random() - 0.5) * chunks.throwSpread
+      const speed = rnd(chunks.speed)
+      this.pool.spawn({ kind: 'chunk', x: a.x + dx * t + nx * v, y: a.y + dy * t + ny * v, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, rot: Math.random() * chunks.startSpin, spin: (Math.random() - 0.5) * chunks.spin, size: rnd(chunks.size), life: rnd(chunks.lifeMs), color, drag: chunks.drag })
     }
     this.pool.spawn({ kind: 'dust', x: mid.x, y: mid.y, life: dust.ms })
     this.pool.spawn({ kind: 'ring', x: mid.x, y: mid.y, life: ring.ms, color, ang: Math.atan2(dy, dx) })
@@ -137,7 +138,7 @@ export class Structures extends Entity {
     const p = visual.wall.particles
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2
-      const v = speed === undefined ? p.minSpeed + Math.random() * p.speedRange : speed * (0.3 + Math.random())
+      const v = speed === undefined ? p.minSpeed + Math.random() * p.speedRange : speed * between(Math.random, visual.wall.break.sparks.speedRange)
       this.pool.spawn({ kind: 'spark', x: at.x, y: at.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: lifeMs[0] + Math.random() * (lifeMs[1] - lifeMs[0]), color })
     }
   }
@@ -180,7 +181,7 @@ export class Structures extends Entity {
 
   /** The Breach marks, at pitch level: drawn first, so every wall and the ball sit over them. The map view's simplified walls are set here, from the scale this draw is made at. */
   protected override render(ctx: CanvasRenderingContext2D): void {
-    const simplified = cssPxPerUnit(ctx) < visual.wall.look.simplifiedBelowPx
+    const simplified = isSimplified(ctx)
     for (const f of this.fixtures.values()) {
       f.simplified = simplified
       if (f instanceof Wall && !f.hidden) f.drawBreach(ctx)
@@ -232,7 +233,7 @@ export class Structures extends Entity {
     drawLabel(ctx, String(this.inPlay ? playCost(spec) : structureCost(spec)), at, { size, weight: visual.wall.cost.weight, color: this.pieceBlocked ? visual.wall.illegal : visual.hud.ink, flipped: this.flipped })
   }
 
-  /** A translucent piece: a bare spec draws clean segments with their joints; one standing in for a placed wall (`id`) draws that wall's real segments, Gaps and damage while the length is unchanged. */
+  /** A translucent piece: a bare spec draws clean Wall segments with their joints; one standing in for a placed wall (`id`) draws that wall's real Wall segments, Gaps and damage while the length is unchanged. */
   private drawBuildPiece(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean, id?: number): void {
     const real = id === undefined ? undefined : this.fixtures.get(id)?.data
     const data = spec.kind === 'wall' && real?.kind === 'wall' && real.segments?.length === segmentCount(spec) ? { ...spec, id, segments: real.segments } : spec
@@ -241,7 +242,7 @@ export class Structures extends Entity {
     f.alpha = visual.wall.buildPieceAlpha
     f.selected = selected
     f.flipped = this.flipped
-    f.simplified = cssPxPerUnit(ctx) < visual.wall.look.simplifiedBelowPx
+    f.simplified = isSimplified(ctx)
     if (selected && this.pieceBlocked) f.tint = visual.wall.illegal
     if (f instanceof Wall) f.drawBreach(ctx)
     f.draw(ctx)

@@ -1,19 +1,22 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
-import { maxHp, segmentAt, segmentCount, segmentEnds } from '../../sim/wall'
+import { maxHp, segmentAt, segmentCount, segmentEnds, standingIn } from '../../sim/wall'
 import { Fixture, type WallData } from './Fixture'
-import { breachAlpha, breachSpecks, endKinds, gapsOf, hitMark, segmentLook, shinePos, showPips, type EndKind, type HitMark, type SegmentLook } from './wallLook'
+import { breachAlpha, breachSpecks, endKinds, gapsOf, hitMark, segmentLook, shinePos, showPips, type Ends, type HitMark, type SegmentLook } from './wallLook'
 import { drawBreach, drawSegment } from './wallPaint'
 
 const look = visual.wall.look
 
-/** What one segment is showing right now: a flash, a jolt, where the last damaging hit landed, and whether it has broken (it stays drawn as a Gap, not as a body). */
+/** How long a flash lasts, ms: the dim one of a non-damaging hit, or the bright one. */
+const flashMs = (dim: boolean): number => (dim ? visual.wall.dimFlashMs : visual.wall.flashMs)
+
+/** What one Wall segment is showing right now: a flash, a jolt, where the last damaging hit landed, and whether it has broken (it stays drawn as a Gap, not as a body). */
 type SegmentFx = { flash?: { dim: boolean; age: number }; joltAge?: number; hit?: HitMark; brokenAge?: number }
 
 /**
  * A wall drawn as one bar per wall segment: each has its own look, flash, jolt and damage; a broken segment is a Gap with a Breach mark.
- * A build piece (a bare spec, no id or segments) draws clean segments with their joints.
+ * A build piece (a bare spec, no id or segments) draws clean Wall segments with their joints.
  */
 export class Wall extends Fixture<WallData> {
   private fx = new Map<number, SegmentFx>()
@@ -26,7 +29,7 @@ export class Wall extends Fixture<WallData> {
     this.goneAt ??= this.clock
   }
 
-  /** A segment flash on the segment hit (`segment`, else the one `at` lies on, else every one); a damaging hit also jolts it and remembers where it landed, so the cracks start there. */
+  /** A flash on the Wall segment hit (`segment`, else the one `at` lies on, else every one); a damaging hit also jolts it and remembers where it landed, so the cracks start there. */
   override hit(dim: boolean, segment?: number, at?: Point): void {
     const i = segment ?? (at ? segmentAt(this.data, at) : undefined)
     for (const k of i === undefined ? this.standing() : [i]) {
@@ -42,17 +45,17 @@ export class Wall extends Fixture<WallData> {
     }
   }
 
-  /** Segment `i` broke: it stops being drawn as a body, and the wall stays alive while its pieces are in the air. */
+  /** Wall segment `i` broke: it stops being drawn as a body, and the wall stays alive while its pieces are in the air. */
   breakSegment(i: number): void {
     this.of(i).brokenAge = 0
   }
 
-  /** Whole-wall shatter: every standing segment breaks. */
+  /** Whole-wall shatter: every standing Wall segment breaks. */
   override shatter(): void {
     for (const i of this.standing()) this.breakSegment(i)
   }
 
-  /** A segment's shatter is still running: the wall is kept (for its Breach marks to fade) while a destroyed wall's last pieces fly. */
+  /** A Wall segment's shatter is still running: the wall is kept (for its Breach marks to fade) while a destroyed wall's last pieces fly. */
   override get isShattering(): boolean {
     for (const f of this.fx.values()) if (f.brokenAge !== undefined && f.brokenAge < visual.wall.shatterMs) return true
     return false
@@ -67,7 +70,7 @@ export class Wall extends Fixture<WallData> {
     super.update(dt)
     const ms = dt * 1000
     for (const f of this.fx.values()) {
-      if (f.flash && (f.flash.age += ms) >= (f.flash.dim ? visual.wall.dimFlashMs : visual.wall.flashMs)) f.flash = undefined
+      if (f.flash && (f.flash.age += ms) >= flashMs(f.flash.dim)) f.flash = undefined
       if (f.joltAge !== undefined && (f.joltAge += ms) >= look.jolt.ms) f.joltAge = undefined
       if (f.brokenAge !== undefined) f.brokenAge += ms
     }
@@ -77,7 +80,7 @@ export class Wall extends Fixture<WallData> {
   drawBreach(ctx: CanvasRenderingContext2D): void {
     const { id, segments } = this.data
     const health = segments ?? []
-    // A segment mid-shatter is a Gap already (the sim has moved on), even before the data catches up.
+    // A Wall segment mid-shatter is a Gap already (the sim has moved on), even before the data catches up.
     const gaps = new Set([...gapsOf(health), ...[...this.fx].filter(([, f]) => f.brokenAge !== undefined).map(([i]) => i)])
     const alpha = breachAlpha(this.goneAt === undefined ? undefined : this.clock - this.goneAt, visual.wall.shatterMs)
     for (const i of gaps) {
@@ -99,7 +102,7 @@ export class Wall extends Fixture<WallData> {
       const ends = endKinds(health, i)
       const shown = this.lookOf(i, hp, ends, fx?.hit)
       const joltT = fx?.joltAge === undefined ? 0 : 1 - fx.joltAge / look.jolt.ms
-      const flashT = fx?.flash ? 1 - fx.flash.age / (fx.flash.dim ? visual.wall.dimFlashMs : visual.wall.flashMs) : 0
+      const flashT = fx?.flash ? 1 - fx.flash.age / flashMs(fx.flash.dim) : 0
       drawSegment(ctx, {
         owner: d.owner, from: a, angle, len: rules.wall.unit, hp, max, look: shown, ends, flipped: this.flipped, clock: this.clock, fill,
         flash: fx?.flash ? flashT * (fx.flash.dim ? visual.wall.dimFlashAlpha : look.flash.alpha) : 0,
@@ -133,7 +136,7 @@ export class Wall extends Fixture<WallData> {
 
   private standing(): number[] {
     const health = this.data.segments
-    return health ? health.flatMap((hp, i) => (hp > 0 ? [i] : [])) : Array.from({ length: segmentCount(this.data) }, (_, i) => i)
+    return health ? standingIn(health) : Array.from({ length: segmentCount(this.data) }, (_, i) => i)
   }
 
   private of(i: number): SegmentFx {
@@ -142,12 +145,12 @@ export class Wall extends Fixture<WallData> {
     return f
   }
 
-  /** A segment's look, kept until its health, ends or hit point change. */
-  private lookOf(i: number, hp: number, ends: { left: EndKind; right: EndKind }, hit?: HitMark): SegmentLook {
+  /** A Wall segment's look, kept until its health, ends or hit point change. */
+  private lookOf(i: number, hp: number, ends: Ends, hit?: HitMark): SegmentLook {
     const key = `${i}:${hp}:${ends.left}:${ends.right}:${hit ? `${hit.u.toFixed(2)}${hit.side}` : ''}`
     let l = this.looks.get(key)
     if (!l) {
-      if (this.looks.size > 64) this.looks.clear()
+      if (this.looks.size > look.cacheCap) this.looks.clear()
       this.looks.set(key, (l = segmentLook(this.data.id ?? 0, i, hp, ends, rules.wall.unit, hit)))
     }
     return l

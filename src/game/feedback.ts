@@ -48,10 +48,9 @@ export function feedbackFor(events: SimEvent[], walls: { id: number; owner: Play
       if (!events.some((e) => e.type === 'ball-hit-wall' && e.wall === ev.id)) out.bursts.push({ at: ev.at, color: visual.player.colors[owner(ev.id)], count: visual.wall.particles.crack })
     }
     if (ev.type === 'repaired') out.flashes.push({ wall: ev.id, dim: false })
-    if (ev.type === 'segment-broken' || (ev.type === 'wall-destroyed' && ev.segment !== undefined)) {
-      const [id, segment] = ev.type === 'segment-broken' ? [ev.id, ev.segment] : [ev.wall.id, ev.segment as number]
+    if ((ev.type === 'segment-broken' || ev.type === 'wall-destroyed') && ev.segment !== undefined) {
       const breaker = !!ev.breaker
-      out.breaks.push({ id, segment, at: ev.at, breaker })
+      out.breaks.push({ id: ev.type === 'segment-broken' ? ev.id : ev.wall.id, segment: ev.segment, at: ev.at, breaker })
       amps.push(breaker ? visual.wall.break.breakerShake : visual.wall.break.shake)
     }
     if (ev.type === 'wall-destroyed' && ev.segment === undefined) out.bursts.push({ at: ev.at, color: visual.player.colors[ev.wall.owner], count: ev.breaker ? visual.wall.particles.breaker : visual.wall.particles.destroy })

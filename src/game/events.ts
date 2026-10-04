@@ -17,7 +17,7 @@ export function routeEvents(events: SimEvent[], t: Targets, objects: Structure[]
   const fb = feedbackFor(events, objects)
   for (const f of fb.flashes) t.structures.hit(f.wall, f.dim, f.segment, f.at)
   for (const b of fb.bursts) t.structures.burst(b.at, b.color, b.count)
-  for (const b of fb.breaks) t.structures.shatterSegment(b.id, b.segment, b.at, b.breaker)
+  for (const b of fb.breaks) t.structures.shatterSegment(b.id, b.segment, b.breaker)
   for (const amp of fb.shakes) t.camera.shake(amp)
   for (const v of fb.vibrations) t.vibrate(v)
   for (const ev of events) {
