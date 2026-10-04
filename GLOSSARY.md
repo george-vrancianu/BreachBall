@@ -137,7 +137,7 @@ The drawn edge of the goal no-build zone: a dashed arc around each goal, neutral
 _Avoid_: No-build line, goal arc
 
 **Snap grid**:
-The faint dots, in the builder's colour, at every cell corner (`rules.cellSize`) drawn on the builder's own half during a build, showing where the build piece snaps. Separate from the ground's decorative dot grid.
+The faint dots, in the builder's colour, at every cell corner (`rules.cellSize`) drawn on the builder's own half during a build, marking the cells a tower sits in (walls are free segments, so they don't snap to it). Separate from the ground's decorative dot grid.
 _Avoid_: Build grid
 
 **Build-zone edge**:

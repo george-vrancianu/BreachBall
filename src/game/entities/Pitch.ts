@@ -81,7 +81,7 @@ export class Pitch extends Entity {
     fillDots(ctx, { x0, x1: x0 + cols * cell, y0, y1: y0 + rows * cell }, cell, dot)
   }
 
-  /** The snap grid: a faint dot at every cell corner (`rules.cellSize`) on the builder's half, where the build piece snaps. Over the ground dots, under the markings. */
+  /** The snap grid: a faint dot at every cell corner (`rules.cellSize`) on the builder's half, marking the cells towers sit in (walls are drawn freely, ADR-0005). Over the ground dots, under the markings. */
   private drawSnapGrid(ctx: CanvasRenderingContext2D, builder: PlayerId): void {
     const { pitchWidth: w, cellSize } = rules
     const { unit: u, snapGrid } = visual.pitch
