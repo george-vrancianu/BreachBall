@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { visual } from '../../config/visual'
-import { advance, angle, blocking, choosingNotice, goalBall, newTransition, overlayView, revealing, type Frame, type Transition } from './transition'
+import { advance, angle, blocking, choosingNotice, goalBall, handedOver, newTransition, overlayView, revealing, type Frame, type Transition } from './transition'
 
 const base: Frame = { flip: true, active: 1, phase: 'Play', events: [], now: 0 }
 /** A new match with Flip on turn on (the shell's default is off). */
@@ -10,7 +10,7 @@ const go = (t: Transition, o: Partial<Frame>) => advance(t, { ...base, ...o })
 const open = () => go(go(fresh(1), {}), { now: 400 })
 
 describe('handover', () => {
-  it('opens with a flip for the starting player and no turn card, blocking the sim only until the flip ends', () => {
+  it('opens with a flip for the starting player blocking the sim only until the flip ends', () => {
     let t = go(fresh(2), { active: 2 })
     expect(t.overlay).toBeUndefined()
     expect(overlayView(t, 0)).toBeUndefined()
@@ -274,5 +274,20 @@ describe('online', () => {
       expect(t.overlay).toBeUndefined()
       expect(t.shown).toBe(1)
     }
+  })
+})
+
+describe('handedOver', () => {
+  it('is true when a flip starts, or the HUD seat changes with none under way', () => {
+    const t = open()
+    expect(handedOver(t, go(t, { active: 2, now: 500 }))).toBe(true)
+    expect(handedOver(t, { ...t, hudSeat: 2 })).toBe(true)
+  })
+
+  it('is false with no change, and while a flip runs through to its end', () => {
+    const t = open()
+    expect(handedOver(t, go(t, { now: 500 }))).toBe(false)
+    const flipping = go(t, { active: 2, now: 500 })
+    expect(handedOver(flipping, go(flipping, { active: 2, now: 500 + visual.transition.flipMs }))).toBe(false)
   })
 })

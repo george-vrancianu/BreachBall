@@ -48,6 +48,9 @@ export function advance(t: Transition, f: Frame): Transition {
   return { shown, hudSeat, flip, overlay, due, opening: f.opening, phase: overlay?.kind === 'goal' ? t.phase : f.phase }
 }
 
+/** A hot-seat handover began between two transitions: a flip started, or the HUD's seat changed with no flip under way (the flip's own end changes it too, which is not a new handover). */
+export const handedOver = (before: Transition, after: Transition): boolean => !before.flip && (!!after.flip || after.hudSeat !== before.hudSeat)
+
 /** The shell stops stepping the sim while a flip, goal, reveal or REPAIRED overlay is up: the conceder's clock and ball are out of reach until the handover is seen. */
 export const blocking = (t: Transition) => !!t.flip || t.overlay?.kind === 'goal' || t.overlay?.kind === 'reveal' || (t.overlay?.kind === 'sweep' && !!t.overlay.holds)
 

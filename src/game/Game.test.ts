@@ -7,6 +7,7 @@ import type { Structure } from '../sim/wall'
 import { Game, type HudView } from './Game'
 import { hseg } from '../sim/testkit'
 import { STRATEGIES } from './view/strategies'
+import type { Transition } from './view/transition'
 
 // No DOM in the test run: a canvas that is an EventTarget, a window that is one, a context that swallows every call.
 class FakeCanvas extends EventTarget {
@@ -155,6 +156,38 @@ describe('Game', () => {
       game.actions.strategies.apply('chevron')
       step()
       expect(view().hud.hint).toBeUndefined()
+    })
+
+    const flip = (game: Game) => (game as unknown as { transition: Transition }).transition.flip
+
+    it('the hint returns for the next player after a handover, and is hidden while the flip runs', () => {
+      const { game, step, view } = opened('rounds')
+      const builder = game.state.match.builder!
+      game.actions.strategies.toggle()
+      step()
+      game.actions.strategies.apply('chevron')
+      step()
+      expect(view().hud.hint).toBeUndefined()
+      view().hud.buttons!.find((b) => b.label === 'Done')!.onClick()
+      step()
+      expect(flip(game)).toBeDefined()
+      expect(view().hud.hint).toBeUndefined()
+      step(visual.transition.flipMs + 100)
+      expect(flip(game)).toBeUndefined()
+      expect(game.state.match.builder).not.toBe(builder)
+      expect(view().hud.hint).toMatch(/draw a wall/)
+    })
+
+    it('an input sent behind the handover hold does not count as the incoming player acting', () => {
+      const { game, step, view } = opened('rounds')
+      view().hud.buttons!.find((b) => b.label === 'Done')!.onClick()
+      step()
+      expect(flip(game)).toBeDefined()
+      // Stands in for the drop of a half-made aim that the hold forces: it goes through the same send, while the board is blocked.
+      game.actions.subterfuge('jam')
+      step(visual.transition.flipMs + 100)
+      expect(flip(game)).toBeUndefined()
+      expect(view().hud.hint).toMatch(/draw a wall/)
     })
 
     it('the Strategies tray opens and closes, with a card per layout', () => {

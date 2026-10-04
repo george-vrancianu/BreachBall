@@ -30,7 +30,7 @@ import { pausesSim, settingRows, type SideMenuView } from './view/sideMenu'
 import { loadFlipOnTurn, saveFlipOnTurn } from './deviceSettings'
 import { subterfugeCircle, type SubterfugeCircle } from './view/subterfugeCircle'
 import { planStrategy, STRATEGIES, strategyCards, type StrategyCard } from './view/strategies'
-import { acrossTable, advance, angle, blocking, choosingNotice, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
+import { acrossTable, advance, angle, blocking, choosingNotice, goalBall, handedOver, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
 
 export type { PlayerId, PowerUp, SubterfugeItem }
 
@@ -231,16 +231,16 @@ export class Game implements Sink {
   /** Whether the sim waits: behind a blocking hold, and behind the Side menu in hot-seat. */
   simPaused = () => blocking(this.transition) || pausesSim(this.menuOpen, hotSeat())
 
-  /** Whether the board ignores input: behind a blocking hold or the Side menu, online or not. */
-  /** The active player has acted this turn (any input the local player sends), which clears the first-round hint. Reset at each handover. */
+  /** The active player has acted this turn (any input the local player sends outside a hold), which clears the first-round hint. Reset at each handover (hot-seat only: online `hudSeat` never changes, so the hint just clears at the first input; out of scope). */
   private acted = false
 
-  /** Sends the local player's input to the driver and notes that they have acted. */
+  /** Sends the local player's input to the driver and notes that they have acted; an input a hold forces (cancelling a half-made aim) is not the player acting. */
   private act = (input: SimInput): void => {
-    this.acted = true
+    if (!this.inputBlocked()) this.acted = true
     this.driver.send(input)
   }
 
+  /** Whether the board ignores input: behind a blocking hold or the Side menu, online or not. */
   private inputBlocked = () => blocking(this.transition) || this.menuOpen
 
   /** Whether this device turns the stage at a handover: hot-seat only, and only when the player has Flip on turn on. */
@@ -336,7 +336,7 @@ export class Game implements Sink {
     const { state } = this
     const before = this.transition
     this.transition = advance(before, { handover: true, flip: this.flips(), active: whoActs(state), phase: buildPhase(state.match), opening: openingBuild(state.match), events, now: this.now })
-    if (!before.flip && (this.transition.flip || this.transition.hudSeat !== before.hudSeat)) this.acted = false
+    if (handedOver(before, this.transition)) this.acted = false
   }
 
   private frame = (now: number): void => {
@@ -357,7 +357,10 @@ export class Game implements Sink {
     const flipping = !!transition.flip && now - transition.flip.at >= transition.flip.ms / 2
     // The seat across the table (stage not turned for it) shoots down the screen, so the ball is held near the top instead.
     const target = anchorY(state.ball.pos.y, transition.shown, camera.visibleHeight, !acrossTable(transition))
-    if (!state.match.builder && flipping) (camera.y = target), camera.recenter()
+    // Mid-flip the camera snaps to where the incoming seat frames the ball, so the flip ends already framed.
+    const f = transition.flip
+    const dest = f ? anchorY(state.ball.pos.y, f.to, camera.visibleHeight, f.hudSeat === f.to) : target
+    if (!state.match.builder && flipping) (camera.y = dest), camera.recenter()
     this.input.edgeScroll(dt)
     this.input.tickAim()
     if (!camera.held) camera.follow(target, dt)
@@ -439,7 +442,7 @@ export class Game implements Sink {
     const { inHand } = state.possession
     const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: this.act, choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, acted: this.acted, destroyed: this.destroyed, bullseyes: this.bullseyes }),
+      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: this.act, choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, acted: this.acted || !!transition.flip, destroyed: this.destroyed, bullseyes: this.bullseyes }),
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),
