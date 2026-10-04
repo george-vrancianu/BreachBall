@@ -2,7 +2,7 @@ import { visual } from '../../config/visual'
 import { rules } from '../../config/rules'
 import { modeFor } from '../../sim/mode'
 import { nearestOnWall } from '../../sim/near'
-import { type PlayerId, type Point } from '../../sim/pitch'
+import { halfSpan, type PlayerId, type Point } from '../../sim/pitch'
 import { UNITS } from '../../sim/settings'
 import { canAffordTower, canEdit, canMove, canPlace, type SimInput, type SimState } from '../../sim/step'
 import { rotatedWall, translatedWall, vertexToWorld, wallCost, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
@@ -86,7 +86,7 @@ export function legal(s: SimState, sel: Selection): boolean {
 
 /** How far to pan while a piece is held near the top or bottom `edgeBand` of the view: toward any of the builder's half that is off screen, never past it. */
 export function edgeScrollDy(camY: number, visibleHeight: number, builder: PlayerId, pointerY: number, dt: number): number {
-  const [lo, hi] = builder === 1 ? [rules.halfHeight, rules.pitchHeight] : [0, rules.halfHeight]
+  const [lo, hi] = halfSpan(builder)
   const [top, bottom] = [camY - visibleHeight / 2, camY + visibleHeight / 2]
   const margin = visibleHeight * visual.input.edgeBand
   return pointerY < top + margin && top > lo ? -Math.min(visual.input.edgeScrollSpeed * dt, top - lo) : pointerY > bottom - margin && bottom < hi ? Math.min(visual.input.edgeScrollSpeed * dt, hi - bottom) : 0

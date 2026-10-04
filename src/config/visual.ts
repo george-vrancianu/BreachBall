@@ -53,6 +53,8 @@ export const visual = {
     dot: pitchDots,
     /** The dot grid: cell and dot size, px. */
     grid: { cellPx: 26, dotPx: 1.3 },
+    /** The snap grid shown on the builder's half during a build: dot size px and alpha. Drawn in the builder's colour so it reads apart from the ground dots, and faint so it stays under the markings. */
+    snapGrid: { dotPx: 1.6, alpha: 0.25 },
     /** Every neutral line: the outline, centre line and circle, keep-out arc and quarter marks. */
     line: tokens.lines,
     outline: { widthPx: 3, radiusPx: 14 },

@@ -1,6 +1,6 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
-import type { PlayerId } from '../../sim/pitch'
+import { halfSpan, type PlayerId } from '../../sim/pitch'
 import { Entity } from './Entity'
 
 /** One goal end: its line's y, the direction into the pitch (+1 down the canvas) and the owner. P2 defends the top, P1 the bottom. */
@@ -12,7 +12,7 @@ const ends = [
 /** A dash pattern in reference px, scaled to world units. */
 const dashed = (dashPx: readonly number[]): number[] => dashPx.map((d) => d * visual.pitch.unit)
 
-/** The ground, markings, goal mouths and nets; during a build turn also the build-zone edge on the halfway line, in the builder's colour. */
+/** The ground, markings, goal mouths and nets; during a build turn also the snap grid on the builder's half and the build-zone edge on the halfway line, in the builder's colour. */
 export class Pitch extends Entity {
   /** Whose build turn it is, if any. */
   builder?: PlayerId
@@ -25,6 +25,7 @@ export class Pitch extends Entity {
     ctx.fillRect(-board, rules.mapTop, w + 2 * board, rules.mapHeight)
 
     this.drawDots(ctx)
+    if (this.builder) this.drawSnapGrid(ctx, this.builder)
     ctx.strokeStyle = v.line
     ctx.lineWidth = v.outline.widthPx * u
     ctx.beginPath()
@@ -77,7 +78,19 @@ export class Pitch extends Entity {
     const rows = Math.floor(h / cell)
     const x0 = (w - cols * cell) / 2
     const y0 = (h - rows * cell) / 2
-    for (let i = 0; i <= cols; i++) for (let j = 0; j <= rows; j++) ctx.fillRect(x0 + i * cell - dot / 2, y0 + j * cell - dot / 2, dot, dot)
+    fillDots(ctx, { x0, x1: x0 + cols * cell, y0, y1: y0 + rows * cell }, cell, dot)
+  }
+
+  /** The snap grid: a faint dot at every cell corner (`rules.cellSize`) on the builder's half, marking the cells towers sit in (walls are drawn freely, ADR-0005). Over the ground dots, under the markings. */
+  private drawSnapGrid(ctx: CanvasRenderingContext2D, builder: PlayerId): void {
+    const { pitchWidth: w, cellSize } = rules
+    const { unit: u, snapGrid } = visual.pitch
+    const dot = snapGrid.dotPx * u
+    const [top, bottom] = halfSpan(builder)
+    ctx.globalAlpha = snapGrid.alpha
+    ctx.fillStyle = visual.player.colors[builder]
+    fillDots(ctx, { x0: 0, x1: w, y0: top, y1: bottom }, cellSize, dot)
+    ctx.globalAlpha = 1
   }
 
   /** One end: corner brackets, goal mouth and keep-out arc. */
@@ -183,4 +196,14 @@ export class Pitch extends Entity {
     ctx.setLineDash([])
     ctx.globalAlpha = 1
   }
+}
+
+/** Fills a square dot at every `step` across the bounds `b`, inclusive of both edges. */
+function fillDots(ctx: CanvasRenderingContext2D, b: { x0: number; x1: number; y0: number; y1: number }, step: number, dot: number): void {
+  const { x0, x1, y0, y1 } = b
+  // Float drift can leave (x1 - x0) / step just under a whole number, which would drop the far-edge dots; nudge it over.
+  const eps = 1e-9
+  const cols = Math.floor((x1 - x0) / step + eps)
+  const rows = Math.floor((y1 - y0) / step + eps)
+  for (let i = 0; i <= cols; i++) for (let j = 0; j <= rows; j++) ctx.fillRect(x0 + i * step - dot / 2, y0 + j * step - dot / 2, dot, dot)
 }

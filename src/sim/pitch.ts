@@ -11,6 +11,11 @@ export function halfOf(y: number): PlayerId | null {
   return y < rules.halfHeight ? 2 : 1
 }
 
+/** The y span [top, bottom] of a player's half: where halfOf names that player, plus the halfway line itself (halfOf gives null there). */
+export function halfSpan(player: PlayerId): [top: number, bottom: number] {
+  return player === 1 ? [rules.halfHeight, rules.pitchHeight] : [0, rules.halfHeight]
+}
+
 /** World centre of a grid cell. */
 export function cellToWorld({ cx, cy }: Cell): Point {
   return { x: (cx + 0.5) * rules.cellSize, y: (cy + 0.5) * rules.cellSize }
