@@ -299,16 +299,53 @@ export const visual = {
     /** Hold the Defence circle this long (still: moving past `input.tapSlopPx` cancels) to open its piece column. */ holdMs: 350,
     /** The Defence circle and its piece column (px): the primary circle and its border, the piece circles, their label pills and the gap between them; how long the circle pulses when a hold has nothing to offer, how far it swells (scale), the piece column's z-index (above the HUD rows it may open across), the font sizes of circle, piece and pill (px), and the pill's offset from its piece, side padding and border (px); `balance`, the builder's balance badge: its font size, its offset from the circle's top-right edge (negative, so it overhangs) and its minimum width, which also sets the corner radius (`minPx / 2`), all in px. */
     defence: { circlePx: 60, borderPx: 3, itemPx: 56, pillPx: 32, gap: 10, pulseMs: 300, pulseScale: 1.18, columnZ: 10, circleFontPx: 24, itemFontPx: 20, pillFontPx: 13, pillOffsetPx: 8, pillPadPx: 12, pillBorderPx: 2, itemBorderPx: 2, balance: { fontPx: 12, offsetPx: -6, minPx: 18 }, shadowPx: { y: 2, blur: 8 } },
-    /** The queued Subterfuge icons (px): the pill's height, the gap under the bars' rows, the gap between icons and the font size. The pill sits `bar.heightPx + bar.resourceRowPx + edgePx` from the far edge (clear of the Resource bar's row), under the targeted player's half, and Player 1's is kept clear of the ☰ button (`sideMenu.buttonPx`) at the stage's left. */
-    queued: { px: 28, edgePx: 4, gapPx: 8, fontPx: 12 },
+    /** The queued Subterfuge icons (px): the pill's height, the gap under the bars' rows, the gap between icons and the font size; inside a pill, the item's icon and the gap between it and its text. The pill sits `bar.heightPx + bar.resourceRowPx + edgePx` from the far edge (clear of the Resource bar's row), under the targeted player's half, and Player 1's is kept clear of the ☰ button (`sideMenu.buttonPx`) at the stage's left. */
+    queued: { px: 28, edgePx: 4, gapPx: 8, fontPx: 12, iconPx: 18, iconGapPx: 4 },
     /** The near band's shared row (px unless noted): its height, the clock ring and the disc inside it, the urgent halo's width and colour, the round line's and phase label's font sizes, the round line's and phase label's letter spacing (em), the Recenter circle's size, border and crosshair icon (size, stroke), the right padding left for the minimap chip at the band's bottom-right, the gap between its items, and the row's pills (Done, Repair, Rearrange): height, side padding, border, and the tap target around them (the pill is drawn smaller than the hit area). Width budget at a 390 px viewport: 390 - 2x8 shell padding - 44 chip padding = 330 for the row; clock 36 + Move dots (3 x 9 + 2 x 4 gaps = 35) + Recenter 36 + Done ~64 + 4 gaps x 8 = 203, so the text block keeps ~127 and truncates with an ellipsis past that. Siege's Repair and Rearrange do not fit beside it and go on their own row above. */
     sharedRow: { heightPx: 36, ringPx: 36, discPx: 28, haloPx: 3, haloColor: '#7f1d1d', roundPx: 14, labelPx: 10, roundSpacingEm: 0.08, labelSpacingEm: 0.16, recenterPx: 36, recenterBorderPx: 2, iconPx: 20, iconStroke: 2, chipPadPx: 44, gapPx: 8, pillPx: 36, pillPadPx: 14, pillBorderPx: 2, hitPx: 44 },
     /**
      * The dock: the bottom panel holding the viewer's controls (px). `tilePx` is an action tile (Build, a piece, Strategies, Powerup, Subterfuge) with its corner `radiusPx`, `iconPx` and the label under the icon; the play dock's ability tiles (Build, Powerup, Subterfuge) share one width, `abilityPx`, fitting the longest label (SUBTERFUGE, at the option tiles' label size) and keeping the row within a 360 px screen;
-     * `rowGapPx` between the dock's two rows and `gapPx` between tiles; the status row's `chipPx` height (Credits, OK, Refund); the panel's fill, top border and corner radius;
-     * the Strategies tray's cards (`cardW` x `cardH`, the preview's height) and its z-index over the pitch.
+     * `rowGapPx` between the dock's two rows, `gapPx` between tiles and `padPx` inside the panel; the status row's `chipPx` height (Credits, OK, Refund); the panel's fill, top border colour and corner radius;
+     * the divider's width (`dividerPx`); the Strategies tray's z-index over the pitch (`trayZ`); the balance's font size (`creditFontPx`) and the OK pill's minimum width (`okMinPx`). The groups below hold the rest.
      */
-    dock: { tilePx: 52, abilityPx: 64, radiusPx: 14, iconPx: 22, labelPx: 9, labelSpacingEm: 0.08, rowGapPx: 8, gapPx: 6, padPx: 8, chipPx: 40, fill: 'rgba(14,19,33,0.94)', border: '#232b42', cornerPx: 18, dividerPx: 1, card: { w: 84, h: 126, radiusPx: 16 }, trayZ: 9, creditFontPx: 20, okMinPx: 84 },
+    dock: {
+      tilePx: 52, abilityPx: 64, radiusPx: 14, iconPx: 22, labelPx: 9, labelSpacingEm: 0.08, rowGapPx: 8, gapPx: 6, padPx: 8, chipPx: 40, fill: 'rgba(14,19,33,0.94)', border: '#232b42', cornerPx: 18, dividerPx: 1, trayZ: 9, creditFontPx: 20, okMinPx: 84,
+      /** The wider gap (px) between the items of the dock's two rows, between the shots and Refund, and between the Strategies cards. */
+      wideGapPx: 8,
+      /** The panel's top border (px; the selection bar's border too), and its shadow toward the pitch: offset and blur (px). */
+      borderPx: 1, shadowPx: { y: 8, blur: 24 },
+      /** The shadow under what floats over the pitch above the dock (the Strategies cards, the selection bar): offset and blur (px). */
+      floatShadowPx: { y: 6, blur: 18 },
+      /** The divider between Build (or an open ability) and its options: its height, and the extra space beside it on top of `gapPx` (px): on both sides in the build dock, on the options' side in the play dock. Its width is `dividerPx`. */
+      dividerHeightPx: 36, dividerPadPx: 2,
+      /** Every dock tile (px unless noted): the gap between its icon and label, its border, the glow around a filled tile, and how long a fill change eases (ms). Its corner badge (a price, a stock count): how far it overhangs the corner (negative offset), its height (also its minimum width; its corners are fully round), its side padding and font size. */
+      tile: { gapPx: 3, borderPx: 2, glowPx: 14, easeMs: 120, badge: { offsetPx: -6, px: 18, padPx: 4, fontPx: 11 } },
+      /** An option tile (a piece in the build dock, or an option beside an open ability), px unless noted: its width, the padlock on a locked (soon) item, and its label's font size and letter spacing (em). The ability tiles' labels use the same font size. */
+      option: { px: 48, lockPx: 18, labelPx: 8, labelSpacingEm: 0.02 },
+      /** Opening an ability: its options slide in from `px` to the right over `ms`, while the other abilities fold away (width and margin over `ms`, fading over `fadeShare` of it). */
+      slide: { ms: 220, px: 24, fadeShare: 0.7 },
+      /** The Refund tile's width (px), a little wider than `tilePx` to fit its `+2 CR` label. */
+      refundPx: 58,
+      /** The balance chip (px unless noted): padding before the token and after the unit, the gap between its parts, the ring in the player's colour and the inner glow; the Credit token's disc and icon; the unit's font size and letter spacing (em). A change in the amount pops it to `pop.scale` and back over `pop.ms`. The amount's font size is `creditFontPx`. */
+      credits: { padStartPx: 6, padEndPx: 12, gapPx: 6, borderPx: 2, glowPx: 12, tokenPx: 28, iconPx: 18, unitFontPx: 10, unitSpacingEm: 0.1, pop: { scale: 1.35, ms: 260 } },
+      /** The primary pill (OK, Confirm, Repair, Rearrange), px unless noted: side padding, border, the gap between check and label, font size, letter spacing (em), the glow around it, the check icon (OK's and Confirm's), and its height as one of the defence choice's two halves (it is `chipPx` elsewhere). Its minimum width is `okMinPx`. */
+      primary: { padPx: 14, borderPx: 2, gapPx: 6, fontPx: 15, spacingEm: 0.06, glowPx: 16, iconPx: 18, choicePx: 48 },
+      /** The shots left (px): a ball per Move point, its border and the glow of an unspent one, the gap between balls and the gap above the `Shots 2/3` label; an unspent ball shades from `shine` through the ball's fill to `shade`. */
+      shots: { px: 14, borderPx: 2, glowPx: 6, gapPx: 5, labelGapPx: 4, shine: white, shade: '#c9c9c0' },
+      /** The selected piece's controls over the pitch (px unless noted): each round button, its border and icon, the gap between buttons, the bar's padding and corner radius, and a greyed button's opacity (0 to 1). */
+      selection: { buttonPx: 40, buttonBorderPx: 2, iconPx: 20, gapPx: 8, padPx: 6, radiusPx: 26, disabledOpacity: 0.4 },
+      /** The action row's prompt (Rearrange, waiting for the defence choice): font size (px) and letter spacing (em). */
+      prompt: { fontPx: 12, spacingEm: 0.08 },
+      /** The Strategies tray's padding (px), vertical and horizontal; the dock widens the sides to `padPx` where it mounts the tray. */
+      trayPadPx: { y: 4, x: 2 },
+      /** A Strategies card (px unless noted): its size, corner radius, padding and border; how much narrower than the card its preview is; the name's and cost's font size and letter spacing (em), the gap between the Credit icon and the cost, the icon's size, and the card's opacity (0 to 1) where nothing fits. */
+      card: { w: 84, h: 126, radiusPx: 16, padPx: 6, borderPx: 2, previewInsetPx: 12, fontPx: 11, spacingEm: 0.06, costGapPx: 3, creditPx: 12, disabledOpacity: 0.55 },
+      /**
+       * A Strategy's preview, in world units: `crop` of the half next to the halfway line is left out, with `margin` around the rest; the half's corner radius and outline width,
+       * the centre zone's and no-build zone's line width and the no-build zone's dash (on, off); the goal line's width; a wall's width; a Repulsor's ring (radius in cells, line width); a Steal's square, `stealPad` bigger than its cell on each side, with corner radius `stealR`.
+       */
+      preview: { crop: 10, margin: 1, cornerR: 2.5, outline: 0.6, zoneLine: 0.5, dash: [1.5, 1.5], goal: 1.2, wall: 2, repulsorCells: 1.1, repulsorLine: 1.2, stealPad: 0.6, stealR: 0.6 },
+    },
     /** Move point dots: size and ring in px; a refund buzzes `vibration` ms, a refund that cannot happen buzzes `denied`. */
     refund: { dotPx: 9, ringPx: 2, gap: 4, vibration: 20, denied: [15, 40, 15] }, shadow: '#0008', gap: 8, /** The gap between the Offence, Defence and Subterfuge circles in their row (px). */ circleGapPx: 10,
     /** The minimap chip (px): the chip and its thumbnail, the chip's border and radius, its inset from the band's corner and its tap area, the glyph's font size and the thumbnail's line width; the frame's fill over the thumbnail, the fog's fill, and the map view's hint pill (height, side padding, border, font size). */

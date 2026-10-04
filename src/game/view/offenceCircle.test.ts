@@ -14,11 +14,13 @@ describe('offenceCircle', () => {
     const s = ready()
     const m = offenceCircle(s, shooterOf(s), { armed: false, mine: hotSeat })
     expect(m.available).toBe(true)
-    expect(m.items[0]).toEqual({ item: 'breaker', label: `Breaker · ${rules.breakerCost}`, disabled: false, pressed: false })
+    expect(m.items[0]).toEqual({ item: 'breaker', label: `Breaker · ${rules.breakerCost}`, name: 'Breaker', badge: String(rules.breakerCost), disabled: false, pressed: false })
   })
   it('lists a locked item as soon', () => {
     const s = ready()
-    expect(offenceCircle(s, shooterOf(s), { armed: false, mine: hotSeat }).items.slice(1)).toEqual([expect.objectContaining({ disabled: true, soon: true })])
+    const [, soon] = offenceCircle(s, shooterOf(s), { armed: false, mine: hotSeat }).items
+    expect(soon).toMatchObject({ name: 'Overdrive', disabled: true, soon: true })
+    expect(soon!.badge).toBeUndefined()
   })
   it('marks the circle and the item armed', () => {
     const s = ready()
@@ -52,6 +54,6 @@ describe('offenceCircle', () => {
   it('counts the stock in Siege, where there are no Credits to pay', () => {
     const s = ready()
     const siege: SimState = { ...s, match: { mode: 'siege', seed: 1, winner: null, builder: null, choosing: null, opening: false } }
-    expect(offenceCircle(siege, shooterOf(s), { armed: false, mine: hotSeat }).items[0]!.label).toBe('Breaker · 3 left')
+    expect(offenceCircle(siege, shooterOf(s), { armed: false, mine: hotSeat }).items[0]).toMatchObject({ label: 'Breaker · 3 left', name: 'Breaker', badge: '×3' })
   })
 })

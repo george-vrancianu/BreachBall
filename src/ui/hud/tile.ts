@@ -4,7 +4,7 @@ import { FONT } from '../ButtonRow'
 import { NO_CALLOUT } from './press'
 
 const { ink, panel, dark } = visual.hud
-const { tilePx, radiusPx, labelPx, labelSpacingEm } = visual.hud.dock
+const { tilePx, radiusPx, labelPx, labelSpacingEm, tile } = visual.hud.dock
 
 /** How a dock tile reads: `active` fills it in the player's colour (the armed piece, build mode, an armed Breaker), `available` false greys it. */
 export type TileLook = { color: string; active?: boolean; available?: boolean; width?: number }
@@ -21,18 +21,18 @@ export function tileStyle({ color, active = false, available = true, width = til
     height: tilePx,
     padding: 0,
     borderRadius: radiusPx,
-    border: `2px solid ${active ? color : available ? visual.tokens.ghostBorder : visual.tokens.dimOutline}`,
+    border: `${tile.borderPx}px solid ${active ? color : available ? visual.tokens.ghostBorder : visual.tokens.dimOutline}`,
     background: active ? color : available ? panel : 'transparent',
     color: active ? dark : available ? ink : grey,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    boxShadow: active ? `0 0 14px ${color}66` : 'none',
+    gap: tile.gapPx,
+    boxShadow: active ? `0 0 ${tile.glowPx}px ${color}66` : 'none',
     touchAction: 'none',
     cursor: available ? 'pointer' : 'default',
-    transition: 'background 120ms, border-color 120ms, box-shadow 120ms',
+    transition: `background ${tile.easeMs}ms, border-color ${tile.easeMs}ms, box-shadow ${tile.easeMs}ms`,
     ...NO_CALLOUT,
   }
 }
@@ -41,4 +41,7 @@ export function tileStyle({ color, active = false, available = true, width = til
 export const tileLabel: CSSProperties = { fontSize: labelPx, lineHeight: 1, letterSpacing: `${labelSpacingEm}em`, whiteSpace: 'nowrap' }
 
 /** A tile's corner badge (a price, a stock count, the Credits left): a small pill overhanging the top-right corner. */
-export const tileBadge = (color: string, dim = false): CSSProperties => ({ position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, padding: '0 4px', boxSizing: 'border-box', borderRadius: 9, background: dim ? visual.tokens.dimOutline : color, color: dim ? visual.tokens.muted : dark, fontSize: 11, lineHeight: '18px', textAlign: 'center', pointerEvents: 'none' })
+export const tileBadge = (color: string, dim = false): CSSProperties => {
+  const { offsetPx, px, padPx, fontPx } = tile.badge
+  return { position: 'absolute', top: offsetPx, right: offsetPx, minWidth: px, height: px, padding: `0 ${padPx}px`, boxSizing: 'border-box', borderRadius: px / 2, background: dim ? visual.tokens.dimOutline : color, color: dim ? visual.tokens.muted : dark, fontSize: fontPx, lineHeight: `${px}px`, textAlign: 'center', pointerEvents: 'none' }
+}

@@ -54,7 +54,7 @@ export type HudModel = {
 export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item; /** Structures each player has lost in play this match (see `countDestroyed`); defaults to none, so no empty segments. */ destroyed?: Destroyed; /** Bullseye Credits each player has earned this match (see `countBullseyes`), for the Resource bar's flash. */ bullseyes?: Bullseyes }
 
 /** The balance chip's short unit: Credits in Rounds, wall points in Siege. */
-const BALANCE_UNIT: Record<Match['mode'], string> = { rounds: 'CR', siege: 'PTS' }
+export const BALANCE_UNIT: Record<Match['mode'], string> = { rounds: 'CR', siege: 'PTS' }
 
 const PLACING: Record<Item, string> = { wall: 'Placing wall', repulsor: 'Placing Repulsor', steal: 'Placing Steal' }
 

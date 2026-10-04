@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { ItemSpec } from '../../game/view/defenceCircle'
 
 /** A 24-unit stroked icon drawn in `currentColor`. Drawn rather than an emoji, which some fonts lack. */
 export const icon = (size: number, d: ReactNode, fill = 'none') => (
@@ -17,6 +18,8 @@ export const WALL = (size = 24) => icon(size, <><rect x="2" y="4" width="20" hei
 export const REPULSOR = (size = 24) => icon(size, <><circle cx="12" cy="12" r="3" /><path d="M6.3 8a7 7 0 0 1 11.4 0M6.3 16a7 7 0 0 0 11.4 0" /></>)
 export const STEAL = (size = 24) => icon(size, <path d="M5 3h5v9a2 2 0 0 0 4 0V3h5v9a7 7 0 0 1-14 0zM5 7h5M14 7h5" />)
 export const CANNON = (size = 24) => icon(size, <><circle cx="8" cy="17" r="3" /><path d="M10.5 15 19 6.5l2 2-8.5 8.5M3 21h11" /></>)
+/** Each Defence piece's icon. */
+export const PIECE_ICON: Record<ItemSpec['item'], (size: number) => ReactNode> = { wall: WALL, repulsor: REPULSOR, steal: STEAL, cannon: CANNON }
 
 /** A Credit: a hexagonal token. */
 export const CREDIT = (size = 24) => icon(size, <><path d="M12 2.5 20.2 7v10L12 21.5 3.8 17V7z" /><path d="M12 8l3.5 4-3.5 4-3.5-4z" /></>)
