@@ -1,8 +1,8 @@
 import { type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import type { PlayerId } from '../../game/Game'
-import { expiryPicker, flipToggle, modePicker, sliderRows, type Settings } from '../../game/view/settings'
-import { Button, ButtonRow, FONT, ghostCircle } from '../ButtonRow'
+import { expiryPicker, modePicker, sliderRows, type Settings } from '../../game/view/settings'
+import { ButtonRow, FlipToggle, FONT, ghostCircle } from '../ButtonRow'
 import { AttractHero } from './Attract'
 
 type Look = { className?: string; style?: CSSProperties; children?: ReactNode }
@@ -118,7 +118,7 @@ export function SettingsScreen({ settings, onChange, flipOnTurn, onFlipOnTurn, o
         <ButtonRow specs={expiryPicker(settings.expiry, (expiry) => onChange({ ...settings, expiry }))} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: 'min(80vw,320px)' }}>
-        <Button spec={flipToggle(flipOnTurn, onFlipOnTurn)} style={{ width: '100%' }} />
+        <FlipToggle on={flipOnTurn} onChange={onFlipOnTurn} />
         <span style={{ color: tokens.muted, fontSize: 12, textTransform: 'none', textAlign: 'center' }}>Turns the screen to the next player in hot-seat. Saved on this device.</span>
       </div>
       <ButtonRow specs={[{ label: 'Start', onClick: onStart }]} />

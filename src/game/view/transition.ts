@@ -6,21 +6,24 @@ import { isFirstRound } from './hudModel'
 
 /** `holds` = the handover waits for this overlay and the sim is paused while it is up (the REPAIRED sweep; the goal, turn and reveal kinds always hold). */
 type Overlay = { kind: 'turn' | 'goal' | 'sweep' | 'reveal'; at: number; player: PlayerId; text: string; hint?: string; ms: number; net?: Point; holds?: true }
-/** `shown` is whose end of the pitch is at the bottom of the screen; `turn` is whose turn the HUD shows (the same seat when the stage turns, but not when Flip on turn is off and seat 2 plays from across the table); `due` = a handover is waiting (e.g. for the goal hold to end); `opening` = the last frame saw a Siege opening build (the reveal fires when it ends). */
-export type Transition = { shown: PlayerId; turn: PlayerId; flip?: { at: number; ms: number; from: PlayerId; to: PlayerId; turn: PlayerId }; overlay?: Overlay; due?: boolean; phase?: string; opening?: boolean }
+/** `shown` is whose end of the pitch is at the bottom of the screen; `hudSeat` is whose turn the HUD shows (the same seat when the stage turns, but not when Flip on turn is off and seat 2 plays from across the table); `due` = a handover is waiting (e.g. for the goal hold to end); `opening` = the last frame saw a Siege opening build (the reveal fires when it ends). */
+export type Transition = { shown: PlayerId; hudSeat: PlayerId; flip?: { at: number; ms: number; from: PlayerId; to: PlayerId; hudSeat: PlayerId }; overlay?: Overlay; due?: boolean; phase?: string; opening?: boolean }
 
-/** `flip` false (Flip on turn off): seat 1's end is at the bottom whoever starts. */
-export const newTransition = (active: PlayerId, flip = true): Transition => ({ shown: flip ? active : 1, turn: active, due: true })
+/** `flip` false (Flip on turn off, the device default): seat 1's end is at the bottom whoever starts. Online passes false too, and `advance` ignores the flip there, so online never flips. */
+export const newTransition = (active: PlayerId, flip = false): Transition => ({ shown: flip ? active : 1, hudSeat: active, due: true })
+
+/** The HUD's seat sits across the table from the bottom end (Flip on turn off, seat 2 playing): the HUD and view face the bottom seat's way, not the active player's. */
+export const acrossTable = (t: Transition) => t.hudSeat !== t.shown
 
 const rot = (p: PlayerId) => (p === 1 ? 0 : 180)
 
-/** `handover` false = online: each player always sits at the bottom, so no flip or turn card, and `flip` is ignored. `flip` false = hot-seat with Flip on turn off: the stage never turns, seat 1's end stays at the bottom, and the turn card still names the player. Read at each handover; a flip already under way is not changed. */
+/** `handover` false = online: each player always sits at the bottom, so no flip or turn card, and `flip` is ignored. `flip` false or missing = hot-seat with Flip on turn off (the device default): the stage never turns, seat 1's end stays at the bottom, and the turn card still names the player. Read at each handover; a flip already under way is not changed. */
 export type Frame = { handover?: boolean; flip?: boolean; active: PlayerId; /** Round number for modes that have rounds; the first-play hints show on round 1. */ round?: number; inHand: boolean; phase: string; /** A Siege opening build is in progress (not a Rearrange turn); its end triggers the reveal. */ opening?: boolean; events: SimEvent[]; now: number; reduced: boolean }
 
 /** Call each tick (with that tick's events) and once per frame. Pure; the sim never waits on it, the shell pauses `step` while `blocking`. */
 export function advance(t: Transition, f: Frame): Transition {
-  let { shown, turn, flip, overlay, due } = t
-  if (flip && f.now >= flip.at + flip.ms) (shown = flip.to), (turn = flip.turn), (flip = undefined)
+  let { shown, hudSeat, flip, overlay, due } = t
+  if (flip && f.now >= flip.at + flip.ms) (shown = flip.to), (hudSeat = flip.hudSeat), (flip = undefined)
   if (overlay && overlay.kind !== 'turn' && f.now >= overlay.at + overlay.ms) overlay = undefined
   for (const ev of f.events) {
     if (ev.type === 'goal') overlay = { kind: 'goal', at: f.now, player: ev.scorer, text: 'GOAL', ms: visual.transition.goalMs, net: ev.at }
@@ -33,19 +36,19 @@ export function advance(t: Transition, f: Frame): Transition {
   // The handover waits for the REPAIRED sweep, so the flash and label are seen before the turn flips.
   const repairing = overlay?.kind === 'sweep' && !!overlay.holds
   if (f.handover === false) due = false
-  else if ((due || f.active !== turn) && !flip && !repairing && overlay?.kind !== 'goal' && overlay?.kind !== 'reveal' && overlay?.kind !== 'turn') {
+  else if ((due || f.active !== hudSeat) && !flip && !repairing && overlay?.kind !== 'goal' && overlay?.kind !== 'reveal' && overlay?.kind !== 'turn') {
     const ms = f.reduced ? 0 : visual.transition.flipMs
     // With the toggle off the bottom seat is always 1: the stage turns back once if it was left turned.
-    const to = f.flip === false ? 1 : f.active
-    if (to === shown) turn = f.active
-    else if (ms) flip = { at: f.now, ms, from: shown, to, turn: f.active }
-    else (shown = to), (turn = f.active)
+    const to = f.flip ? f.active : 1
+    // Even when `to` is already shown the flip runs (rotating 0 degrees), so the hold and the turn card's fade-in are the same as ever.
+    if (ms) flip = { at: f.now, ms, from: shown, to, hudSeat: f.active }
+    else (shown = to), (hudSeat = f.active)
     const hint = isFirstRound(f.round) ? (f.phase === 'Build' ? 'Tap the Defence circle, drag on your half to draw a wall, then Done' : f.inHand ? 'Tap to place the ball, then Confirm' : 'Drag back from the ball to shoot; hold first for Power') : undefined
     overlay = { kind: 'turn', at: f.now, player: f.active, text: `Player ${f.active}'s turn`, hint, ms }
     due = false
   }
   // A phase change during the goal hold is announced once the hold ends.
-  return { shown, turn, flip, overlay, due, opening: f.opening, phase: overlay?.kind === 'goal' ? t.phase : f.phase }
+  return { shown, hudSeat, flip, overlay, due, opening: f.opening, phase: overlay?.kind === 'goal' ? t.phase : f.phase }
 }
 
 /** The shell stops stepping the sim while a flip, goal, turn, reveal or REPAIRED overlay is up: the conceder's clock and ball are out of reach until the handover is seen. */

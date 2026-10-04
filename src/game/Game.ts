@@ -25,9 +25,9 @@ import { minimapOf, type MinimapView } from './view/minimap'
 import { offenceCircle, type OffenceActions, type OffenceCircle } from './view/offenceCircle'
 import { phaseButtons } from './view/phaseButtons'
 import { pausesSim, settingRows, type SideMenuView } from './view/sideMenu'
-import { loadFlipOnTurn, saveFlipOnTurn } from './view/deviceSettings'
+import { loadFlipOnTurn, saveFlipOnTurn } from './deviceSettings'
 import { subterfugeCircle, type SubterfugeCircle } from './view/subterfugeCircle'
-import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
+import { acrossTable, advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
 
 export type { PlayerId, PowerUp, SubterfugeItem }
 
@@ -210,7 +210,7 @@ export class Game implements Sink {
   private flips = () => hotSeat() && this.flipOnTurn
 
   /** Whoever builds, else whoever has the device: online it would be the peer's own seat. */
-  private viewer = (): PlayerId => this.state.match.builder ?? this.transition.turn
+  private viewer = (): PlayerId => this.state.match.builder ?? this.transition.hudSeat
 
   /** The camera the pitch is drawn through: the whole-pitch map while it is open or during the reveal hold. */
   private viewCam = (): Camera => (this.mapOpen || revealing(this.transition) ? this.mapCam : this.camera)
@@ -306,7 +306,7 @@ export class Game implements Sink {
     this.fitCamera()
     const flipping = !!transition.flip && now - transition.flip.at >= transition.flip.ms / 2
     // The seat across the table (stage not turned for it) shoots down the screen, so the ball is held near the top instead.
-    const target = anchorY(state.ball.pos.y, transition.shown, camera.visibleHeight, transition.turn === transition.shown)
+    const target = anchorY(state.ball.pos.y, transition.shown, camera.visibleHeight, !acrossTable(transition))
     if (!state.match.builder && (flipping || (transition.overlay?.kind === 'turn' && !transition.flip))) (camera.y = target), camera.recenter()
     this.input.edgeScroll(dt)
     this.input.tickAim()
@@ -378,7 +378,7 @@ export class Game implements Sink {
     const { inHand } = state.possession
     const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.turn, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, destroyed: this.destroyed }),
+      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, destroyed: this.destroyed }),
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),

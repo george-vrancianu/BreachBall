@@ -2,17 +2,28 @@ import { describe, expect, it } from 'vitest'
 import { visual } from '../../config/visual'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type Frame, type Transition } from './transition'
 
-const base: Frame = { active: 1, round: 1, inHand: true, phase: 'Play', events: [], now: 0, reduced: false }
+const base: Frame = { flip: true, active: 1, round: 1, inHand: true, phase: 'Play', events: [], now: 0, reduced: false }
+/** A new match with Flip on turn on (the shell's default is off). */
+const fresh = (a: 1 | 2) => newTransition(a, true)
 const go = (t: Transition, o: Partial<Frame>) => advance(t, { ...base, ...o })
 /** A started match whose opening turn overlay has been dismissed. */
-const open = () => dismiss(go(go(newTransition(1), {}), { now: 1000 }), 1000)
+const open = () => dismiss(go(go(fresh(1), {}), { now: 1000 }), 1000)
 
 describe('handover', () => {
   it('opens with a turn overlay for the starting player, blocking the sim', () => {
-    const t = go(newTransition(2), { active: 2 })
+    const t = go(fresh(2), { active: 2 })
     expect(overlayView(t, 0)?.text).toBe("Player 2's turn")
     expect(blocking(t)).toBe(true)
     expect(angle(t, 0)).toBe(180)
+  })
+  it('holds at match start with the starting player already at the bottom: a flip with no rotation, the card fading in', () => {
+    const t = go(fresh(1), {})
+    expect(t.flip).toMatchObject({ from: 1, to: 1, hudSeat: 1 })
+    expect(angle(t, 200)).toBe(0)
+    expect(blocking(t)).toBe(true)
+    expect(overlayView(t, 100)!.opacity).toBe(0)
+    expect(overlayView(t, 300)!.opacity).toBeCloseTo(0.5)
+    expect(dismiss(t, 1000).overlay).toBeDefined()
   })
   it('flips 180 degrees over 400 ms on a possession change, overlay fading in the second half', () => {
     let t = open()
@@ -32,16 +43,16 @@ describe('handover', () => {
     expect(overlayView(t, 2000)!.opacity).toBe(1)
   })
   it('only dismisses by tap after 1 s', () => {
-    const t = go(go(newTransition(1), {}), { now: 500 })
+    const t = go(go(fresh(1), {}), { now: 500 })
     expect(dismiss(t, 999).overlay).toBeDefined()
     expect(dismiss(t, 1000).overlay).toBeUndefined()
     expect(blocking(dismiss(t, 1000))).toBe(false)
   })
   it('carries hints in round 1 only', () => {
-    expect(overlayView(go(newTransition(1), { inHand: true }), 0)!.hint).toMatch(/ball/i)
-    expect(overlayView(go(newTransition(1), { phase: 'Build' }), 0)!.hint).toBe('Tap the Defence circle, drag on your half to draw a wall, then Done')
-    expect(overlayView(go(newTransition(1), { inHand: false }), 0)!.hint).toBe('Drag back from the ball to shoot; hold first for Power')
-    expect(overlayView(go(newTransition(1), { round: 2 }), 0)!.hint).toBeUndefined()
+    expect(overlayView(go(fresh(1), { inHand: true }), 0)!.hint).toMatch(/ball/i)
+    expect(overlayView(go(fresh(1), { phase: 'Build' }), 0)!.hint).toBe('Tap the Defence circle, drag on your half to draw a wall, then Done')
+    expect(overlayView(go(fresh(1), { inHand: false }), 0)!.hint).toBe('Drag back from the ball to shoot; hold first for Power')
+    expect(overlayView(go(fresh(1), { round: 2 }), 0)!.hint).toBeUndefined()
   })
 })
 
@@ -108,7 +119,7 @@ describe('repaired sweep in hot-seat', () => {
 describe('online (no handover)', () => {
   const online = (t: Transition, o: Partial<Frame>) => go(t, { active: 2, handover: false, ...o })
   it('never flips or opens a turn card, and the screen stays with the local player', () => {
-    let t = online(newTransition(2), {})
+    let t = online(fresh(2), {})
     expect(t.overlay).toBeUndefined()
     expect(blocking(t)).toBe(false)
     t = online(t, { now: 100, events: [{ type: 'round-ended', round: 1, scorer: 1 }] })
@@ -116,7 +127,7 @@ describe('online (no handover)', () => {
     expect(angle(t, 100)).toBe(180)
   })
   it('still holds on a goal and sweeps on a phase change', () => {
-    let t = online(newTransition(2), { phase: 'Play' })
+    let t = online(fresh(2), { phase: 'Play' })
     t = online(t, { now: 10, phase: 'Build', events: [{ type: 'goal', scorer: 1, at: { x: 20, y: 0 } }] })
     expect(blocking(t)).toBe(true)
     t = online(t, { now: 1600, phase: 'Build' })
@@ -182,7 +193,7 @@ describe('reveal', () => {
   })
   it('online: no turn card after it, the screen stays with the local player', () => {
     const on = { active: 2 as const, handover: false }
-    let t = go(go(newTransition(2), { ...on, opening: true, phase: 'Build', now: 0 }), { ...on, opening: false, phase: 'Play', now: 1000 })
+    let t = go(go(fresh(2), { ...on, opening: true, phase: 'Build', now: 0 }), { ...on, opening: false, phase: 'Play', now: 1000 })
     expect(revealing(t)).toBe(true)
     t = go(t, { ...on, opening: false, phase: 'Play', now: 2500 })
     expect(revealing(t)).toBe(false)
@@ -197,7 +208,7 @@ describe('opponent is choosing notice', () => {
   it('shows to the peer waiting on the chooser, in the chooser colour, as a non-blocking label', () => {
     const n = choosingNotice(siegeMatch(1), mineIs(2))
     expect(n).toEqual({ player: 1, text: 'Opponent is choosing' })
-    const v = overlayView(newTransition(2), 0, n)
+    const v = overlayView(fresh(2), 0, n)
     expect(v).toMatchObject({ kind: 'notice', text: 'Opponent is choosing', color: visual.player.colors[1], placement: 'top', band: false })
   })
   it('does not show to the chooser, in hot-seat, or when nobody is choosing', () => {
@@ -206,29 +217,43 @@ describe('opponent is choosing notice', () => {
     expect(choosingNotice(siegeMatch(null), mineIs(2))).toBeUndefined()
   })
   it('never blocks the sim and yields to a real overlay', () => {
-    expect(blocking(newTransition(2))).toBe(false)
-    const t = go(go(newTransition(2), { active: 2 }), { now: 10, active: 2 })
+    expect(blocking(fresh(2))).toBe(false)
+    const t = go(go(fresh(2), { active: 2 }), { now: 10, active: 2 })
     expect(overlayView(t, 10, { player: 1, text: 'x' })?.kind).toBe('turn')
   })
 })
 
 describe('flip off (hot-seat, the default)', () => {
   const dismissed = (flip: boolean) => dismiss(go(go(newTransition(1, flip), { flip }), { flip, now: 1000 }), 1000)
+  it('still holds at match start: a flip with no rotation, the card fading in, tap-dismiss only after it', () => {
+    let t = go(newTransition(1, false), { flip: false })
+    expect(t.flip).toMatchObject({ from: 1, to: 1, hudSeat: 1 })
+    expect(angle(t, 200)).toBe(0)
+    expect(blocking(t)).toBe(true)
+    expect(overlayView(t, 100)!.opacity).toBe(0)
+    expect(overlayView(t, 300)!.opacity).toBeCloseTo(0.5)
+    expect(dismiss(t, 300).overlay).toBeDefined()
+    t = go(t, { flip: false, now: 400 })
+    expect(t.flip).toBeUndefined()
+    expect(dismiss(t, 1000).overlay).toBeUndefined()
+  })
   it('never rotates: the opponent plays from across the table, behind a turn card', () => {
     let t = dismissed(false)
     t = go(t, { now: 2000, active: 2, flip: false })
-    expect(t.flip).toBeUndefined()
-    expect(angle(t, 2000)).toBe(0)
-    expect(t.shown).toBe(1)
-    expect(t.turn).toBe(2)
+    expect(t.flip).toMatchObject({ from: 1, to: 1, hudSeat: 2 })
+    expect(angle(t, 2200)).toBe(0)
     expect(overlayView(t, 2000)?.text).toBe("Player 2's turn")
-    expect(overlayView(t, 2000)!.opacity).toBe(1)
+    expect(overlayView(t, 2000)!.opacity).toBe(0)
     expect(blocking(t)).toBe(true)
+    t = go(t, { now: 2400, active: 2, flip: false })
+    expect(t.shown).toBe(1)
+    expect(t.hudSeat).toBe(2)
+    expect(overlayView(t, 2400)!.opacity).toBe(1)
   })
   it('opens a match for player 2 with the board still at the bottom', () => {
     const t = go(newTransition(2, false), { active: 2, flip: false })
     expect(angle(t, 0)).toBe(0)
-    expect([t.shown, t.turn]).toEqual([1, 2])
+    expect([t.shown, t.hudSeat]).toEqual([1, 2])
     expect(overlayView(t, 0)?.text).toBe("Player 2's turn")
   })
   it('turning it on mid-match applies at the next handover, not before', () => {
@@ -259,7 +284,7 @@ describe('flip off (hot-seat, the default)', () => {
 describe('online', () => {
   it('ignores the toggle: no flip and no turn card, whichever way it is set', () => {
     for (const flip of [true, false]) {
-      const t = go(go(newTransition(1), { handover: false, flip }), { handover: false, flip, now: 2000, active: 2 })
+      const t = go(go(fresh(1), { handover: false, flip }), { handover: false, flip, now: 2000, active: 2 })
       expect(t.flip).toBeUndefined()
       expect(t.overlay).toBeUndefined()
       expect(t.shown).toBe(1)
