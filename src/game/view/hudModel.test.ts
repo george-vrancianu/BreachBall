@@ -6,7 +6,7 @@ import type { TowerSpec, WallSpec } from '../../sim/wall'
 import { playState, hseg } from '../../sim/testkit'
 import { hudModel } from './hudModel'
 
-const view = { active: 1 as const, viewer: 1 as const, armed: false, tappable: false }
+const view = { active: 1 as const, viewer: 1 as const }
 
 describe('hudModel', () => {
   it('Rounds shows the score digit and the round label', () => {
