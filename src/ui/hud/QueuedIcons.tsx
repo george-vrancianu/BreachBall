@@ -7,7 +7,6 @@ import { JAM } from './icons'
 import { chipClear } from './Minimap'
 
 const { panel } = visual.hud
-const { itemBorderPx } = visual.hud.defence
 
 /** How each item is drawn and named, in the queued icons. */
 const ITEMS: Record<SubterfugeItem, { icon(size: number): ReactNode; name: string }> = { jam: { icon: JAM, name: 'Jam' } }
@@ -18,14 +17,14 @@ const ITEMS: Record<SubterfugeItem, { icon(size: number): ReactNode; name: strin
  */
 export function QueuedIcons({ queued, flipped }: { queued: SubterfugeCircleView['queued']; flipped: boolean }) {
   if (!queued.length) return null
-  const { px, edgePx, gapPx, fontPx, iconPx, iconGapPx } = visual.hud.queued
+  const { px, edgePx, gapPx, fontPx, iconPx, iconGapPx, borderPx } = visual.hud.queued
   const offset = visual.hud.bar.heightPx + visual.hud.bar.resourceRowPx + edgePx
   return (
     <div style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'bottom' : 'top']: offset, boxSizing: 'border-box', padding: `0 ${visual.hud.gap}px`, display: 'flex', gap: visual.hud.gap, pointerEvents: 'none', ...FONT }}>
       {([1, 2] as const).map((id) => (
         <div key={id} style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', gap: gapPx }}>
           {queued.filter((q) => q.against === id).map((q) => (
-            <div key={q.against} role="img" aria-label={`${ITEMS[q.item].name} queued against Player ${q.against}`} style={{ display: 'flex', alignItems: 'center', gap: iconGapPx, height: px, marginLeft: q.against === 1 ? chipClear() : 0, marginRight: q.against === 2 ? visual.sideMenu.buttonInsetPx + visual.sideMenu.buttonPx : 0, padding: `0 ${gapPx}px`, borderRadius: px / 2, border: `${itemBorderPx}px solid ${visual.player.colors[q.by]}`, background: panel, color: visual.player.colors[q.by], fontSize: fontPx }}>
+            <div key={q.against} role="img" aria-label={`${ITEMS[q.item].name} queued against Player ${q.against}`} style={{ display: 'flex', alignItems: 'center', gap: iconGapPx, height: px, marginLeft: q.against === 1 ? chipClear() : 0, marginRight: q.against === 2 ? visual.sideMenu.buttonInsetPx + visual.sideMenu.buttonPx : 0, padding: `0 ${gapPx}px`, borderRadius: px / 2, border: `${borderPx}px solid ${visual.player.colors[q.by]}`, background: panel, color: visual.player.colors[q.by], fontSize: fontPx }}>
               {ITEMS[q.item].icon(iconPx)}
               <span>{`${ITEMS[q.item].name} · P${q.against}`}</span>
             </div>

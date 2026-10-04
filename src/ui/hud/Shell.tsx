@@ -3,7 +3,6 @@ import { visual } from '../../config/visual'
 import type { DefenceCircle as DefenceCircleView, Item, SelectionAction, SelectionButton } from '../../game/view/defenceCircle'
 import { type ButtonSpec, type HudModel } from '../../game/view/hudModel'
 import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
-import { UNITS } from '../../game/view/units'
 import type { StrategyCard } from '../../game/view/strategies'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
@@ -88,7 +87,7 @@ function ShotPips({ left, max, color }: { left: number; max: number; color: stri
 }
 
 /** Refund: trades a Move point for Credits. A tap refunds one; a long-press refunds all but one (none when one is left, which `onRefund(0)` reports). Greyed when a refund is not allowed now. */
-function RefundButton({ rate, left, refundable, color, onRefund }: { rate: number; left: number; refundable: boolean; color: string; onRefund(count: number): void }) {
+function RefundButton({ rate, unit, left, refundable, color, onRefund }: { rate: number; /** The balance's chip unit. */ unit: string; left: number; refundable: boolean; color: string; onRefund(count: number): void }) {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const longPressed = useRef(false)
   const [pressed, setPressed] = useState(false)
@@ -135,7 +134,7 @@ function RefundButton({ rate, left, refundable, color, onRefund }: { rate: numbe
       style={{ ...tileStyle({ color, available: refundable }), width: dock.refundPx, ...(pressed && { background: visual.hud.pressed, borderColor: visual.hud.pressedBorder }), ...(refundable && { borderColor: color }) }}
     >
       <span style={{ color: refundable ? color : 'inherit', display: 'flex' }}>{REFUND(dock.iconPx)}</span>
-      <span style={tileLabel}>{`+${rate} ${UNITS.rounds.chip}`}</span>
+      <span style={tileLabel}>{`+${rate} ${unit}`}</span>
     </button>
   )
 }
@@ -266,7 +265,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
   const safeEdge = `max(${dock.padPx}px, env(safe-area-inset-bottom))`
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
-      {building && strategies && <StrategyTray cards={strategies} color={color} unit={m.balance?.unit ?? UNITS.rounds.chip} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `${dock.trayPadPx.y}px ${dock.padPx}px` }} />}
+      {building && strategies && m.balance && <StrategyTray cards={strategies} color={color} unit={m.balance.unit} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `${dock.trayPadPx.y}px ${dock.padPx}px` }} />}
       {defence?.selection && <SelectionBar buttons={defence.selection.buttons} />}
       {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(dock.primary.iconPx)} />}
       {mapOpen && <MapHint />}
@@ -296,7 +295,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
               trailing={
                 <div style={{ display: 'flex', alignItems: 'center', gap: dock.wideGapPx }}>
                   <ShotPips left={m.shotsLeft} max={m.shotsMax} color={color} />
-                  {m.refundRate !== null && <RefundButton rate={m.refundRate} left={m.shotsLeft} refundable={m.refundable} color={color} onRefund={onRefund} />}
+                  {m.refundRate !== null && m.balance && <RefundButton rate={m.refundRate} unit={m.balance.unit} left={m.shotsLeft} refundable={m.refundable} color={color} onRefund={onRefund} />}
                 </div>
               }
             />

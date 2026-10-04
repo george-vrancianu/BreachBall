@@ -44,7 +44,7 @@ describe('handover', () => {
   })
   it('carries hints in round 1 only', () => {
     expect(overlayView(go(fresh(1), { inHand: true }), 0)!.hint).toMatch(/ball/i)
-    expect(overlayView(go(fresh(1), { phase: 'Build' }), 0)!.hint).toBe('Tap the Build tile, pick a piece and draw it on your half, then OK')
+    expect(overlayView(go(fresh(1), { phase: 'Build' }), 0)!.hint).toBe('Drag on your half to draw a wall, or pick a piece below, then OK')
     expect(overlayView(go(fresh(1), { inHand: false }), 0)!.hint).toBe('Drag back from the ball to shoot; hold first for Power')
     expect(overlayView(go(fresh(1), { round: 2 }), 0)!.hint).toBeUndefined()
   })
