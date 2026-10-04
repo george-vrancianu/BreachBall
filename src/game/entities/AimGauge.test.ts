@@ -22,6 +22,16 @@ describe('AimGauge radius', () => {
   })
 })
 
+describe('AimGauge cancel circle', () => {
+  it('is drawn at 12 screen px, in world units: wider than the gesture\'s 8 px slop, so the ball leaves it showing', () => {
+    expect(gauge(touch).cancelRadius).toBe(1.2)
+    expect(gauge({ ...touch, pxPerUnit: 4 }).cancelRadius).toBe(3)
+  })
+  it('is absent without an aim', () => {
+    expect(gauge().cancelRadius).toBeUndefined()
+  })
+})
+
 describe('AimGauge limit', () => {
   it('shows only the Touch limit in Touch, chipped TOUCH LIMIT, in green', () => {
     expect(gauge(touch).limits).toEqual([{ tier: 'Touch', radius: 15, chip: 'TOUCH LIMIT', color: '#4ade80', chipAt: expect.anything() }])

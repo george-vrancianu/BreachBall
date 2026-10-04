@@ -36,6 +36,11 @@ export class AimGauge extends Entity {
     return px / aim.pxPerUnit
   }
 
+  /** The inner cancel circle's radius, in world units (`visual.aim.gauge.cancelPx`): drawn, and where the scale band starts. */
+  get cancelRadius(): number | undefined {
+    return this.aim && visual.aim.gauge.cancelPx / this.aim.pxPerUnit
+  }
+
   /** How far the tier switch's morph has run, 0-1; 1 when settled (and before any switch). */
   get morph(): number {
     return this.switched ? Math.min(1, (this.clock - this.switched.at) / visual.aim.gauge.morph.ms) : 1
@@ -133,8 +138,9 @@ export class AimGauge extends Entity {
     const blur = Math.hypot(m.a, m.b)
     const curve = rules.shot.tiers[aim.tier].curve
     const knob = this.knob && local(this.knob)
-    this.drawScale(ctx, radius * ppu, curve, blur, local)
-    if (knob && aim.pullPx !== undefined) this.drawPull(ctx, knob, Math.min(aim.pullPx, aim.radiusPx), curve, scaleOfAim(aim))
+    const inner = this.cancelRadius! * ppu
+    this.drawScale(ctx, radius * ppu, inner, curve, blur, local)
+    if (knob && aim.pullPx !== undefined) this.drawPull(ctx, knob, Math.min(aim.pullPx, aim.radiusPx), inner, curve, scaleOfAim(aim))
     const readout = this.readout
     if (readout && knob) this.drawReadout(ctx, local(readout.at), readout)
     const pop = this.pop
@@ -147,10 +153,9 @@ export class AimGauge extends Entity {
     ctx.restore()
   }
 
-  /** The scale band, tick rings, inner cancel circle, the breathing limit, the end labels and the limit chip; `R` the shown radius in px, `local` a world point in the gauge's px frame. */
-  private drawScale(ctx: CanvasRenderingContext2D, R: number, curve: Tier['curve'], blur: number, local: (p: Point) => Point): void {
+  /** The scale band, tick rings, inner cancel circle, the breathing limit, the end labels and the limit chip; `R` the shown radius and `inner` the cancel circle's, in px; `local` a world point in the gauge's px frame. */
+  private drawScale(ctx: CanvasRenderingContext2D, R: number, inner: number, curve: Tier['curve'], blur: number, local: (p: Point) => Point): void {
     const { band, ticks, cancel, limit, flare, label } = visual.aim.gauge
-    const inner = visual.aim.slopPx
     const col = this.color
     const g = ctx.createRadialGradient(0, 0, inner, 0, 0, R)
     g.addColorStop(0, withAlpha(col, band[curve][0]))
@@ -187,10 +192,9 @@ export class AimGauge extends Entity {
     for (const l of this.limits) chip(ctx, l.chip, local(l.chipAt), l.color, label.sizePx)
   }
 
-  /** While aiming: the lit wedge on the pull side, the ring at the finger's distance `d` (px, clamped to the limit), the ripple, the elastic line and the knob; `e` the scale position. */
-  private drawPull(ctx: CanvasRenderingContext2D, knob: Point, d: number, curve: Tier['curve'], e: number): void {
+  /** While aiming: the lit wedge on the pull side, the ring at the finger's distance `d` (px, clamped to the limit), the ripple, the elastic line and the knob; `inner` the cancel circle's radius (px), `e` the scale position. */
+  private drawPull(ctx: CanvasRenderingContext2D, knob: Point, d: number, inner: number, curve: Tier['curve'], e: number): void {
     const { wedge, level, ripple, elastic, knob: kn, flare } = visual.aim.gauge
-    const inner = visual.aim.slopPx
     const col = this.color
     const pull = Math.atan2(knob.y, knob.x)
     const half = (wedge.halfDeg * Math.PI) / 180

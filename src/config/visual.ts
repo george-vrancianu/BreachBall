@@ -237,9 +237,11 @@ export const visual = {
     splash: { ms: 250, color: cream, width: 0.3 },
     /**
      * The control gauge around the ball while aiming (the prototype's `gauge()`), showing only the current tier. Sizes in screen px (converted with the aim's `pxPerUnit`),
-     * alphas 0-1, colours from `tierColors` unless named. The scale runs from the inner cancel circle (radius `slopPx`) out to the limit.
+     * alphas 0-1, colours from `tierColors` unless named. The scale runs from the inner cancel circle (radius `cancelPx`) out to the limit.
      */
     gauge: {
+      /** The inner cancel circle's drawn radius, where the scale band starts: larger than the gesture's `slopPx` (8) so the ball does not cover it. Drawing only: releasing within `slopPx` still cancels. */
+      cancelPx: 12,
       /** The end labels, by the tier's curve: the scale's reading near the ball and at the limit. */
       ends: { direct: { near: 'LOW', limit: 'MAX' }, inverted: { near: 'MAX', limit: 'MIN' } } satisfies Record<Tier['curve'], { near: string; limit: string }>,
       /** The scale band's alpha at the inner circle and at the limit, by curve: strong where the tier's power is high. */
