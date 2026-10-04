@@ -20,6 +20,14 @@ export function canFinishBuild(s: SimState, config: SimConfig): boolean {
 export const canRefund = (s: Pick<SimState, 'match' | 'possession'>, p: PlayerId): boolean =>
   modeFor(s.match).mayRefund(s.match) && !s.match.builder && !s.match.choosing && s.possession.shooter === p && !s.possession.inHand && !s.possession.live && s.possession.shots > 0
 
+/** Whether `p` may buy a Subterfuge item now (price and queue aside): their own possession with no shot in flight, or their build turn, in a mode with Credits, and not yet one this turn. */
+export const canSubterfuge = (s: Pick<SimState, 'match' | 'possession' | 'subterfuge'>, p: PlayerId): boolean =>
+  modeFor(s.match).maySubterfuge(s.match) && !s.match.winner && !s.match.choosing && !s.subterfuge.spent && (s.match.builder ? s.match.builder === p : s.possession.shooter === p && !s.possession.live)
+
+/** Whether `p` may queue a Jam now: Subterfuge is open to them, they can pay, and none is already queued against their opponent (a Jam never stacks). */
+export const canJam = (s: Pick<SimState, 'match' | 'possession' | 'subterfuge' | 'credits'>, p: PlayerId): boolean =>
+  canSubterfuge(s, p) && s.credits[p] >= rules.jamCost && s.subterfuge.queued[opponent(p)] === null
+
 /** Whether the current build turn may place and demolish (false in a Rearrange turn, which only moves pieces). */
 export const canEdit = (s: Pick<SimState, 'match'>): boolean => modeFor(s.match).mayEdit(s.match)
 
@@ -73,6 +81,16 @@ export type SimEvent =
   | { type: 'repulsor-fired'; tower: number; at: Point }
   /** A defence-turn Repair restored this structure to full HP. */
   | { type: 'repaired'; id: number; player: PlayerId }
+  /** `player` paid for a Subterfuge item; it waits against their opponent's next possession. */
+  | { type: 'subterfuge-queued'; player: PlayerId; item: SubterfugeItem }
+  /** A queued Subterfuge item took effect on `player`'s possession, which has just begun. */
+  | { type: 'subterfuge-landed'; player: PlayerId; item: SubterfugeItem }
+
+/** The Subterfuge items that work. */
+export type SubterfugeItem = 'jam'
+
+/** `queued` is the item waiting against each player's next possession (a player's own entry is what their opponent did to them); `spent` is set once the current turn has bought one (a turn is a possession or a build turn). */
+export type SubterfugeState = { queued: Record<PlayerId, SubterfugeItem | null>; spent: boolean }
 
 export type SimState = {
   tick: number
@@ -90,6 +108,7 @@ export type SimState = {
   clock: { left: number; expiries: number }
   /** The shot in flight is a Breaker shot that has not broken anything yet. */
   breaker: boolean
+  subterfuge: SubterfugeState
 }
 
 /** An aim: `dir` is a world-space unit vector (the way the ball goes), `tier` an index into `rules.shot.tiers`, `power` 0-1 of maxSpeed. */
@@ -112,6 +131,8 @@ export type SimInput = {
   placeBall?: { player: PlayerId; at: Point }
   /** The shooter trades `count` unspent Move points for Credits. */
   refund?: { player: PlayerId; count: number }
+  /** The shooter or builder buys a Subterfuge item against their opponent's next possession. */
+  subterfuge?: { player: PlayerId; item: SubterfugeItem }
 }
 
 export type SimConfig = {
@@ -173,7 +194,7 @@ export function initialState(seed = 1, config: SimConfig = defaultConfig): SimSt
   // The first builder's turn opens here, so it gets its grant as every later build turn does in step; the other player holds nothing yet.
   const none = { 1: 0, 2: 0 }
   const credits = { ...none, ...(b && { [b]: mode.onBuildStart(start.match, ctxOf([], start.possession, start.possession.shooter, none), config).credits }) }
-  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: { x: rules.pitchWidth / 2, y: rules.halfHeight }, vel: { x: 0, y: 0 }, rolled: 0 }, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false }
+  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: { x: rules.pitchWidth / 2, y: rules.halfHeight }, vel: { x: 0, y: 0 }, rolled: 0 }, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false } }
 }
 
 const spend = (players: SimState['players'], id: PlayerId, power: PowerUp, n = 1): SimState['players'] => ({ ...players, [id]: { ...players[id], inventory: { ...players[id].inventory, [power]: players[id].inventory[power] - n } } })
@@ -254,6 +275,16 @@ export function step(
       clock = { left: config.shotClock * config.tickHz, expiries: 0 }
     }
     credits = { ...credits, [refund.player]: credits[refund.player] + refund.count * config.refundRate }
+  }
+  let { subterfuge } = state
+  const cast = input.subterfuge
+  if (cast) {
+    // The price is paid and the item queued against the opponent at once; it lands when their next possession begins.
+    if (canJam({ match, possession, subterfuge, credits }, cast.player)) {
+      subterfuge = { queued: { ...subterfuge.queued, [opponent(cast.player)]: cast.item }, spent: true }
+      credits = { ...credits, [cast.player]: credits[cast.player] - rules.jamCost }
+      events.push({ type: 'subterfuge-queued', player: cast.player, item: cast.item })
+    } else events.push({ type: 'refused' })
   }
   let chose = false
   // The build window covers a pending defence choice too; when it runs out the mode picks for the chooser.
@@ -370,6 +401,16 @@ export function step(
       events.push({ type: 'match-ended', winner })
     }
   }
+  // A new turn (a hand-over, or a build turn starting or ending) may buy Subterfuge again.
+  const turned = possession.shooter !== state.possession.shooter || match.builder !== state.match.builder || events.some((e) => e.type === 'possession-changed')
+  if (turned) subterfuge = { ...subterfuge, spent: false }
+  // A possession begins in play with a hand-over, or when the last build turn ends: a Jam queued against its shooter lands, taking one Move point (never the last).
+  const began = !match.winner && !match.builder && (!!state.match.builder || events.some((e) => e.type === 'possession-changed'))
+  if (began && subterfuge.queued[possession.shooter] === 'jam') {
+    possession = { ...possession, shots: Math.max(1, possession.shots - 1) }
+    subterfuge = { ...subterfuge, queued: { ...subterfuge.queued, [possession.shooter]: null } }
+    events.push({ type: 'subterfuge-landed', player: possession.shooter, item: 'jam' })
+  }
   if (match.builder !== state.match.builder) built = []
   if (match.builder && match.builder !== state.match.builder) {
     const t = mode.onBuildStart(match, ctxOf(rolled.objects, possession, shooter, credits), config)
@@ -383,5 +424,5 @@ export function step(
   if (expired || fired || ended || (chose && !match.builder) || (state.possession.live && !possession.live) || possession.shooter !== state.possession.shooter) clock = { ...clock, left: config.shotClock * config.tickHz }
   // A goal opens the choice: its window is the build window, set after the resets above.
   if (match.choosing && !state.match.choosing && config.buildTime) clock = { left: config.buildTime * config.tickHz, expiries: 0 }
-  return { state: { ...state, possession, match, clock, tick: state.tick + 1, players, breaker: rolled.breaker && possession.live, objects: rolled.objects, credits, nextId, built, ball: landed }, events }
+  return { state: { ...state, possession, match, clock, tick: state.tick + 1, players, subterfuge, breaker: rolled.breaker && possession.live, objects: rolled.objects, credits, nextId, built, ball: landed }, events }
 }

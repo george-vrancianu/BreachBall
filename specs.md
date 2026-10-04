@@ -187,6 +187,27 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 - For the owner's own shots it is a plain wall.
 - Consumed when it triggers.
 
+## Subterfuge
+
+The third family of actions (see `GLOSSARY.md`): items that cripple the opponent's next possession rather than improve your own shot or structures. Rounds only; Siege has no Credits, so no Subterfuge circle. Items are bought with Credits (`docs/adr/0004-credits-single-resource.md`).
+
+- Usable in your own possession (ball in hand or placed, never with a shot in flight) or in your build turn, and never during a defence choice or after the match is decided. One Subterfuge item per turn, a turn being one possession or one build turn: a second is refused and costs nothing. A new turn (a hand-over, a build turn starting or ending) allows one again.
+- The sim input is `subterfuge: { player, item }`. The Credits are charged at once and the item is queued against the opponent (`subterfuge.queued[opponent]`), with a `subterfuge-queued` event. An input the sim cannot honour (not the actor, shot in flight, already bought one this turn, too few Credits) is refused with a `refused` event and changes nothing.
+- The queue holds one item per player: a Jam never stacks, so buying a second while one waits against the same opponent is refused.
+
+### Jam
+
+- Price: 2 Credits (`rules.jamCost`). The opponent's next possession starts with one Move point fewer.
+- It lands when that possession begins in play: a hand-over (the ball rests on their half, shots run out, a Steal, a Refund of the last Move point, a clock burn) or, for a Jam queued in a build turn, when the last build turn ends and play begins on a possession that is already theirs. A `subterfuge-landed` event is emitted and the queue entry is cleared, so it affects that possession only and never a later one.
+- A possession never drops below one Move point: with one Move point per possession configured the Jam lands without effect.
+- A Jam stays queued while the caster keeps the ball, through any number of their own shots, until the possession passes to the opponent. It carries across rounds (a goal ends the round, the build turns follow, and it lands when the opponent's possession begins).
+
+### HUD
+
+- The Subterfuge circle (🗡, a drawn dagger) sits beside the Defence circle in the shell. Tap, or hold still, to open its item column; slide onto an item and lift to buy it. Each item's pill gives its price and when it lands (Jam: "next possession"). The two further items are locked placeholders marked 🧪 "Soon".
+- The circle opens greyed out outside the viewer's own possession or build turn, and once this turn's Subterfuge is bought; a tap or hold then only pulses it. A Jam without the Credits, or while one is already queued, is greyed inside the column.
+- A queued Jam shows as a small pill with a Jam icon in its caster's colour near the far (top) edge, to both players, until it lands. It moves under the Defence bar's side of its target when that slice lands.
+
 ## Presentation
 
 ### Visual language

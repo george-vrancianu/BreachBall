@@ -2,9 +2,12 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { visual } from '../../config/visual'
 import type { DefenceCircle as DefenceCircleView, Item } from '../../game/view/defenceCircle'
 import type { HudModel } from '../../game/view/hudModel'
+import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
+import type { SubterfugeItem } from '../../game/Game'
 import type { PlayerId, PowerUp } from '../../game/Game'
 import { Button, ButtonRow, FONT } from '../ButtonRow'
 import { DefenceCircle } from './DefenceCircle'
+import { SubterfugeCircle } from './SubterfugeCircle'
 
 const ICONS: Record<PowerUp, string> = { breaker: 'B', repulsor: 'R', steal: 'S' }
 const ring = (f: number, color: string = visual.hud.ink) => `conic-gradient(${color} ${f * 360}deg,${visual.hud.track} 0)`
@@ -80,6 +83,8 @@ function MoveDots({ left, max, refundable, onRefund }: { left: number; max: numb
 export type ShellProps = {
   hud: HudModel
   defence?: DefenceCircleView
+  /** The Subterfuge circle's model; absent where the mode has no Credits (Siege). */
+  subterfuge?: SubterfugeCircleView
   confirm: boolean
   mapOpen: boolean
   /** Player 2 is at the bottom of the screen: the stage is turned, so the shell sits at the stage's top. */
@@ -92,6 +97,8 @@ export type ShellProps = {
   onMapClose(): void
   onDefenceToggle(): void
   onDefenceArm(item: Item): void
+  /** Buy a Subterfuge item. */
+  onSubterfuge(item: SubterfugeItem): void
   /** Refund `count` Move points. */
   onRefund(count: number): void
   className?: string
@@ -100,7 +107,7 @@ export type ShellProps = {
 }
 
 /** The in-match controls, in one shell at the bottom of the screen and only for the active viewer. Mount inside the rotating stage. Flipped, the rows run in reverse so the Defence circle is always the row nearest the pitch, where its column opens over the pitch and not the HUD. */
-export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRecenter, onPowerUp, onConfirm, onMapStretch, onMapClose, onDefenceToggle, onDefenceArm, onRefund, className, style, children }: ShellProps) {
+export function Shell({ hud: m, defence, subterfuge, confirm, mapOpen, flipped, onMap, onRecenter, onPowerUp, onConfirm, onMapStretch, onMapClose, onDefenceToggle, onDefenceArm, onSubterfuge, onRefund, className, style, children }: ShellProps) {
   const color = visual.player.colors[m.active]
   const live = m.breaker.tappable
   // The power-ups dim to outlines while the Defence circle's column is open over the pitch.
@@ -110,7 +117,12 @@ export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRec
   const auto: CSSProperties = { pointerEvents: 'auto' }
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, padding: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
-      {defence && <DefenceCircle defence={defence} color={color} flipped={flipped} onToggle={onDefenceToggle} onArm={onDefenceArm} onOpen={setColumnOpen} style={auto} />}
+      {(defence || subterfuge) && (
+        <div style={{ ...auto, display: 'flex', alignItems: 'center', gap: 10 }}>
+          {defence && <DefenceCircle defence={defence} color={color} flipped={flipped} onToggle={onDefenceToggle} onArm={onDefenceArm} onOpen={setColumnOpen} />}
+          {subterfuge && <SubterfugeCircle subterfuge={subterfuge} color={color} flipped={flipped} onBuy={onSubterfuge} />}
+        </div>
+      )}
       {confirm && <ButtonRow specs={[{ label: 'Confirm', onClick: onConfirm }]} style={auto} />}
       {mapOpen && <ButtonRow specs={[{ label: 'Stretch', onClick: onMapStretch }, { label: 'Close', onClick: onMapClose }]} style={auto} />}
       {m.buttons?.length ? <ButtonRow specs={m.buttons} style={auto} /> : null}

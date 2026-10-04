@@ -4,6 +4,7 @@ import { Game, type HudView } from '../game/Game'
 import { showConnectScreen } from '../net/connectScreen'
 import { defaultSettings, type Settings } from '../game/view/settings'
 import { Shell } from './hud/Shell'
+import { QueuedIcons } from './hud/SubterfugeCircle'
 import { Overlay } from './overlays/Overlay'
 import { HelpScreen, MatchEndScreen, SettingsScreen, TitleScreen } from './screens/Screens'
 
@@ -40,9 +41,11 @@ export function App() {
         {view && (
           <>
             <Overlay view={view.overlay} onTap={() => actions().dismiss()} />
+            {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} />}
             <Shell
               hud={view.hud}
               defence={view.defence}
+              subterfuge={view.subterfuge}
               confirm={view.confirm}
               mapOpen={view.mapOpen}
               flipped={view.flipped}
@@ -55,6 +58,7 @@ export function App() {
               onMapClose={() => actions().map(false)}
               onDefenceToggle={() => actions().build.toggle()}
               onDefenceArm={(item) => actions().build.arm(item)}
+              onSubterfuge={(item) => actions().subterfuge(item)}
             />
           </>
         )}

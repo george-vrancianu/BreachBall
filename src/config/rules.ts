@@ -28,6 +28,8 @@ const base = {
   /** Credits it costs to demolish a piece placed in an earlier turn. */
   demolishCost: 1,
   startInventory: 3,
+  /** Credits a Jam costs (Subterfuge). */
+  jamCost: 2,
   /** Where a timed-out blind opening build drops its 1-unit horizontal wall for P1: `gap` is the distance in world units from the goal no-build zone to its line; P2's mirrors across the halfway line. */
   fallbackPiece: { gap: 1 },
   /** Splash radius is `radiusBase * ballRadius * (1 + radiusGrowth * power)`; pressure above `heavy` / `light` costs more hp. */
