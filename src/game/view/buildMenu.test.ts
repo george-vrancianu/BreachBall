@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
+import { canEdit, defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
 import { buildState, emptied, hseg } from '../../sim/testkit'
 import type { WallSpec } from '../../sim/wall'
 import { anchorOf, buildMenu, commit, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapStart, towerAt, type BuildActions } from './buildMenu'
@@ -61,6 +61,18 @@ describe('selection', () => {
     const spec = { ...wall, ...hseg(4, 40) }
     expect(legal(s, { spec, id: 1, movable: true })).toBe(true)
     expect(legal(s, { spec, movable: true })).toBe(false)
+  })
+  it('a moved wall may not change length when the turn only rearranges, and must be affordable otherwise', () => {
+    const longer = { ...wall, ...hseg(10, 40, 2) }
+    const s = placed()
+    expect(legal(s, { spec: longer, id: 1, movable: true })).toBe(true)
+    expect(legal({ ...s, credits: { 1: 1, 2: 1 } }, { spec: longer, id: 1, movable: true })).toBe(false)
+    const siege = { ...c, mode: 'siege' as const }
+    const base = initialState(1, siege)
+    const rearrange = { ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: s.objects, built: s.built }
+    expect(canEdit(rearrange)).toBe(false)
+    expect(legal(rearrange, { spec: longer, id: 1, movable: true })).toBe(false)
+    expect(legal(rearrange, { spec: { ...wall, ...hseg(4, 40) }, id: 1, movable: true })).toBe(true)
   })
   it('✓ places a new piece or moves a structure; nothing for an older one', () => {
     expect(commit({ spec: wall, movable: true })).toEqual({ placeWall: wall })

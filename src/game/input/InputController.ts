@@ -3,13 +3,30 @@ import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
 import { canArm, canPlaceBall } from '../../sim/possession'
 import { canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
-import { snapWallEnd } from '../../sim/wall'
+import { snapWallEnd, type StructureSpec } from '../../sim/wall'
 import { screenDown, type Camera } from '../entities/Camera'
-import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/buildMenu'
+import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapBody, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/buildMenu'
 import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, type AimGesture, type GestureView } from './gesture'
 
 /** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
 export type AimView = GestureView & { pxPerUnit: number }
+
+/**
+ * The one press in progress, decided progressively. It starts `pending` (nothing has changed yet) and becomes a gesture once the pointer
+ * travels past `dragSlopPx`; a lift while still pending is a tap.
+ * - `pending`: `hit` is what lay under the finger on press: the selected structure's body, an unselected own structure, or nothing.
+ * - `body`: translating the selected, movable structure; `origin` is where it stood on press, restored if it cannot be committed.
+ * - `draw`: drawing a wall from `a`. `tower`: a fresh tower under the finger. Both are held by `offset` for `bodyTo`.
+ * - `pan`: the camera follows the finger.
+ * `px`/`py` are the pointer's last canvas position (for edge scrolling).
+ */
+type Press =
+  | { kind: 'pending'; id: number; startPx: Point; startWorld: Point; hit?: { sel: Selection; selected: boolean } }
+  | { kind: 'body'; id: number; origin: StructureSpec; offset: Point; px: number; py: number }
+  | { kind: 'draw'; id: number; a: Point; px: number; py: number }
+  | { kind: 'tower'; id: number; offset: Point; px: number; py: number }
+  | { kind: 'pan'; id: number }
+type Live = Extract<Press, { kind: 'body' | 'draw' | 'tower' }>
 
 /** What the controller needs from the game that owns it. */
 export type InputHost = {
@@ -48,17 +65,11 @@ export class InputController {
   private aim?: { gesture: AimGesture; player: PlayerId; id: number }
   // The last `aiming` sent, so updates go out only when the aim changes.
   private sentAim = 'null'
-  // Grab point relative to the piece's anchor, and the pointer's last canvas position (for edge scrolling).
-  // `moved` once the pointer has travelled past visual.input.dragSlopPx from the press, which is when edge scrolling may start.
-  // `fresh`: a tower put down by this press, which lifting places even without a move.
-  private drag?: { offset: Point; px: number; py: number; id: number; from: Point; moved: boolean; fresh: boolean }
-  // A wall being drawn from `a` (world); the build piece shows once the pointer has moved past dragSlopPx.
-  private draw?: { a: Point; px: number; py: number; id: number; from: Point; moved: boolean }
+  private press?: Press
   private draggingBall = false
   private tap?: Point
-  // Pan: any drag that is not an aim or ghost drag, or two fingers in any phase.
+  // Every finger down, for two-finger pan. The gesture's own pointer is `press.id`.
   private pointers = new Map<number, Point>()
-  private panOnly = false
   private stop = new AbortController()
 
   constructor(private host: InputHost) {
@@ -111,7 +122,7 @@ export class InputController {
     },
     rotate: () => {
       // Mid-gesture the piece is still the finger's: rotating would place a second one.
-      if (this.draw || this.drag || !this.selection?.movable) return
+      if (this.live || !this.selection?.movable) return
       this.selection = rotated(this.selection)
       this.place()
     },
@@ -124,8 +135,15 @@ export class InputController {
 
   /** Leaves build mode: the armed item and any unplaced piece go. */
   private leaveBuild(): void {
-    this.item = this.draw = this.drag = undefined
+    this.cancelPress()
+    this.item = undefined
     if (this.selection?.id === undefined) this.selection = undefined
+  }
+
+  /** The press while it is a draw, a tower or a body drag: the finger holds a piece. */
+  private get live(): Live | undefined {
+    const p = this.press
+    return p && p.kind !== 'pending' && p.kind !== 'pan' ? p : undefined
   }
 
   /** Sends the selection if it stands legal (a new piece is placed, a structure moved) and keeps it drawn as `landing` until the sim has it. */
@@ -177,9 +195,9 @@ export class InputController {
       // What the sim took becomes the selection (unless the builder has already moved on to something else).
       const taken = landedAs(state, this.landing)
       this.landing = undefined
-      if (taken && !this.selection && !this.draw && !this.drag) this.selection = taken
+      if (taken && !this.selection && !this.live) this.selection = taken
       // A piece lifted while the landing was in flight could not be sent then: send it now.
-      else if (this.selection?.id === undefined && !this.draw && !this.drag) this.place()
+      else if (this.selection?.id === undefined && !this.live) this.place()
     }
     // The last of an armed tower's stock is down: fall back to the wall.
     const builder = state.match.builder
@@ -197,46 +215,51 @@ export class InputController {
   cancelGestures(): void {
     this.placement = this.tap = undefined
     this.draggingBall = false
+    this.cancelPress()
     this.dropAim()
   }
 
   /** The build turn changed hands or ended: a new piece is gone, a moved one never left its spot in the sim. */
   resetBuild(): void {
-    this.selection = this.landing = this.drag = this.draw = this.item = undefined
+    this.selection = this.landing = this.press = this.item = undefined
   }
 
   /** While dragging or drawing near the top or bottom tenth of the view, scroll toward any of the builder's half that is off screen. */
   edgeScroll(dt: number): void {
     const builder = this.host.state().match.builder
-    const held = this.drag?.moved ? this.drag : this.draw?.moved ? this.draw : undefined
+    const held = this.live
     if (!held || !builder) return
     const { visibleHeight } = this.view
     const dy = edgeScrollDy(this.host.camera.y, visibleHeight, builder, this.pxToWorld(held.px, held.py).y, dt)
     if (!dy) return
     this.host.camera.pan(dy)
-    if (held === this.drag) this.dragTo(held.px, held.py)
-    else this.drawTo(held.px, held.py)
+    this.pressTo(held, held.px, held.py)
   }
 
-  // Drags keep the grab point under the finger; a wall slides freely, a tower snaps to the grid.
-  private dragTo(px: number, py: number): void {
-    const { drag, selection } = this
-    if (!drag || !selection) return
+  /** Feeds the live press the pointer's canvas position. */
+  private pressTo(press: Live, px: number, py: number): void {
+    const next = { ...press, px, py }
+    this.press = next
+    if (next.kind === 'draw') this.drawTo(next, px, py)
+    else this.bodyTo(next, px, py)
+  }
+
+  // A body drag or fresh tower keeps the grab point under the finger; a wall slides freely and its end snaps to a nearby wall end, a tower snaps to the grid.
+  private bodyTo(press: Extract<Live, { offset: Point }>, px: number, py: number): void {
+    const { selection } = this
+    if (!selection) return
     const p = this.pxToWorld(px, py)
-    this.drag = { ...drag, px, py, moved: drag.moved || Math.hypot(px - drag.from.x, py - drag.from.y) > visual.input.dragSlopPx }
-    this.selection = { ...selection, spec: movedTo(selection.spec, { x: p.x - drag.offset.x, y: p.y - drag.offset.y }) }
+    const moved = movedTo(selection.spec, { x: p.x - press.offset.x, y: p.y - press.offset.y })
+    const spec = moved.kind === 'wall' ? snapBody(moved, this.host.state().objects, selection.id, visual.input.snapPx / this.pxPerUnit) : moved
+    this.selection = { ...selection, spec }
   }
 
   // The wall's start stays put; its end snaps live to the nearest allowed angle and unit. Under half a unit there is no piece.
-  private drawTo(px: number, py: number): void {
-    const { draw } = this
+  private drawTo(press: Extract<Live, { kind: 'draw' }>, px: number, py: number): void {
     const builder = this.host.state().match.builder
-    if (!draw || !builder) return
-    const moved = draw.moved || Math.hypot(px - draw.from.x, py - draw.from.y) > visual.input.dragSlopPx
-    this.draw = { ...draw, px, py, moved }
-    if (!moved) return
-    const b = snapWallEnd(draw.a, this.pxToWorld(px, py))
-    this.selection = b ? { spec: { kind: 'wall', owner: builder, a: draw.a, b }, movable: true } : undefined
+    if (!builder) return
+    const b = snapWallEnd(press.a, this.pxToWorld(px, py))
+    this.selection = b ? { spec: { kind: 'wall', owner: builder, a: press.a, b }, movable: true } : undefined
   }
 
   private panBy(dyPx: number): void {
@@ -247,28 +270,35 @@ export class InputController {
     const key = e.key.toLowerCase()
     if (e.code === 'Space') (e.preventDefault(), this.host.camera.recenter())
     if (key === 'm') this.host.toggleMap()
-    else if (key === 'escape') this.host.mapOpen() ? this.host.toggleMap(false) : this.draw || this.drag ? this.abortGesture() : this.selection ? (this.selection = undefined) : ((this.placement = undefined), this.leaveBuild())
+    else if (key === 'escape') this.host.mapOpen() ? this.host.toggleMap(false) : this.live ? this.cancelPress() : this.selection ? (this.selection = undefined) : ((this.placement = undefined), this.leaveBuild())
     else if (key === 'r') this.build.rotate()
     else if (key === 'enter' && !this.host.state().match.builder) this.confirmBall()
   }
 
-  /** Stops a live draw or drag without placing: an unplaced piece goes, a placed structure stays selected as it is. */
-  private abortGesture(): void {
-    if (this.draw || this.drag?.fresh || this.selection?.id === undefined) this.selection = undefined
-    this.draw = this.drag = undefined
+  /** Abandons the press without committing: a placed structure goes back to where it stood (still selected), a draw, fresh tower or unplaced piece goes. */
+  private cancelPress(): void {
+    const live = this.live
+    const { selection } = this
+    if (live?.kind === 'body' && selection?.id !== undefined) this.selection = { ...selection, spec: live.origin }
+    else if (live) this.selection = undefined
+    this.press = undefined
   }
 
   private move(e: PointerEvent): void {
     if (this.draggingBall) this.placement = this.pxToWorld(e.offsetX, e.offsetY)
+    const { press } = this
+    if (press?.id === e.pointerId) {
+      if (press.kind === 'pending') this.promote(press, e.offsetX, e.offsetY)
+      else if (press.kind !== 'pan') this.pressTo(press, e.offsetX, e.offsetY)
+    }
     const prev = this.pointers.get(e.pointerId)
     if (prev) {
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
       const dy = e.clientY - prev.y
-      if (this.pointers.size > 1) this.panBy(dy / this.pointers.size)
-      else if (this.panOnly) this.panBy(dy)
+      // A second finger pans only when no piece is held: it never moves a piece that is live.
+      if (this.pointers.size > 1) this.live || this.panBy(dy / this.pointers.size)
+      else if (this.press?.kind === 'pan') this.panBy(dy)
     }
-    if (this.drag?.id === e.pointerId) this.dragTo(e.offsetX, e.offsetY)
-    if (this.draw?.id === e.pointerId) this.drawTo(e.offsetX, e.offsetY)
     if (this.aim?.id === e.pointerId) {
       this.aim.gesture = aimMove(this.aim.gesture, { x: e.offsetX, y: e.offsetY }, performance.now())
       this.sendAiming(aimOf(this.aim.gesture))
@@ -277,7 +307,7 @@ export class InputController {
 
   /** The browser took the pointer: whatever it was drawing or dragging is abandoned, never placed. */
   private cancel(e: PointerEvent): void {
-    if (this.draw?.id === e.pointerId || this.drag?.id === e.pointerId) this.abortGesture()
+    if (this.press?.id === e.pointerId) this.cancelPress()
     this.draggingBall = false
     this.tap = undefined
     this.release(e)
@@ -286,16 +316,7 @@ export class InputController {
 
   private up(e: PointerEvent): void {
     this.draggingBall = false
-    if (this.drag?.id === e.pointerId) {
-      const { moved, fresh } = this.drag
-      this.drag = undefined
-      // Lifting after a translate (or putting a new tower down) places the piece if it stands legal; else it stays, red and unplaced.
-      if (moved || fresh) this.place()
-    }
-    if (this.draw?.id === e.pointerId) {
-      this.draw = undefined
-      this.place()
-    }
+    if (this.press?.id === e.pointerId) this.lift(this.press)
     if (this.tap && Math.hypot(e.clientX - this.tap.x, e.clientY - this.tap.y) <= visual.input.tapSlopPx) this.placement = this.pxToWorld(e.offsetX, e.offsetY)
     this.tap = undefined
     this.release(e)
@@ -316,7 +337,68 @@ export class InputController {
   /** The pointer is gone: forget it, and a cancelled aim goes without a shot. */
   private release(e: PointerEvent): void {
     this.pointers.delete(e.pointerId)
-    this.panOnly = false
+    if (this.press?.id === e.pointerId) this.press = undefined
+  }
+
+  /** The press moved past the drag slop: it becomes what the armed item and the press point say. */
+  private promote(press: Extract<Press, { kind: 'pending' }>, px: number, py: number): void {
+    if (Math.hypot(px - press.startPx.x, py - press.startPx.y) <= visual.input.dragSlopPx) return
+    const state = this.host.state()
+    const builder = state.match.builder
+    const { selection, item } = this
+    const [id, at] = [press.id, press.startWorld]
+    if (builder && selection?.movable && press.hit?.selected) {
+      const anchor = anchorOf(selection.spec)
+      this.press = { kind: 'body', id, origin: selection.spec, offset: { x: at.x - anchor.x, y: at.y - anchor.y }, px, py }
+    } else if (builder && item === 'wall') {
+      // From anywhere but the selected piece: a wall's start snaps to a nearby wall end, which is how a new wall chains from an old one.
+      this.selection = undefined
+      this.press = { kind: 'draw', id, a: snapStart(state, at, visual.input.snapPx / this.pxPerUnit), px, py }
+    } else if (builder && item && item !== 'wall') {
+      this.selection = { spec: towerAt(item, builder, at), movable: true }
+      this.press = { kind: 'tower', id, offset: towerGrab, px, py }
+    } else {
+      this.press = { kind: 'pan', id }
+      return
+    }
+    this.pressTo(this.press as Live, px, py)
+  }
+
+  /** The gesture's pointer lifted. */
+  private lift(press: Press): void {
+    this.press = undefined
+    const { selection } = this
+    if (press.kind === 'pending') return this.tapped(press)
+    if (press.kind !== 'body') return press.kind === 'pan' ? undefined : this.place()
+    // A placed structure never stays displaced and uncommitted: it moves if the sim will take it, else it goes back.
+    if (selection?.id === undefined) return this.place()
+    if (this.landing || !legal(this.host.state(), selection)) this.selection = { ...selection, spec: press.origin }
+    else this.place()
+  }
+
+  /** A press lifted before it became a gesture: select what is under it, or drop what is not; an armed tower goes down under the finger. */
+  private tapped(press: Extract<Press, { kind: 'pending' }>): void {
+    const builder = this.host.state().match.builder
+    const { hit } = press
+    if (!builder) return
+    if (hit?.selected) return
+    if (hit) return void (this.selection = hit.sel)
+    const unplaced = this.selection?.id === undefined && !!this.selection
+    this.selection = undefined
+    // A tap only discards an unplaced piece; otherwise an armed tower is put down.
+    if (this.item && this.item !== 'wall' && !unplaced) {
+      this.selection = { spec: towerAt(this.item, builder, press.startWorld), movable: true }
+      this.place()
+    }
+  }
+
+  /** What lies under a press: the selected structure's body (a 22px touch target), else another of the builder's own, else nothing. */
+  private hitAt(state: SimState, builder: PlayerId, at: Point): { sel: Selection; selected: boolean } | undefined {
+    const tolerance = Math.max(rules.cellSize / 2, visual.input.touchTargetPx / this.pxPerUnit)
+    const { selection } = this
+    if (selection && onPiece(selection.spec, at, tolerance)) return { sel: selection, selected: true }
+    const own = pick(state, builder, at, tolerance)
+    return own && { sel: own, selected: false }
   }
 
   private down(e: PointerEvent): void {
@@ -329,44 +411,27 @@ export class InputController {
       this.host.toggleMap(false)
       return
     }
-    // A second finger during a draw that is showing is ignored: it neither cancels the draw nor pans.
-    if (this.draw?.moved && this.draw.id !== e.pointerId) return
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (this.pointers.size > 1) {
-      // A second finger pinches/pans and abandons the aim, and a draw that has not shown yet.
+      // A second finger pinches/pans and abandons the aim and a press that has not become a gesture yet (nothing has changed, so nothing to restore).
+      // A live draw, body drag or tower ignores it (it is registered above, but `move` does not pan while a piece is held).
+      // Hook for the end-handle drag: a second finger on the other end of the selected wall would start its own handle press here instead.
       if (this.aim) (this.aim.gesture = { phase: 'pan' }), this.sendAiming(null)
-      this.drag = this.draw = undefined
+      if (this.press?.kind === 'pending') this.press = undefined
       return
     }
     const state = this.host.state()
     const builder = state.match.builder
     if (builder) {
+      // Nothing changes on the press: what is under the finger decides on the move or the lift.
       const at = this.pxToWorld(e.offsetX, e.offsetY)
-      // On the piece: half a cell, or a 44px touch target.
-      const tolerance = Math.max(rules.cellSize / 2, visual.input.touchTargetPx / this.pxPerUnit)
-      if (!this.selection) this.selection = pick(state, builder, at, tolerance)
-      const sel = this.selection
-      const from = { x: e.offsetX, y: e.offsetY }
-      if (sel?.movable && onPiece(sel.spec, at, tolerance)) {
-        const anchor = anchorOf(sel.spec)
-        this.drag = { offset: { x: at.x - anchor.x, y: at.y - anchor.y }, px: from.x, py: from.y, id: e.pointerId, from, moved: false, fresh: false }
-        canvas.setPointerCapture(e.pointerId)
-      } else if (this.item && canEdit(state)) {
-        // Empty pitch with an item armed: draw. An unplaced piece is discarded first, and a tower is not put down by that same press (a tap only discards).
-        const discarded = !!sel && sel.id === undefined
-        this.selection = undefined
-        canvas.setPointerCapture(e.pointerId)
-        if (this.item === 'wall') this.draw = { a: snapStart(state, at, visual.input.snapPx / this.pxPerUnit), px: from.x, py: from.y, id: e.pointerId, from, moved: false }
-        else if (!discarded) {
-          this.selection = { spec: towerAt(this.item, builder, at), movable: true }
-          this.drag = { offset: towerGrab, px: from.x, py: from.y, id: e.pointerId, from, moved: false, fresh: true }
-        }
-      } else this.panOnly = true
+      this.press = { kind: 'pending', id: e.pointerId, startPx: { x: e.offsetX, y: e.offsetY }, startWorld: at, hit: this.hitAt(state, builder, at) }
+      canvas.setPointerCapture(e.pointerId)
       return
     }
     // A defence choice is pending: the board is for looking at, not for placing the ball.
     if (state.match.choosing) {
-      this.panOnly = true
+      this.press = { kind: 'pan', id: e.pointerId }
       return
     }
     // Ball-in-hand: tap a point to set the placement, drag it to move (dragging elsewhere pans), Confirm fixes it.
@@ -376,7 +441,7 @@ export class InputController {
         this.draggingBall = true
         canvas.setPointerCapture(e.pointerId)
       } else {
-        this.panOnly = true
+        this.press = { kind: 'pan', id: e.pointerId }
         this.tap = { x: e.clientX, y: e.clientY }
       }
       return
@@ -392,7 +457,7 @@ export class InputController {
       size: { w: canvas.clientWidth, h: canvas.clientHeight },
     })
     if (gesture.phase === 'pan') {
-      this.panOnly = true
+      this.press = { kind: 'pan', id: e.pointerId }
       return
     }
     canvas.setPointerCapture(e.pointerId)

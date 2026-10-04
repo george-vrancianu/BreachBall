@@ -3,7 +3,7 @@ import { rules } from '../../config/rules'
 import { nearestOnWall } from '../../sim/near'
 import { type PlayerId, type Point } from '../../sim/pitch'
 import { canEdit, type SimInput, type SimState } from '../../sim/step'
-import { isLegal, rotatedWall, structureCost, translatedWall, vertexToWorld, wallCost, type StructureSpec, type TowerPower } from '../../sim/wall'
+import { isLegal, rotatedWall, structureCost, translatedWall, vertexToWorld, wallCost, wallUnits, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
 import type { ButtonSpec } from './hudModel'
 
 /**
@@ -56,9 +56,37 @@ export const anchorOf = (spec: StructureSpec): Point => (spec.kind === 'wall' ? 
 export const movedTo = (spec: StructureSpec, to: Point): StructureSpec =>
   spec.kind === 'wall' ? translatedWall(spec, { x: to.x - spec.a.x, y: to.y - spec.a.y }) : { ...spec, at: { gx: Math.round(to.x / rules.cellSize), gy: Math.round(to.y / rules.cellSize) } }
 
-/** Legal where it stands (ignoring itself when moved) and, for a new piece, affordable. */
+/**
+ * The wall translated so that whichever of its ends lies within `radius` of another wall's end (any owner, not `selfId`'s own) sits exactly on it:
+ * the nearest candidate wins. The target's coordinates are copied, so the touch is exact; the other end follows by the same delta.
+ */
+export function snapBody(w: WallSpec, objects: SimState['objects'], selfId: number | undefined, radius: number): WallSpec {
+  let best: { end: 'a' | 'b'; to: Point; d: number } | undefined
+  for (const o of objects) {
+    if (o.kind !== 'wall' || o.id === selfId) continue
+    for (const end of ['a', 'b'] as const) {
+      for (const to of [o.a, o.b]) {
+        const d = Math.hypot(to.x - w[end].x, to.y - w[end].y)
+        if (d <= radius && (!best || d < best.d)) best = { end, to, d }
+      }
+    }
+  }
+  if (!best) return w
+  const moved = translatedWall(w, { x: best.to.x - w[best.end].x, y: best.to.y - w[best.end].y })
+  return { ...moved, [best.end]: { x: best.to.x, y: best.to.y } }
+}
+
+/**
+ * Legal where it stands (ignoring itself when moved) and affordable: a new piece costs its price; a moved wall must keep its length
+ * unless this turn may edit, and pay (or be refunded) the Credit difference, as the sim's `moveStructure` does.
+ */
 export function legal(s: SimState, sel: Selection): boolean {
   const others = s.objects.filter((o) => o.id !== sel.id)
+  const was = sel.id === undefined ? undefined : s.objects.find((o) => o.id === sel.id)
+  if (sel.spec.kind === 'wall' && was?.kind === 'wall') {
+    if (!canEdit(s) && wallUnits(sel.spec) !== wallUnits(was)) return false
+    if (s.credits[sel.spec.owner] < wallCost(sel.spec) - wallCost(was)) return false
+  }
   // A new tower spends stock the sim would refuse when there is none.
   if (sel.id === undefined && sel.spec.kind === 'tower' && s.players[sel.spec.owner].inventory[sel.spec.power] <= 0) return false
   return isLegal(sel.spec, others) && (sel.id !== undefined || s.credits[sel.spec.owner] >= structureCost(sel.spec))

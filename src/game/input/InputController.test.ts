@@ -253,7 +253,8 @@ describe('towers', () => {
     ctl.build.toggle()
     ctl.build.arm('repulsor')
     down({ x: 20.4, y: 80.3 })
-    expect(ctl.selection!.spec).toMatchObject({ kind: 'tower', power: 'repulsor', at: { gx: 10, gy: 40 } })
+    // Nothing changes on the press itself: the tower goes down on the lift.
+    expect(ctl.selection).toBeUndefined()
     up({ x: 20.4, y: 80.3 })
     expect(sent).toEqual([{ placeWall: { kind: 'tower', owner: 1, power: 'repulsor', at: { gx: 10, gy: 40 } } }])
   })
@@ -394,12 +395,17 @@ describe('rearrange turn', () => {
     expect(ctl.item).toBeUndefined()
   })
 
-  it('selects an own structure, translates it and commits a move on lift', () => {
+  it('selects an own structure on a tap, then translates it and commits a move on lift', () => {
+    down({ x: 24, y: 80 })
+    up({ x: 24, y: 80 })
+    expect(ctl.selection).toMatchObject({ id: 1, movable: true })
     drag({ x: 24, y: 80 }, { x: 24, y: 70 })
     expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 20, y: 70 }, b: { x: 28, y: 70 } } }])
   })
 
   it('a cancelled drag sends no move', () => {
+    down({ x: 24, y: 80 })
+    up({ x: 24, y: 80 })
     down({ x: 24, y: 80 })
     move({ x: 24, y: 70 })
     cancel({ x: 24, y: 70 })
@@ -411,5 +417,210 @@ describe('rearrange turn', () => {
     down({ x: 10, y: 100 })
     canvas.dispatchEvent(Object.assign(new Event('pointermove'), { offsetX: 10, offsetY: 120, clientX: 10, clientY: 120, pointerId: 1 }))
     expect(camera.y).not.toBe(y)
+  })
+})
+
+describe('the press model', () => {
+  const older: Structure = { id: 5, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 }
+  const turns = (...walls: Structure[]) => make({ ...buildState(1), objects: walls, built: walls.filter((w) => w.owner === 1 && w.id !== 5).map((w) => w.id) })
+  const at = { x: 24, y: 80 }
+  const pan = (from: Point, to: Point, id: number) => (fire('pointermove', to, id), void from)
+  beforeEach(() => turns(older))
+  const build = () => ctl.build.toggle()
+
+  it('tapping an older own wall while building selects it, not movable, and 🗑 then demolishes it', () => {
+    build()
+    down(at)
+    up(at)
+    expect(ctl.selection).toMatchObject({ id: 5, movable: false })
+    expect(sent).toEqual([])
+    ctl.build.remove()
+    expect(sent).toEqual([{ demolish: { player: 1, wall: 5 } }])
+  })
+
+  it('tapping this turn\'s wall selects it, movable', () => {
+    turns({ ...older, id: 1 })
+    build()
+    down(at)
+    up(at)
+    expect(ctl.selection).toMatchObject({ id: 1, movable: true })
+  })
+
+  it('tapping the selected structure changes nothing', () => {
+    turns({ ...older, id: 1 })
+    build()
+    down(at)
+    up(at)
+    const sel = ctl.selection
+    down({ x: 22, y: 80 })
+    up({ x: 22, y: 80 })
+    expect(ctl.selection).toBe(sel)
+    expect(sent).toEqual([])
+  })
+
+  it('does not select on the press: a press that is cancelled by a second finger leaves the selection alone', () => {
+    build()
+    down(at)
+    expect(ctl.selection).toBeUndefined()
+  })
+
+  it('a two-finger pan keeps a red unplaced piece', () => {
+    build()
+    drag({ x: 20, y: 60 }, { x: 20, y: 60 - unit })
+    const piece = ctl.selection
+    expect(piece).toBeDefined()
+    const y = camera.y
+    down({ x: 30, y: 95 })
+    down({ x: 35, y: 95 }, 2)
+    pan({ x: 30, y: 95 }, { x: 30, y: 85 }, 1)
+    expect(camera.y).not.toBe(y)
+    expect(ctl.selection).toBe(piece)
+    up({ x: 30, y: 85 })
+    up({ x: 35, y: 95 }, 2)
+    expect(ctl.selection).toBe(piece)
+    expect(sent).toEqual([])
+  })
+
+  it('a pinch with a tower armed leaves no stray tower', () => {
+    build()
+    ctl.build.arm('steal')
+    down({ x: 30, y: 95 })
+    down({ x: 35, y: 95 }, 2)
+    pan({ x: 30, y: 95 }, { x: 30, y: 85 }, 1)
+    up({ x: 30, y: 85 })
+    up({ x: 35, y: 95 }, 2)
+    expect(ctl.selection).toBeUndefined()
+    expect(sent).toEqual([])
+  })
+
+  describe('dragging a placed wall', () => {
+    const mine: Structure = { ...older, id: 1 }
+    beforeEach(() => {
+      turns(mine)
+      build()
+      down(at)
+      up(at)
+    })
+
+    it('commits one move at the drop when it is legal', () => {
+      drag(at, { x: 24, y: 70 })
+      expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 20, y: 70 }, b: { x: 28, y: 70 } } }])
+    })
+
+    it('goes back to where it stood when dropped illegal, and sends nothing', () => {
+      const origin = ctl.selection!.spec
+      drag(at, { x: 24, y: 50 })
+      expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      expect(sent).toEqual([])
+    })
+
+    it('a second finger is ignored while it is dragged: no pan, and the drop still commits', () => {
+      const y = camera.y
+      down(at)
+      move({ x: 24, y: 70 })
+      down({ x: 35, y: 95 }, 2)
+      move({ x: 35, y: 85 }, 2)
+      expect(camera.y).toBe(y)
+      up({ x: 35, y: 85 }, 2)
+      up({ x: 24, y: 70 })
+      expect(sent).toHaveLength(1)
+    })
+
+    it('a cancelled pointer after a second finger leaves it at its origin and sends nothing', () => {
+      const origin = ctl.selection!.spec
+      down(at)
+      move({ x: 24, y: 70 })
+      down({ x: 35, y: 95 }, 2)
+      cancel({ x: 24, y: 70 })
+      expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      expect(sent).toEqual([])
+    })
+
+    it('Esc mid-drag puts it back', () => {
+      const origin = ctl.selection!.spec
+      down(at)
+      move({ x: 24, y: 70 })
+      key('Escape')
+      expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      up({ x: 24, y: 70 })
+      expect(sent).toEqual([])
+    })
+
+    it('an end that comes within the snap radius of another wall\'s end lands exactly on it', () => {
+      turns(mine, { ...older, id: 7, ...hseg(2, 35) })
+      build()
+      down(at)
+      up(at)
+      // The wall's start would land 0.8 right and 0.5 below the other wall's end (12, 70).
+      drag(at, { x: 16.8, y: 70.5 })
+      const m = (sent[0] as { moveStructure: { a: Point; b: Point } }).moveStructure
+      expect(m.a).toEqual({ x: 12, y: 70 })
+      expect(m.b.x).toBeCloseTo(20)
+      expect(m.b.y).toBeCloseTo(70)
+    })
+
+    it('a lone wall far from any end moves freely', () => {
+      drag(at, { x: 24.4, y: 70.3 })
+      const m = (sent[0] as { moveStructure: { a: Point } }).moveStructure
+      expect(m.a.x).toBeCloseTo(20.4)
+    })
+  })
+
+  describe('chaining from a wall\'s end', () => {
+    const placeOne = () => {
+      build()
+      drag({ x: 10, y: 80 }, { x: 10 + unit, y: 80 })
+      tick()
+    }
+
+    it('the wall just placed is selected, so dragging from its end moves it until the builder taps off', () => {
+      turns()
+      placeOne()
+      expect(ctl.selection).toMatchObject({ id: 1, movable: true })
+      drag({ x: 10 + unit, y: 80 }, { x: 10 + unit, y: 90 })
+      expect(sent[1]).toMatchObject({ moveStructure: { id: 1 } })
+    })
+
+    it('after a tap off, dragging from its end draws a new wall starting exactly on that end', () => {
+      turns()
+      placeOne()
+      down({ x: 30, y: 95 })
+      up({ x: 30, y: 95 })
+      expect(ctl.selection).toBeUndefined()
+      drag({ x: 10 + unit + 0.4, y: 80.2 }, { x: 10 + unit + 0.4, y: 88.2 })
+      expect(sent[1]).toEqual({ placeWall: { kind: 'wall', owner: 1, a: { x: 10 + unit, y: 80 }, b: { x: 10 + unit, y: 88 } } })
+    })
+  })
+
+  it('a drag that starts on an opponent wall draws when the wall is armed', () => {
+    turns({ ...older, id: 9, owner: 2 })
+    build()
+    down(at)
+    move({ x: 24, y: 88 })
+    expect(ctl.selection).toMatchObject({ movable: true, spec: { kind: 'wall', owner: 1, a: { x: 24, y: 80 } } })
+    expect(ctl.selection!.id).toBeUndefined()
+    up({ x: 24, y: 88 })
+    expect(sent).toEqual([{ placeWall: expect.objectContaining({ kind: 'wall', owner: 1 }) }])
+  })
+
+  describe('a Rearrange turn', () => {
+    const siege = { ...c, mode: 'siege' as const }
+    const base = initialState(1, siege)
+    beforeEach(() => make({ ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: [{ ...older, id: 1 }], built: [1] }))
+
+    it('a drag on empty pitch pans', () => {
+      const y = camera.y
+      down({ x: 10, y: 100 })
+      fire('pointermove', { x: 10, y: 90 })
+      expect(camera.y).not.toBe(y)
+    })
+
+    it('a tap selects an own wall and a body drag then commits a move', () => {
+      down(at)
+      up(at)
+      expect(ctl.selection).toMatchObject({ id: 1, movable: true })
+      drag(at, { x: 24, y: 70 })
+      expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 20, y: 70 }, b: { x: 28, y: 70 } } }])
+    })
   })
 })
