@@ -116,7 +116,7 @@ export function landedAs(s: SimState, sel: Selection): Selection | undefined {
 export type ItemSpec = { item: Item | 'cannon'; label: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
 /** The builder's own balance, shown beside the priced items: Credits in Rounds, wall points in Siege. */
-export type Balance = { amount: number; unit: (typeof UNITS)[keyof typeof UNITS]['long'] }
+export type Balance = { amount: number; unit: string }
 
 /** What the Defence circle shows (nothing when no build turn is running): the viewer's balance on their own spending build turn, whether the viewer is building, the pieces to offer, whether they can build now (else the circle is greyed), and the controls of the selected structure. */
 export type DefenceCircle = { balance?: Balance; building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: ButtonSpec[] } }
