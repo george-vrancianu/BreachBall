@@ -89,6 +89,8 @@ it('keeps the settings across Menu and Play', () => {
 
 it('draws the overlay under the shell, so the controls stay tappable during a card', () => {
   render(<App />)
+  fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+  fireEvent.click(screen.getByText('Start'))
   act(() => games[0]!.onView(view({ overlay: { kind: 'turn', placement: 'center', band: false, text: 'Player 2', color: '#fff', opacity: 1, progress: 0, dismissable: true } })))
   const card = screen.getByText('Player 2').parentElement!
   const map = screen.getByRole('button', { name: 'Map' })
