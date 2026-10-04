@@ -49,7 +49,7 @@ export const visual = {
     /** The builder's no-build semicircle. */
     noBuild: { dash: [0.8, 0.6], lineWidth: 0.15 },
   },
-  /** Walls, and the parts every structure shares (outline, cracks, flash, shatter, ghosts). */
+  /** Walls, and the parts every structure shares (outline, cracks, flash, shatter, build pieces). */
   wall: {
     outline,
     illegal,
@@ -68,7 +68,7 @@ export const visual = {
     flashMs: 100,
     dimFlashMs: 50,
     dimFlashAlpha: 0.35,
-    ghostAlpha: 0.5,
+    buildPieceAlpha: 0.5,
     /** The live Credit cost beside an unplaced build piece's midpoint: text size and distance from the midpoint (world units). */
     cost: { size: 1.6, offset: 1.4, weight: 700 },
     /** The two end handles of the selected wall: radius and stroke width in world units (a touch finger's hit radius may be larger). */

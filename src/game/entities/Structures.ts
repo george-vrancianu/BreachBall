@@ -24,22 +24,22 @@ const make = (d: FixtureData): Fixture => (d.kind === 'tower' ? new Tower(d) : n
 
 /**
  * Every wall and tower, keyed by sim id. `sync` creates a child as an object appears; one that leaves the sim is dropped at once,
- * unless it was told to `shatter`, in which case it stays until the shatter ends. Holds the build overlays (ghost, landing) and hit particles too.
- * What flies above the ball and aim (fragments, particles, landing, ghost) is drawn by `fx`, which the game adds to the camera after them.
+ * unless it was told to `shatter`, in which case it stays until the shatter ends. Holds the build overlays (build piece, landing) and hit particles too.
+ * What flies above the ball and aim (fragments, particles, landing, build piece) is drawn by `fx`, which the game adds to the camera after them.
  */
 export class Structures extends Entity {
   /** The piece being dragged and a placed piece not yet in the sim (the landing one), drawn half-transparent. */
-  ghost?: StructureSpec
+  buildPiece?: StructureSpec
   landing?: StructureSpec
   /** The build piece is a new wall (unplaced or being drawn): its Credit cost shows beside its midpoint. Towers spend stock, not Credits, so show none. */
   costLabel = false
-  /** The build piece fails the full legality check (the Credit balance too), which the ghost's own geometry check cannot see. */
+  /** The build piece fails the full legality check (the Credit balance too), which the build piece's own geometry check cannot see. */
   pieceBlocked = false
   /** The selected movable wall's two ends: handles are drawn on them. */
   handles?: { a: Point; b: Point }
   /** The canvas is turned for the other seat (hot-seat flip): text is turned back to read upright. */
   flipped = false
-  /** Ids stood in for by the ghost or landing piece. */
+  /** Ids stood in for by the build piece or landing piece. */
   hidden: number[] = []
   /** An older structure picked to demolish. */
   selected?: number
@@ -105,7 +105,7 @@ export class Structures extends Entity {
   reset(): void {
     for (const [id, f] of this.fixtures) this.drop(id, f)
     this.particles = []
-    this.ghost = this.landing = this.selected = this.handles = undefined
+    this.buildPiece = this.landing = this.selected = this.handles = undefined
     this.costLabel = this.pieceBlocked = false
     this.hidden = []
     this.movable = []
@@ -160,9 +160,9 @@ export class Structures extends Entity {
 
   /** The landing piece (placed, on its way to the sim), then the one being dragged. */
   drawPieces(ctx: CanvasRenderingContext2D): void {
-    if (this.landing) this.drawGhost(ctx, this.landing, false)
-    if (this.ghost) this.drawGhost(ctx, this.ghost, true)
-    if (this.ghost && this.costLabel) this.drawCost(ctx, this.ghost)
+    if (this.landing) this.drawBuildPiece(ctx, this.landing, false)
+    if (this.buildPiece) this.drawBuildPiece(ctx, this.buildPiece, true)
+    if (this.buildPiece && this.costLabel) this.drawCost(ctx, this.buildPiece)
     if (this.handles) this.drawHandles(ctx, this.handles)
   }
 
@@ -197,17 +197,17 @@ export class Structures extends Entity {
     ctx.restore()
   }
 
-  private drawGhost(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean): void {
+  private drawBuildPiece(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean): void {
     const f = make(spec)
     f.clock = this.clock
-    f.alpha = visual.wall.ghostAlpha
+    f.alpha = visual.wall.buildPieceAlpha
     f.selected = selected
     if (selected && this.pieceBlocked) f.tint = visual.wall.illegal
     f.draw(ctx)
   }
 }
 
-/** Fragments, particles, the landing piece and the build ghost: the layer that draws over the ball and aim. */
+/** Fragments, particles, the landing piece and the build piece: the layer that draws over the ball and aim. */
 export class StructureFx extends Entity {
   constructor(private structures: Structures) {
     super()
