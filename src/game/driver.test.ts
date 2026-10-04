@@ -4,7 +4,7 @@ import { LocalDriver } from './driver'
 
 function setup(blocked = false) {
   const ticks: { state: SimState; events: SimEvent[] }[] = []
-  const sink = { apply: (state: SimState, events: SimEvent[]) => ticks.push({ state, events }), blocked: () => blocked }
+  const sink = { apply: (state: SimState, events: SimEvent[]) => ticks.push({ state, events }), simPaused: () => blocked }
   const driver = new LocalDriver(sink)
   const start = driver.start(defaultConfig, 1)
   return { driver, ticks, start }

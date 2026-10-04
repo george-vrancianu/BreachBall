@@ -21,8 +21,10 @@ import { InputController } from './input/InputController'
 import { defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { countDestroyed, type Destroyed } from './view/defenceBar'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
+import { minimapOf, type MinimapView } from './view/minimap'
 import { offenceCircle, type OffenceActions, type OffenceCircle } from './view/offenceCircle'
 import { phaseButtons } from './view/phaseButtons'
+import { pausesSim, settingRows, type SideMenuView } from './view/sideMenu'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
 
 export type { PlayerId, PowerUp }
@@ -42,6 +44,9 @@ export type HudView = {
   /** The ball-in-hand Confirm button is up. */
   confirm: boolean
   mapOpen: boolean
+  menu: SideMenuView
+  /** The minimap chip's thumbnail: where the main camera looks, live. */
+  minimap: MinimapView
   winner?: PlayerId
   /** The end screen's result line. */
   result: string
@@ -52,13 +57,18 @@ export type GameActions = {
   start(settings: Settings): void
   rematch(): void
   map(open?: boolean): void
-  mapStretch(): void
   recenter(): void
   /** The viewer taps an Offence item: the Breaker toggles armed (the sim charges it only when the shot fires). */
   offence: OffenceActions
   /** The shooter refunds `count` Move points for Credits; the sim refuses it when not allowed. A count under 1 only buzzes denied. */
   refund(count: number): void
   confirmBall(): void
+  /** Opens or closes the Side menu (the ☰ button; Resume closes it). Hot-seat it pauses the clocks; online it never does. */
+  menu(open?: boolean): void
+  /** Restart: a new match with the same settings. Hot-seat only; online it does nothing. */
+  restart(): void
+  /** Quit: tears the match down, leaving a fresh default one behind the Title screen. */
+  quit(): void
   /** Tap on the turn card. */
   dismiss(): void
   build: BuildActions
@@ -66,6 +76,8 @@ export type GameActions = {
 
 /** Hot-seat: every seat is local, so no one is ever waited on. The online wave swaps this one predicate. */
 const mine = (_p?: PlayerId | null) => true
+/** Every seat is on this device. */
+const hotSeat = () => mine(1) && mine(2)
 
 /** The end screen's result line, per mode. */
 const resultOf = (m: SimState['match'], winner: PlayerId, objects: SimState['objects']): string => {
@@ -81,22 +93,14 @@ const resultOf = (m: SimState['match'], winner: PlayerId, objects: SimState['obj
   }
 }
 
-const storedStretch = () => {
-  try {
-    return sessionStorage.getItem('mapStretch') === '1'
-  } catch {
-    return false
-  }
-}
-
 /**
  * The game renderer: owns the entity tree, the input controller, the frame loop and a driver. Sim state enters only through `apply`,
  * which routes the tick's events to entity methods; inputs leave through the driver.
  */
 export class Game implements Sink {
   readonly camera = new Camera(0)
-  /** A second camera over the whole pitch for the map overlay; its fit/stretch choice lasts the session. */
-  readonly mapCam = new Camera(rules.mapY, { stretch: storedStretch() })
+  /** A second camera over the whole pitch for the map overlay, always fitted above the HUD band. */
+  readonly mapCam = new Camera(rules.mapY, true)
   readonly pitch = new Pitch()
   readonly structures = new Structures()
   readonly ball = new Ball()
@@ -112,6 +116,7 @@ export class Game implements Sink {
   private transition = newTransition(1)
   private lastBuilder: SimState['match']['builder'] | undefined
   private mapOpen = false
+  private menuOpen = false
   private now = performance.now()
   private last = this.now
   private raf = 0
@@ -138,7 +143,9 @@ export class Game implements Sink {
       shown: () => this.transition.shown,
       mine,
       mapOpen: () => this.mapOpen,
-      blocked: this.blocked,
+      blocked: this.inputBlocked,
+      menuOpen: () => this.menuOpen,
+      openMenu: () => this.toggleMenu(true),
       toggleMap: (open) => this.toggleMap(open),
       send: (input) => this.driver.send(input),
     })
@@ -146,13 +153,6 @@ export class Game implements Sink {
       start: (s) => ((this.config = configFrom(s)), this.newMatch()),
       rematch: () => this.newMatch(),
       map: (open) => this.toggleMap(open),
-      mapStretch: () => {
-        const map = this.mapCam.map!
-        map.stretch = !map.stretch
-        try {
-          sessionStorage.setItem('mapStretch', map.stretch ? '1' : '0')
-        } catch {}
-      },
       recenter: () => this.camera.recenter(),
       offence: { arm: (item) => item === 'breaker' && this.input.toggleArm() },
       refund: (count) => {
@@ -163,6 +163,12 @@ export class Game implements Sink {
         else if (!reducedMotion()) navigator.vibrate?.([...visual.hud.refund.denied])
       },
       confirmBall: this.input.confirmBall,
+      menu: (open) => this.toggleMenu(open),
+      restart: () => hotSeat() && this.newMatch(),
+      quit: () => {
+        this.config = defaultConfig
+        this.newMatch()
+      },
       dismiss: () => (this.transition = dismiss(this.transition, performance.now())),
       build: this.input.build,
     }
@@ -177,7 +183,11 @@ export class Game implements Sink {
     this.input.destroy()
   }
 
-  blocked = () => blocking(this.transition)
+  /** Whether the sim waits: behind a blocking hold, and behind the Side menu in hot-seat. */
+  simPaused = () => blocking(this.transition) || pausesSim(this.menuOpen, hotSeat())
+
+  /** Whether the board ignores input: behind a blocking hold or the Side menu, online or not. */
+  private inputBlocked = () => blocking(this.transition) || this.menuOpen
 
   /** Whoever builds, else whoever has the device: online it would be the peer's own seat. */
   private viewer = (): PlayerId => this.state.match.builder ?? this.transition.shown
@@ -216,6 +226,7 @@ export class Game implements Sink {
     // Sim ids restart, so the last match's visual state must not leak into this one.
     for (const e of [this.camera, this.structures, this.ball, this.aim]) e.reset()
     this.input.resetBuild()
+    this.menuOpen = false
     this.transition = newTransition(s.possession.shooter)
     this.camera.recenter()
     this.camera.y = s.ball.pos.y
@@ -237,10 +248,20 @@ export class Game implements Sink {
   private fitCamera(): void {
     this.camera.reserve = hudReserve(this.transition.shown, visual.camera.hudReservePx * this.dpr)
     this.camera.fit(this.canvas)
+    this.mapCam.reserve = this.camera.reserve
   }
 
   private toggleMap(open = !this.mapOpen): void {
     this.mapOpen = open
+  }
+
+  private toggleMenu(open = !this.menuOpen): void {
+    this.menuOpen = open
+    if (open) {
+      this.toggleMap(false)
+      // A second finger can tap ☰ mid-aim, so the aim and any live press go; a ball-in-hand placement stays for Resume.
+      this.input.dropLive()
+    }
   }
 
   private announce(events: SimEvent[]): void {
@@ -260,7 +281,7 @@ export class Game implements Sink {
     this.announce([])
     this.seeBlind()
     // A ball-in-hand placement or half-made gesture does not survive a blocking hold into the next player's turn.
-    if (this.blocked()) this.input.cancelGestures()
+    if (blocking(this.transition)) this.input.cancelGestures()
     const { state, transition, camera } = this
     this.fitCamera()
     const flipping = !!transition.flip && now - transition.flip.at >= transition.flip.ms / 2
@@ -314,17 +335,24 @@ export class Game implements Sink {
     this.fog.draw(ctx)
     this.edgeFade.draw(ctx)
     if (this.mapOpen) {
+      // The main view's frame: dashed, with solid corner brackets.
+      const { mapOutline, mapOutlinePx, mapDashPx, mapBracket } = visual.camera
       const o = viewOutline(canvas, mapCam, camera)
-      ctx.strokeStyle = visual.camera.mapOutline
-      ctx.lineWidth = visual.camera.mapOutlinePx * this.dpr
+      ctx.strokeStyle = mapOutline
+      ctx.lineWidth = mapOutlinePx * this.dpr
+      ctx.setLineDash(mapDashPx.map((d) => d * this.dpr))
       ctx.strokeRect(o.x, o.y, o.w, o.h)
+      ctx.setLineDash([])
+      ctx.lineWidth = mapBracket.linePx * this.dpr
+      const arm = mapBracket.armPx * this.dpr
+      strokeBrackets(ctx, o, arm)
     }
   }
 
   /** Calls `onView` with the HUD view, but only when it differs from the last one (functions in it are stable and not compared). */
   private push(): void {
     const { state, input, transition, now } = this
-    const blocked = this.blocked()
+    const blocked = this.inputBlocked()
     const builder = state.match.builder
     const { inHand } = state.possession
     const placing = placingOf(input.selection)
@@ -337,6 +365,8 @@ export class Game implements Sink {
       flipped: transition.shown === 2,
       confirm: inHand && !builder && !state.match.choosing && !blocked,
       mapOpen: this.mapOpen,
+      menu: { open: this.menuOpen, hotSeat: hotSeat(), settings: settingRows(this.config) },
+      minimap: minimapOf(this.camera.y, this.camera.visibleHeight, this.camera.blind),
       winner: state.match.winner ?? undefined,
       result: state.match.winner ? resultOf(state.match, state.match.winner, state.objects) : '',
     }
@@ -345,4 +375,17 @@ export class Game implements Sink {
     this.lastView = key
     this.onView?.(view)
   }
+}
+
+/** Solid corner brackets on the rectangle `o`, each corner's two arms `arm` long. */
+function strokeBrackets(ctx: CanvasRenderingContext2D, o: { x: number; y: number; w: number; h: number }, arm: number): void {
+  ctx.beginPath()
+  for (const [x, dx] of [[o.x, 1], [o.x + o.w, -1]] as const) {
+    for (const [y, dy] of [[o.y, 1], [o.y + o.h, -1]] as const) {
+      ctx.moveTo(x + dx * arm, y)
+      ctx.lineTo(x, y)
+      ctx.lineTo(x, y + dy * arm)
+    }
+  }
+  ctx.stroke()
 }

@@ -3,7 +3,8 @@ import type { PlayerId, Point } from '../sim/pitch'
 import type { SimEvent } from '../sim/step'
 import type { GestureView } from './input/gesture'
 
-export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
+/** Whether the viewer wants no animation. With no `matchMedia` (tests, odd embeds) there is no stated preference to honour, so it counts as still. */
+export const reducedMotion = () => typeof matchMedia !== 'function' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** Vibration pattern for an event, if it has one. */
 export function vibration(ev: SimEvent): number | number[] | undefined {

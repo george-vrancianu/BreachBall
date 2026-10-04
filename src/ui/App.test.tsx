@@ -1,17 +1,17 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { StrictMode } from 'react'
-import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { GameActions, HudView } from '../game/Game'
 
 // Game needs a real canvas; the seam under test is how App creates, feeds and drives it.
-const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, confirm: false, mapOpen: false, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, resourceBar: null, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, refundable: false, score: null, phase: 'Play' }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
-const games = vi.hoisted(() => [] as { destroyed: boolean; onView: (v: HudView) => void; actions: { [K in 'start' | 'rematch' | 'map']: Mock<GameActions[K]> } }[])
+const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, resourceBar: null, refundable: false, score: null, phase: 'Play' }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
+const games = vi.hoisted(() => [] as { destroyed: boolean; onView: (v: HudView) => void; actions: { [K in 'start' | 'rematch' | 'map' | 'menu' | 'restart' | 'quit']: Mock<GameActions[K]> } }[])
 vi.mock('../game/Game', () => ({
   Game: class {
     destroyed = false
     // Like the real Game, starting a match pushes its (winnerless) view at once.
-    actions = { start: vi.fn(() => this.onView(freshView())), rematch: vi.fn(() => this.onView(freshView())), map: vi.fn() }
+    actions = { start: vi.fn(() => this.onView(freshView())), rematch: vi.fn(() => this.onView(freshView())), map: vi.fn(), menu: vi.fn(), restart: vi.fn(), quit: vi.fn() }
     constructor(_canvas: HTMLCanvasElement, _driver: unknown, public onView: (v: HudView) => void) {
       games.push(this)
     }
@@ -106,4 +106,91 @@ it('the Title screen opens the connect overlay, settings, and help and back', ()
   fireEvent.click(screen.getByRole('button', { name: 'Back' }))
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
   expect(screen.getByText('Start')).toBeTruthy()
+})
+
+describe('Side menu', () => {
+  const inMatch = (menu: Partial<HudView['menu']> = {}) => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+    fireEvent.click(screen.getByText('Start'))
+    act(() => games[0]!.onView(view({ menu: { ...freshView().menu, ...menu } })))
+    return games[0]!
+  }
+
+  it('the ☰ button opens it, and Title screens have none', () => {
+    render(<App />)
+    expect(screen.queryByRole('button', { name: 'Menu' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+    fireEvent.click(screen.getByText('Start'))
+    act(() => games[0]!.onView(view()))
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
+    expect(games[0]!.actions.menu).toHaveBeenCalledWith(true)
+  })
+
+  it('the ☰ button sits just inside the Defence bar: below it, or above it when the bar is at the stage bottom', () => {
+    inMatch()
+    expect(screen.getByRole('button', { name: 'Menu' }).style.top).toBe('36px')
+    act(() => games[0]!.onView(view({ flipped: true })))
+    const flipped = screen.getByRole('button', { name: 'Menu' })
+    expect(flipped.style.bottom).toBe('36px')
+    expect(flipped.style.top).toBe('')
+  })
+
+  it('the ☰ button moves down by the Resource bar\'s height when that bar is shown', () => {
+    inMatch()
+    const bar = { 1: { credits: 3, share: 0.5 }, 2: { credits: 3, share: 0.5 } }
+    const hud = { ...freshView().hud, resourceBar: bar }
+    act(() => games[0]!.onView(view({ hud })))
+    expect(screen.getByRole('button', { name: 'Menu' }).style.top).toBe('56px')
+    act(() => games[0]!.onView(view({ hud, flipped: true })))
+    expect(screen.getByRole('button', { name: 'Menu' }).style.bottom).toBe('56px')
+  })
+
+  it('lists Resume, Help, the settings, Restart and Quit when open in hot-seat; Resume closes it', () => {
+    const game = inMatch({ open: true })
+    for (const name of ['Resume', 'Help', 'Restart', 'Quit to title']) expect(screen.getByRole('button', { name })).toBeTruthy()
+    expect(screen.getByText('Mode')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }))
+    expect(game.actions.menu).toHaveBeenCalledWith(false)
+  })
+
+  it('has no Restart online', () => {
+    inMatch({ open: true, hotSeat: false })
+    expect(screen.queryByRole('button', { name: 'Restart' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Quit to title' })).toBeTruthy()
+  })
+
+  it('Restart and Quit need a second tap', () => {
+    const game = inMatch({ open: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Restart' }))
+    expect(game.actions.restart).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /Restart/ }))
+    expect(game.actions.restart).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Quit to title' }))
+    fireEvent.click(screen.getByRole('button', { name: /Quit to title/ }))
+    expect(game.actions.quit).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy()
+  })
+
+  it('Help opens the how-to page and Back returns to the open menu, not the Title', () => {
+    inMatch({ open: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }))
+    expect(screen.getByRole('heading', { name: 'How to play' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(screen.queryByRole('button', { name: 'Play' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Resume' })).toBeTruthy()
+  })
+
+  it('Esc resumes', () => {
+    const game = inMatch({ open: true })
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(game.actions.menu).toHaveBeenCalledWith(false)
+  })
+
+  it('turns with the stage', () => {
+    inMatch({ open: true })
+    act(() => games[0]!.onView(view({ angle: 180, flipped: true, menu: { ...freshView().menu, open: true } })))
+    const stage = screen.getByRole('navigation', { name: 'Side menu' }).parentElement!.parentElement as HTMLElement
+    expect(stage.style.transform).toBe('rotate(180deg)')
+  })
 })
