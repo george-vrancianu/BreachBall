@@ -254,7 +254,10 @@ A Charged ball wears a pulsing glow ring and a "×1.5" / "×2" badge that pops i
 ### Aim and Shot
 
 - While holding still on the ball: a ring around it fills towards Power in the tier's colour (Touch green, Power red). Reaching Power pulses it for 300 ms and gives a short vibration.
-- While aiming: a faint ring shows the tier's control radius, and the Ghost is drawn in the tier's colour as dots from the ball's edge that shrink and fade toward its end and drift forward, faster with more power, with a small ring at each bounce (`visual.aim.ghost`; the look is `comet()` → "Predicted path" in `docs/prototypes/shot-aim-prototype.html`). While cancel-armed the Ghost turns grey and an ✕ sits on the ball.
+- While aiming: a faint ring shows the tier's control radius, and the Comet points the shot's way from the ball's edge. It is a tapered spear filled from transparent through the tier's colour to ink, with a glow in that colour, a solid ink arrowhead, and 3 dark chevrons running along it toward the tip, faster higher in the tier's range. It is 34 px long for the weakest shot and 154 px for the strongest (power normalised from 15% to 100%), and its base is 9 to 14 px wide on each side, growing across the tier's range. Its sizes are screen pixels, so it looks the same at any zoom (`visual.aim.comet`; the look is `comet()` in `docs/prototypes/shot-aim-prototype.html`).
+- The Ghost is drawn in the tier's colour as dots from the Comet's tip that shrink and fade toward its end and drift forward, faster with more power, with a small ring at each bounce (`visual.aim.ghost`). Its reach is still measured from the ball, so a longer Comet covers more of the path rather than showing more of it.
+- A Power aim also shows a dashed ring in its colour around the ball at the Splash radius it would set off.
+- While cancel-armed the Comet and the Ghost turn grey, an ✕ sits on the ball, and there is no Splash preview.
 - While a Power aim is held, structures the Splash would reach are tinted red, own structures darker red, so own-wall damage is always a visible choice.
 - On a Power shot, a Splash ring expands to the Splash radius over 250 ms and fades. Any shot of at least 30% power shakes the screen with amplitude scaled by power (max about 4 px, 200 ms).
 
