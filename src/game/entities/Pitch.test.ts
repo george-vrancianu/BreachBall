@@ -27,7 +27,7 @@ function recorder() {
 const { unit } = visual.pitch
 const keepOut = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.keepOut.dashPx[0] * unit)
 const buildEdges = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.buildEdge.dashPx[0] * unit)
-const snapDots = (calls: Call[]) => calls.filter((c) => c.fn === 'fillRect' && c.fillStyle === visual.pitch.snapGrid.color)
+const snapDots = (calls: Call[]) => calls.filter((c) => c.fn === 'fillRect' && c.alpha === visual.pitch.snapGrid.alpha && c.args[2] === visual.pitch.snapGrid.dotPx * unit)
 
 describe('Pitch markings', () => {
   it('always draws both keep-out arcs, neutral outside a build, and no build edge', () => {
@@ -101,9 +101,9 @@ describe('Pitch markings', () => {
       expect(dot.alpha).toBe(visual.pitch.snapGrid.alpha)
       expect(dot.args[2]).toBeCloseTo(visual.pitch.snapGrid.dotPx * unit)
       const kinds = calls.map((c) => (c.fn === 'fillRect' ? c.fillStyle : c.fn))
-      const { dot: ground, snapGrid } = visual.pitch
-      expect(kinds.indexOf(snapGrid.color)).toBeGreaterThan(kinds.lastIndexOf(ground))
-      expect(kinds.lastIndexOf(snapGrid.color)).toBeLessThan(kinds.indexOf('stroke'))
+      const { dot: ground } = visual.pitch
+      expect(calls.indexOf(snapDots(calls)[0])).toBeGreaterThan(kinds.lastIndexOf(ground))
+      expect(calls.lastIndexOf(snapDots(calls).at(-1)!)).toBeLessThan(calls.findIndex((c) => c.fn === 'stroke'))
     })
   })
 })

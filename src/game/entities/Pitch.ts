@@ -78,7 +78,7 @@ export class Pitch extends Entity {
     const rows = Math.floor(h / cell)
     const x0 = (w - cols * cell) / 2
     const y0 = (h - rows * cell) / 2
-    fillDots(ctx, x0, x0 + cols * cell, y0, y0 + rows * cell, cell, dot)
+    fillDots(ctx, { x0, x1: x0 + cols * cell, y0, y1: y0 + rows * cell }, cell, dot)
   }
 
   /** The snap grid: a faint dot at every cell corner (`rules.cellSize`) on the builder's half, where the build piece snaps. Over the ground dots, under the markings. */
@@ -88,8 +88,8 @@ export class Pitch extends Entity {
     const dot = snapGrid.dotPx * u
     const [top, bottom] = halfSpan(builder)
     ctx.globalAlpha = snapGrid.alpha
-    ctx.fillStyle = snapGrid.color
-    fillDots(ctx, 0, w, top, bottom, cellSize, dot)
+    ctx.fillStyle = visual.player.colors[builder]
+    fillDots(ctx, { x0: 0, x1: w, y0: top, y1: bottom }, cellSize, dot)
     ctx.globalAlpha = 1
   }
 
@@ -198,8 +198,10 @@ export class Pitch extends Entity {
   }
 }
 
-/** Fills a square dot at every `step` from (x0, y0) across to (x1, y1), inclusive. */
-function fillDots(ctx: CanvasRenderingContext2D, x0: number, x1: number, y0: number, y1: number, step: number, dot: number): void {
+/** Fills a square dot at every `step` across the bounds `b`, inclusive of both edges. */
+function fillDots(ctx: CanvasRenderingContext2D, b: { x0: number; x1: number; y0: number; y1: number }, step: number, dot: number): void {
+  const { x0, x1, y0, y1 } = b
+  // Float drift can leave (x1 - x0) / step just under a whole number, which would drop the far-edge dots; nudge it over.
   const eps = 1e-9
   const cols = Math.floor((x1 - x0) / step + eps)
   const rows = Math.floor((y1 - y0) / step + eps)
