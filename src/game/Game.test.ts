@@ -263,4 +263,79 @@ describe('Game', () => {
     expect(game.structures.count).toBe(1)
     expect(game.structures.get(99)!.isShattering).toBe(true)
   })
+
+  describe('Side menu', () => {
+    afterEach(() => vi.restoreAllMocks())
+    /** A Rounds match past its opening card, with the sim running. */
+    const running = () => {
+      let t = 1000
+      vi.spyOn(performance, 'now').mockImplementation(() => t)
+      const game = make()
+      game.actions.start({ ...defaultSettings, mode: 'rounds' })
+      frame(t)
+      t += 1500
+      frame(t)
+      game.actions.dismiss()
+      frame(t)
+      return { game, advance: (ms: number) => ((t += ms), frame(t)) }
+    }
+
+    it('pauses the sim and its clock in hot-seat while open, and resumes on Resume', () => {
+      const { game, advance } = running()
+      advance(500)
+      const ticked = game.state.tick
+      const left = game.state.clock.left
+      game.actions.menu(true)
+      advance(2000)
+      expect(game.state.tick).toBe(ticked)
+      expect(game.state.clock.left).toBe(left)
+      game.actions.menu(false)
+      advance(500)
+      expect(game.state.tick).toBeGreaterThan(ticked)
+    })
+
+    it('reports open and hot-seat in the view', () => {
+      const onView = vi.fn()
+      const game = make(onView)
+      expect(onView.mock.lastCall![0].menu).toMatchObject({ open: false, hotSeat: true })
+      game.actions.menu()
+      frame(performance.now())
+      expect(onView.mock.lastCall![0].menu.open).toBe(true)
+    })
+
+    it('Restart re-runs the same settings in a fresh match and closes the menu', () => {
+      const { game } = running()
+      game.actions.start({ ...defaultSettings, mode: 'rounds', rounds: 7 })
+      game.actions.menu(true)
+      game.actions.restart()
+      expect(game.state.match.mode).toBe('rounds')
+      expect(game.state.tick).toBe(0)
+      expect((game as unknown as { menuOpen: boolean }).menuOpen).toBe(false)
+      
+    })
+
+    it('Quit tears the match down to a default one and closes the menu', () => {
+      const onView = vi.fn()
+      const game = make(onView)
+      game.actions.start({ ...defaultSettings, mode: 'rounds', rounds: 7 })
+      game.actions.menu(true)
+      game.actions.quit()
+      frame(performance.now())
+      const { menu } = onView.mock.lastCall![0]
+      expect(menu.open).toBe(false)
+      expect(menu.settings).toEqual(expect.arrayContaining([{ label: 'Rounds', value: '5' }]))
+    })
+
+    it('an edge swipe on the canvas opens it', () => {
+      const canvas = new FakeCanvas()
+      const onView = vi.fn()
+      new Game(canvas as unknown as HTMLCanvasElement, (sink) => new LocalDriver(sink), onView)
+      const at = (type: string, x: number) => canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: x, offsetY: 300, clientX: x, clientY: 300, pointerId: 1, pointerType: 'touch', button: 0 }))
+      at('pointerdown', 4)
+      at('pointermove', 60)
+      at('pointerup', 60)
+      frame(performance.now())
+      expect(onView.mock.lastCall![0].menu.open).toBe(true)
+    })
+  })
 })

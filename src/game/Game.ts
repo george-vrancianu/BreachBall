@@ -21,6 +21,7 @@ import { InputController } from './input/InputController'
 import { defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
 import { phaseButtons } from './view/phaseButtons'
+import { pausesSim, settingRows, type SideMenuView } from './view/sideMenu'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
 
 export type { PlayerId, PowerUp }
@@ -38,6 +39,7 @@ export type HudView = {
   /** The ball-in-hand Confirm button is up. */
   confirm: boolean
   mapOpen: boolean
+  menu: SideMenuView
   winner?: PlayerId
   /** The end screen's result line. */
   result: string
@@ -54,6 +56,12 @@ export type GameActions = {
   /** The shooter refunds `count` Move points for Credits; the sim refuses it when not allowed. A count under 1 only buzzes denied. */
   refund(count: number): void
   confirmBall(): void
+  /** Opens or closes the Side menu (the ☰ button; Resume closes it). Hot-seat it pauses the clocks; online it never does. */
+  menu(open?: boolean): void
+  /** Restart: a new match with the same settings. Hot-seat only; online it does nothing. */
+  restart(): void
+  /** Quit: tears the match down, leaving a fresh default one behind the Title screen. */
+  quit(): void
   /** Tap on the turn card. */
   dismiss(): void
   build: BuildActions
@@ -61,6 +69,8 @@ export type GameActions = {
 
 /** Hot-seat: every seat is local, so no one is ever waited on. The online wave swaps this one predicate. */
 const mine = (_p?: PlayerId | null) => true
+/** Every seat is on this device. */
+const hotSeat = () => mine(1) && mine(2)
 
 /** The end screen's result line, per mode. */
 const resultOf = (m: SimState['match'], winner: PlayerId, objects: SimState['objects']): string => {
@@ -107,6 +117,7 @@ export class Game implements Sink {
   private transition = newTransition(1)
   private lastBuilder: SimState['match']['builder'] | undefined
   private mapOpen = false
+  private menuOpen = false
   private now = performance.now()
   private last = this.now
   private raf = 0
@@ -131,7 +142,9 @@ export class Game implements Sink {
       shown: () => this.transition.shown,
       mine,
       mapOpen: () => this.mapOpen,
-      blocked: this.blocked,
+      blocked: this.inputBlocked,
+      menuOpen: () => this.menuOpen,
+      openMenu: () => this.toggleMenu(true),
       toggleMap: (open) => this.toggleMap(open),
       send: (input) => this.driver.send(input),
     })
@@ -156,6 +169,9 @@ export class Game implements Sink {
         else if (!reducedMotion()) navigator.vibrate?.([...visual.hud.refund.denied])
       },
       confirmBall: this.input.confirmBall,
+      menu: (open) => this.toggleMenu(open),
+      restart: () => hotSeat() && this.newMatch(),
+      quit: () => ((this.config = defaultConfig), this.newMatch()),
       dismiss: () => (this.transition = dismiss(this.transition, performance.now())),
       build: this.input.build,
     }
@@ -170,7 +186,11 @@ export class Game implements Sink {
     this.input.destroy()
   }
 
-  blocked = () => blocking(this.transition)
+  /** Whether the sim waits: behind a blocking hold, and behind the Side menu in hot-seat. */
+  blocked = () => blocking(this.transition) || pausesSim(this.menuOpen, mine)
+
+  /** Whether the board ignores input: behind a blocking hold or the Side menu, online or not. */
+  private inputBlocked = () => blocking(this.transition) || this.menuOpen
 
   /** Whoever builds, else whoever has the device: online it would be the peer's own seat. */
   private viewer = (): PlayerId => this.state.match.builder ?? this.transition.shown
@@ -208,6 +228,7 @@ export class Game implements Sink {
     // Sim ids restart, so the last match's visual state must not leak into this one.
     for (const e of [this.camera, this.structures, this.ball, this.aim]) e.reset()
     this.input.resetBuild()
+    this.menuOpen = false
     this.transition = newTransition(s.possession.shooter)
     this.camera.recenter()
     this.camera.y = s.ball.pos.y
@@ -234,6 +255,11 @@ export class Game implements Sink {
     this.mapOpen = open
   }
 
+  private toggleMenu(open = !this.menuOpen): void {
+    this.menuOpen = open
+    if (open) this.toggleMap(false)
+  }
+
   private announce(events: SimEvent[]): void {
     const { state } = this
     this.transition = advance(this.transition, { handover: true, active: whoActs(state), round: roundOf(state.match) ?? undefined, inHand: state.possession.inHand, phase: buildPhase(state.match), opening: openingBuild(state.match), events, now: this.now, reduced: reducedMotion() })
@@ -251,7 +277,7 @@ export class Game implements Sink {
     this.announce([])
     this.seeBlind()
     // A ball-in-hand placement or half-made gesture does not survive a blocking hold into the next player's turn.
-    if (this.blocked()) this.input.cancelGestures()
+    if (this.inputBlocked()) this.input.cancelGestures()
     const { state, transition, camera } = this
     this.fitCamera()
     const flipping = !!transition.flip && now - transition.flip.at >= transition.flip.ms / 2
@@ -315,7 +341,7 @@ export class Game implements Sink {
   /** Calls `onView` with the HUD view, but only when it differs from the last one (functions in it are stable and not compared). */
   private push(): void {
     const { state, input, transition, now } = this
-    const blocked = this.blocked()
+    const blocked = this.inputBlocked()
     const builder = state.match.builder
     const { shooter, inHand } = state.possession
     const placing = placingOf(input.selection)
@@ -327,6 +353,7 @@ export class Game implements Sink {
       flipped: transition.shown === 2,
       confirm: inHand && !builder && !state.match.choosing && !blocked,
       mapOpen: this.mapOpen,
+      menu: { open: this.menuOpen, hotSeat: hotSeat(), settings: settingRows(this.config) },
       winner: state.match.winner ?? undefined,
       result: state.match.winner ? resultOf(state.match, state.match.winner, state.objects) : '',
     }
