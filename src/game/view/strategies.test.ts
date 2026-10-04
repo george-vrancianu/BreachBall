@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig as c, step, type SimState } from '../../sim/step'
 import { buildState, funded, hseg, siegeBuild } from '../../sim/testkit'
-import { kickoffSpot } from '../../sim/pitch'
-import { distToSegment, isLegal, wallSegments } from '../../sim/wall'
+import { kickoffSpot, type Point } from '../../sim/pitch'
+import { distToSegment, isLegal, wallSegments, structureCost, type TowerPower } from '../../sim/wall'
 import { sliderDefault } from '../../sim/settings'
 import { rules } from '../../config/rules'
-import { piecesFor, planStrategy, STRATEGIES, strategyCards } from './strategies'
+import { piecesFor, planStrategy, STRATEGIES, strategyCards, type StrategyPiece } from './strategies'
 
 const apply = (s: SimState, inputs: ReturnType<typeof planStrategy>['inputs']) => inputs.reduce((st, i) => step(st, i, { ...c, buildTime: 0 }).state, s)
 
@@ -18,6 +18,24 @@ describe('Strategies', () => {
         placed.push(p)
       }
     }
+  })
+
+  it.each(STRATEGIES.map((st) => [st.name, st] as const))('Player 2\'s copy of %s is Player 1\'s point-reflected through the centre spot', (_, st) => {
+    const { pitchWidth: W, pitchHeight: H, gridCols, gridRows } = rules
+    const p1 = piecesFor(st, 1)
+    const p2 = piecesFor(st, 2)
+    expect(p2).toHaveLength(p1.length)
+    p1.forEach((a, i) => {
+      const b = p2[i]
+      expect([a.owner, b.owner, b.kind]).toEqual([1, 2, a.kind])
+      if (a.kind === 'wall' && b.kind === 'wall') {
+        expect(b.a).toEqual({ x: W - a.a.x, y: H - a.a.y })
+        expect(b.b).toEqual({ x: W - a.b.x, y: H - a.b.y })
+      } else if (a.kind === 'tower' && b.kind === 'tower') {
+        expect(b.power).toBe(a.power)
+        expect(b.at).toEqual({ gx: gridCols - 1 - a.at.gx, gy: gridRows - 1 - a.at.gy })
+      }
+    })
   })
 
   it.each(STRATEGIES.map((st) => [st.name, st] as const))('%s fits the Opening Credits in Rounds, whole', (_, st) => {
@@ -49,14 +67,13 @@ describe('Strategies', () => {
     }
   })
 
-  it('Fortress spends nearly the whole opening budget, and its card shows the plan\'s net cost, whole', () => {
-    const fortress = STRATEGIES.find((st) => st.id === 'fortress')!
+  it.each(STRATEGIES.map((st) => [st.name, st] as const))('%s spends nearly the whole opening budget, and its card shows the plan\'s net cost, whole', (_, st) => {
     for (const owner of [1, 2] as const) {
       const s = funded(buildState(owner), owner, c.openingCredits)
-      const plan = planStrategy(s, owner, fortress, c)
+      const plan = planStrategy(s, owner, st, c)
       expect(plan.cost).toBeGreaterThanOrEqual(c.openingCredits - 5)
       expect(plan.cost).toBeLessThanOrEqual(c.openingCredits)
-      const card = strategyCards(s, owner, c).find((k) => k.id === 'fortress')!
+      const card = strategyCards(s, owner, c).find((k) => k.id === st.id)!
       expect(card).toMatchObject({ cost: plan.cost, placed: card.total, disabled: false })
     }
   })
@@ -94,8 +111,87 @@ describe('Strategies', () => {
     }
   })
 
+  // The archetype of each Strategy (not a tag on it), and the band each holds: walls are cheap, so wall-heavy Strategies are mostly walls.
+  const archetype: Record<string, 'wall' | 'hybrid' | 'tower'> = {
+    bulwark: 'wall', fortress: 'wall', honeycomb: 'wall', bastion: 'wall', layers: 'wall', labyrinth: 'wall',
+    chevron: 'hybrid', zigzag: 'hybrid', net: 'hybrid', pinball: 'hybrid', wings: 'hybrid', gauntlet: 'hybrid', spider: 'hybrid',
+    turrets: 'tower', crossfire: 'tower', watchtowers: 'tower',
+  }
+
+  it('the archetype map covers every Strategy and nothing else', () => {
+    expect(Object.keys(archetype).sort()).toEqual(STRATEGIES.map((st) => st.id).sort())
+  })
+
+  it.each(STRATEGIES.map((st) => [st.name, st] as const))('%s sits in its archetype\'s band of wall units and towers', (_, st) => {
+    const pieces = piecesFor(st, 1)
+    const wallUnits = pieces.filter((p) => p.kind === 'wall').reduce((n, p) => n + structureCost(p), 0)
+    const towers = pieces.filter((p) => p.kind === 'tower')
+    const towerCost = towers.reduce((n, p) => n + structureCost(p), 0)
+    const kind = archetype[st.id]
+    if (kind === 'wall') {
+      expect(wallUnits).toBeGreaterThanOrEqual(26)
+      expect(towers.length).toBeLessThanOrEqual(2)
+      expect(towerCost).toBeLessThanOrEqual(10)
+    } else if (kind === 'hybrid') {
+      expect(wallUnits).toBeGreaterThanOrEqual(17)
+      expect(wallUnits).toBeLessThanOrEqual(23)
+      expect(towers.length).toBeGreaterThanOrEqual(3)
+      expect(towers.length).toBeLessThanOrEqual(4)
+      expect(towerCost).toBeGreaterThanOrEqual(14)
+      expect(towerCost).toBeLessThanOrEqual(18)
+    } else {
+      expect(towerCost).toBeGreaterThanOrEqual(25)
+      expect(wallUnits).toBeLessThanOrEqual(11)
+    }
+  })
+
+  // The shapes the issue names for each Strategy, pinned where the layout is easy to get wrong.
+  const byId = (id: string) => STRATEGIES.find((st) => st.id === id)!
+  const wallsOf = (pieces: readonly StrategyPiece[]) => pieces.filter((p): p is Extract<StrategyPiece, { kind: 'wall' }> => p.kind === 'wall')
+  const towersOf = (pieces: readonly StrategyPiece[], power: TowerPower) => pieces.filter((p): p is Extract<StrategyPiece, { kind: 'tower' }> => p.kind === 'tower' && p.power === power)
+
+  it('Watchtowers is "3 Repulsors spread across the forward line, backed by a row of short walls"', () => {
+    const st = byId('watchtowers')
+    const repulsors = towersOf(st.pieces, 'repulsor')
+    expect(repulsors).toHaveLength(3)
+    const lines = new Set(repulsors.map((p) => p.at.gy))
+    expect(lines.size).toBe(1)
+    const behind = ([...lines][0] + 1) * rules.cellSize
+    // One row: every wall is a short (1-unit) horizontal wall on the same line, behind the Repulsors (nearer the goal).
+    const walls = wallsOf(st.pieces)
+    expect(new Set(walls.map((w) => w.a.y)).size).toBe(1)
+    for (const w of walls) {
+      expect(w.b.y).toBe(w.a.y)
+      expect(Math.abs(w.b.x - w.a.x)).toBeCloseTo(rules.wall.unit)
+      expect(w.a.y).toBeGreaterThan(behind)
+    }
+  })
+
+  it('Bastion\'s core is a closed box with chamfered corners just outside the goal no-build zone, with a forward screen up the pitch', () => {
+    const st = byId('bastion')
+    const box = st.pieces.slice(0, st.core)
+    const walls = wallsOf(box)
+    expect(walls).toHaveLength(box.length)
+    expect(walls).toHaveLength(8)
+    // Closed: every corner is shared by exactly two walls.
+    const key = (p: Point) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`
+    const ends = new Map<string, number>()
+    for (const w of walls) for (const p of [w.a, w.b]) ends.set(key(p), (ends.get(key(p)) ?? 0) + 1)
+    expect([...ends.values()]).toEqual(Array(8).fill(2))
+    // Four straight sides and four diagonal (chamfered) corners.
+    expect(walls.filter((w) => Math.abs(w.a.x - w.b.x) > 0.01 && Math.abs(w.a.y - w.b.y) > 0.01)).toHaveLength(4)
+    // Just outside: its nearest point is within a cell of the goal no-build zone.
+    const goal = { x: rules.pitchWidth / 2, y: rules.pitchHeight }
+    const nearest = Math.min(...walls.map((w) => distToSegment(w, goal)))
+    expect(nearest).toBeGreaterThan(rules.noBuildRadius)
+    expect(nearest).toBeLessThanOrEqual(rules.noBuildRadius + rules.cellSize)
+    // A forward screen: walls beyond the core, up the pitch from the box.
+    const top = Math.min(...walls.flatMap((w) => [w.a.y, w.b.y]))
+    expect(wallsOf(st.pieces.slice(st.core)).some((w) => Math.max(w.a.y, w.b.y) < top)).toBe(true)
+  })
+
   it('applying the plan places every piece and spends what it says', () => {
-    const s = buildState(1)
+    const s = funded(buildState(1), 1, c.openingCredits)
     const plan = planStrategy(s, 1, STRATEGIES[0], c)
     const after = apply(s, plan.inputs)
     expect(after.objects.filter((o) => o.owner === 1)).toHaveLength(plan.total)
@@ -103,7 +199,7 @@ describe('Strategies', () => {
   })
 
   it('clears this turn\'s own pieces first, refunded, so switching layouts costs nothing extra', () => {
-    const s = buildState(1)
+    const s = funded(buildState(1), 1, c.openingCredits)
     const first = apply(s, planStrategy(s, 1, STRATEGIES[0], c).inputs)
     const plan = planStrategy(first, 1, STRATEGIES[1], c)
     const after = apply(first, plan.inputs)
@@ -133,8 +229,9 @@ describe('Strategies', () => {
 
   it('in Siege towers come from the stock and walls from wall points', () => {
     const s = siegeBuild(1)
-    const plan = planStrategy(s, 1, STRATEGIES.find((st) => st.id === 'turrets')!, c)
+    const plan = planStrategy(s, 1, byId('turrets'), c)
     expect(plan.placed).toBe(plan.total)
-    expect(plan.cost).toBe(1)
+    // Its walls only: 9 units against the 30 default Wall points.
+    expect(plan.cost).toBe(9)
   })
 })
