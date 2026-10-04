@@ -9,6 +9,9 @@ const ends = [
   { y: rules.pitchHeight, into: -1, owner: 1 },
 ] as const
 
+/** A dash pattern in reference px, scaled to world units. */
+const dashed = (dashPx: readonly number[]): number[] => dashPx.map((d) => d * visual.pitch.unit)
+
 /** The ground, markings, goal mouths and nets; during a build turn also the build-zone edge on the halfway line, in the builder's colour. */
 export class Pitch extends Entity {
   /** Whose build turn it is, if any. */
@@ -32,22 +35,20 @@ export class Pitch extends Entity {
     // Centre line, circle, inner ring and dot.
     const r = rules.centreZoneRadius
     ctx.lineWidth = v.centre.widthPx * u
-    ctx.beginPath()
-    ctx.moveTo(0, halfHeight)
-    ctx.lineTo(w, halfHeight)
+    this.halfwayLine(ctx)
     ctx.stroke()
     ctx.beginPath()
     ctx.arc(w / 2, halfHeight, r, 0, 2 * Math.PI)
     ctx.stroke()
     ctx.lineWidth = v.centre.innerWidthPx * u
-    ctx.setLineDash(v.centre.innerDashPx.map((d) => d * u))
+    ctx.setLineDash(dashed(v.centre.innerDashPx))
     ctx.beginPath()
     ctx.arc(w / 2, halfHeight, r * v.centre.innerRatio, 0, 2 * Math.PI)
     ctx.stroke()
     ctx.setLineDash([])
     ctx.fillStyle = v.line
     ctx.beginPath()
-    ctx.arc(w / 2, halfHeight, (v.centre.dotPx / 2) * u, 0, 2 * Math.PI)
+    ctx.arc(w / 2, halfHeight, v.centre.dotRadiusPx * u, 0, 2 * Math.PI)
     ctx.fill()
 
     // Quarter marks on both sidelines.
@@ -79,21 +80,23 @@ export class Pitch extends Entity {
     for (let i = 0; i <= cols; i++) for (let j = 0; j <= rows; j++) ctx.fillRect(x0 + i * cell - dot / 2, y0 + j * cell - dot / 2, dot, dot)
   }
 
-  /** Corner brackets, goal mouth and keep-out arc at one end. */
+  /** One end: corner brackets, goal mouth and keep-out arc. */
   private drawEnd(ctx: CanvasRenderingContext2D, end: (typeof ends)[number]): void {
-    const { pitchWidth: w, goalLeft, goalRight, netDepth } = rules
-    const v = visual.pitch
-    const u = v.unit
-    const color = visual.player.colors[end.owner]
-    const { y, into } = end
+    this.drawBrackets(ctx, end)
+    this.drawGoalMouth(ctx, end)
+    this.drawNoBuildArc(ctx, end)
+  }
 
-    // Corner brackets.
-    const { insetPx, armPx, widthPx, alpha } = v.bracket
-    const inset = insetPx * u
-    const arm = armPx * u
-    ctx.globalAlpha = alpha
-    ctx.strokeStyle = color
-    ctx.lineWidth = widthPx * u
+  /** The owner's corner brackets, with rounded elbows. */
+  private drawBrackets(ctx: CanvasRenderingContext2D, { y, into, owner }: (typeof ends)[number]): void {
+    const { pitchWidth: w } = rules
+    const { unit: u, bracket } = visual.pitch
+    const inset = bracket.insetPx * u
+    const arm = bracket.armPx * u
+    ctx.globalAlpha = bracket.alpha
+    ctx.strokeStyle = visual.player.colors[owner]
+    ctx.lineWidth = bracket.widthPx * u
+    ctx.lineJoin = 'round'
     for (const [x, dx] of [[inset, 1], [w - inset, -1]] as const) {
       ctx.beginPath()
       ctx.moveTo(x + dx * arm, y + into * inset)
@@ -101,15 +104,21 @@ export class Pitch extends Entity {
       ctx.lineTo(x, y + into * (inset + arm))
       ctx.stroke()
     }
+    ctx.globalAlpha = 1
+  }
 
-    // Goal mouth behind the line: chevrons pointing into the pitch, then net lines.
-    const g = v.goal
+  /** The goal mouth behind the line: chevrons pointing into the pitch, net lines, then the goal line over the outline. */
+  private drawGoalMouth(ctx: CanvasRenderingContext2D, { y, into, owner }: (typeof ends)[number]): void {
+    const { goalLeft, goalRight, netDepth } = rules
+    const { unit: u, goal: g } = visual.pitch
+    const color = visual.player.colors[owner]
     const mouth = goalRight - goalLeft
     const [cw, ch] = [g.chevronPx[0] * u, g.chevronPx[1] * u]
     ctx.save()
     ctx.beginPath()
     ctx.rect(goalLeft, Math.min(y, y - into * netDepth), mouth, netDepth)
     ctx.clip()
+    ctx.strokeStyle = color
     ctx.globalAlpha = g.chevronAlpha
     ctx.lineWidth = g.chevronWidthPx * u
     ctx.lineJoin = 'round'
@@ -128,7 +137,7 @@ export class Pitch extends Entity {
       }
     ctx.stroke()
     ctx.globalAlpha = g.netAlpha
-    ctx.lineWidth = v.outline.widthPx * u / 3
+    ctx.lineWidth = g.netWidthPx * u
     ctx.beginPath()
     for (let i = 1; i <= g.netLines; i++) {
       const x = goalLeft + (mouth * i) / (g.netLines + 1)
@@ -138,19 +147,28 @@ export class Pitch extends Entity {
     ctx.stroke()
     ctx.restore()
 
-    // Goal line.
     ctx.globalAlpha = 1
     ctx.fillStyle = color
     ctx.fillRect(goalLeft, y - (g.lineWidthPx * u) / 2, mouth, g.lineWidthPx * u)
+  }
 
-    // Keep-out arc: neutral, the builder's colour while that player builds.
+  /** The keep-out arc, the drawn edge of the goal no-build zone: neutral, the builder's colour while that player builds. */
+  private drawNoBuildArc(ctx: CanvasRenderingContext2D, { y, into, owner }: (typeof ends)[number]): void {
+    const { keepOut } = visual.pitch
     ctx.beginPath()
-    ctx.arc(w / 2, y, rules.noBuildRadius, into > 0 ? 0 : Math.PI, into > 0 ? Math.PI : 2 * Math.PI)
-    ctx.setLineDash(v.keepOut.dashPx.map((d) => d * u))
-    ctx.strokeStyle = this.builder === end.owner ? color : v.line
-    ctx.lineWidth = v.keepOut.widthPx * u
+    ctx.arc(rules.pitchWidth / 2, y, rules.noBuildRadius, into > 0 ? 0 : Math.PI, into > 0 ? Math.PI : 2 * Math.PI)
+    ctx.setLineDash(dashed(keepOut.dashPx))
+    ctx.strokeStyle = this.builder === owner ? visual.player.colors[owner] : visual.pitch.line
+    ctx.lineWidth = keepOut.widthPx * visual.pitch.unit
     ctx.stroke()
     ctx.setLineDash([])
+  }
+
+  /** The halfway line as the current path, shared by the centre line and the build-zone edge. */
+  private halfwayLine(ctx: CanvasRenderingContext2D): void {
+    ctx.beginPath()
+    ctx.moveTo(0, rules.halfHeight)
+    ctx.lineTo(rules.pitchWidth, rules.halfHeight)
   }
 
   /** The edge of the builder's half, on the halfway line (building is allowed on the whole half). */
@@ -159,10 +177,8 @@ export class Pitch extends Entity {
     ctx.globalAlpha = b.alpha
     ctx.strokeStyle = visual.player.colors[builder]
     ctx.lineWidth = b.widthPx * u
-    ctx.setLineDash(b.dashPx.map((d) => d * u))
-    ctx.beginPath()
-    ctx.moveTo(0, rules.halfHeight)
-    ctx.lineTo(rules.pitchWidth, rules.halfHeight)
+    ctx.setLineDash(dashed(b.dashPx))
+    this.halfwayLine(ctx)
     ctx.stroke()
     ctx.setLineDash([])
     ctx.globalAlpha = 1

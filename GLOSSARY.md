@@ -124,6 +124,18 @@ _Avoid_: Segment, cell (for wall length), tile
 The no-build circle around the centre spot that walls and towers must stay wholly outside, beside the goal no-build zone and the own-half rule.
 _Avoid_: Kick-off circle, centre ring (that is the Attract loop's), middle zone
 
+**Goal no-build zone**:
+The semicircle around each goal mouth that walls and towers must stay wholly outside (the no-build radius in the rules config).
+_Avoid_: Goal box, protected area
+
+**Keep-out arc**:
+The drawn edge of the goal no-build zone: a dashed arc around each goal, neutral, taking the builder's colour while that player builds.
+_Avoid_: No-build line, goal arc
+
+**Build-zone edge**:
+The dashed halfway-line marker drawn during a build in the builder's colour. It is only a marker; building is allowed on the whole half.
+_Avoid_: Build line, half line
+
 **Breaker**:
 The Offence item that makes the armed shot destroy the first structure it touches, either player's, then carry on.
 _Avoid_: Breach Ball, piercing shot

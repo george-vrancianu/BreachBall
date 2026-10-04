@@ -15,7 +15,7 @@ function recorder() {
     {
       get: (_t, k: string) => {
         if (k === 'setLineDash') return (d: number[]) => void (dash = d)
-        if (['stroke', 'fill', 'fillRect'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
+        if (['stroke', 'fill', 'fillRect', 'arc'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
         return state[k] ?? (() => {})
       },
       set: (_t, k: string, v) => ((state[k] = v), true),
@@ -53,5 +53,12 @@ describe('Pitch markings', () => {
     const { ctx, calls } = recorder()
     new Pitch().draw(ctx)
     expect(calls.filter((c) => c.fn === 'fillRect' && c.args[0] === rules.goalLeft)).toHaveLength(2)
+  })
+
+  it('draws the centre dot at the handoff radius', () => {
+    const { ctx, calls } = recorder()
+    new Pitch().draw(ctx)
+    const dot = calls.find((c) => c.fn === 'arc' && c.args[2] === visual.pitch.centre.dotRadiusPx * unit)
+    expect(dot?.args.slice(0, 2)).toEqual([rules.pitchWidth / 2, rules.halfHeight])
   })
 })
