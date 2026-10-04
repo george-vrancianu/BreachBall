@@ -2,19 +2,19 @@
 
 Hot-seat was built around one device flipped between players: Flip on turn rotated the whole stage 180 degrees, pitch included, so the active player's end was always at the bottom. It was off by default, and then Player 2 played from across the table with a HUD that still faced Player 1. The common setup is one phone lying flat between two players at opposite ends. There the pitch need not rotate (the camera already follows the ball and handles across-table play: the ball is held 30% or 70% down, the HUD band is kept clear on either edge); only what each player reads and touches, the HUD, must face them.
 
-We replaced the setting with **Tabletop mode**, on by default. The stage is split into a **canvas layer** (the pitch) and a **HUD layer** (dock, bars, chips, Overlay, Side menu). With Tabletop mode on, only the HUD layer turns 180 degrees to the active player and the canvas layer never does; with it off both layers turn together, which is the old whole-stage flip. Both modes always orient the HUD to the active player: the "HUD stays with Player 1" state is gone.
+We replaced the setting with **Tabletop mode**, on by default. The stage is split into a **canvas layer** (the pitch) and a **HUD layer** (Dock, bars, chips, Overlay, Side menu). With Tabletop mode on, only the HUD layer turns 180 degrees to the active player and the canvas layer never does; with it off both layers turn together, which is the old whole-stage flip. Both modes always orient the HUD to the active player: the "HUD stays with Player 1" state is gone.
 
 ## Considered Options
 
-- **Keep the whole-stage flip as the only option.** Rejected: on a table it spins the pitch under both players, and Player 2 then reads upside down text or has the dock at the wrong edge.
+- **Keep the whole-stage flip as the only option.** Rejected: on a table it spins the pitch under both players, and Player 2 then reads upside down text or has the Dock at the wrong edge.
 - **Leave the HUD facing Player 1 and let Player 2 play upside down (the old default).** Rejected: half the game reads wrong for one of the players.
 - **Fixed pitch, turning HUD layer (chosen, on by default), with the whole-stage flip kept as an option.** Players who hold and pass the phone keep the flip, and an existing "Flip on turn: on" setting migrates to Tabletop off.
 
 ## Consequences
 
-- **Camera, band and anchor follow the HUD's seat, not the canvas's.** The HUD band is reserved on the edge the HUD is at (the canvas top for Player 2, whichever mode), and the ball anchor is taken from the HUD seat. A drag on the canvas still goes by the seat the canvas is turned to, which in Tabletop mode is always Player 1, because the finger moves on the screen. Edge-scroll works in world space and needs no change.
-- **The pitch's own text and light face the viewer.** The canvas itself does not turn, but its labels, the Aim gauge and the walls' lighting are drawn for the active player's view, so they read upright for whoever has the turn and the light stays in the viewer's frame. They therefore turn with the handover even though the pitch does not.
-- **The Side menu's edge swipe** starts at the HUD's left, which is the canvas's right while the HUD is turned.
+- **Camera, band and anchor follow the HUD's seat, not the canvas's.** The HUD band is reserved on the edge the HUD is at (the top of the canvas layer for Player 2, whichever mode), and the ball anchor is taken from the HUD seat. A drag on the canvas layer still goes by the seat it is turned to, which in Tabletop mode is always Player 1, because the finger moves on the screen. Edge-scroll works in world space and needs no change.
+- **The pitch's own text and light face the viewer.** The canvas layer itself does not turn, but its labels, the Aim gauge and the walls' lighting are drawn for the active player's view, so they read upright for whoever has the turn and the light stays in the viewer's frame. They therefore turn with the handover even though the pitch does not.
+- **The Side menu's edge swipe** starts at the HUD's left, which is the canvas layer's right while the HUD is turned.
 - **Storage** moves to `breachball.tabletop`, migrated once from `breachball.flipOnTurn` (`true` becomes off, anything else on) and the old key is deleted. A mid-match change snaps to the active player's orientation, once the Side menu is closed so the menu does not turn under the finger.
 - **Online is unaffected.** The online note in the specs ("flip the world, keep the DOM upright") still holds there: a peer's own screen should not need a turned HUD. Tabletop mode is a hot-seat device setting only.
 - **Follow-ups.** The HUD layer snaps for now; sliding it (and fading the edge strips) is a separate ticket. The Settings, Help and Match-end screens stay upright for Player 1.

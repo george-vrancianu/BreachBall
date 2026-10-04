@@ -81,7 +81,7 @@ The small chip at the top-left, just under the far-edge bars (the ☰ button sit
 _Avoid_: Radar, overview button
 
 **Dock**:
-The panel at the bottom of the screen holding the active viewer's controls, in two rows: the status row (balance chip, round and phase, clock, Recenter, and OK in a build turn) and the action row. The action row depends on the turn: the build dock has Build (a chess rook) on the left, the Defence pieces beside it and Strategies on the right; the play dock has the abilities on the left, Build (for an in-play build), Powerup (a bolt) and Subterfuge (a theatre mask), each opening in place to its options, and the shots and Refund on the right; a Rearrange turn shows a prompt and a defence choice shows Repair and Rearrange.
+The panel at the active player's edge of the screen (the bottom for Player 1; in Tabletop mode the top for Player 2) holding the active viewer's controls, in two rows: the status row (balance chip, round and phase, clock, Recenter, and OK in a build turn) and the action row. The action row depends on the turn: the build dock has Build (a chess rook) on the left, the Defence pieces beside it and Strategies on the right; the play dock has the abilities on the left, Build (for an in-play build), Powerup (a bolt) and Subterfuge (a theatre mask), each opening in place to its options, and the shots and Refund on the right; a Rearrange turn shows a prompt and a defence choice shows Repair and Rearrange.
 _Avoid_: Bottom menu, HUD bar, toolbar
 
 **In-play build**:
