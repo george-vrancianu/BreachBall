@@ -120,13 +120,14 @@ describe('moving and refunding this turn\'s items', () => {
     expect(step(s, { moveStructure: { player: 1, id: 1, ...hseg(11, 40) } }, c).events).toEqual([])
   })
   describe('changing a wall\'s length by its ends', () => {
-    const withCredits = (n: number) => {
+    // A one-unit wall placed, then the builder's Credits set to `after` (what is left once it is down).
+    const withCredits = (after?: number) => {
       const s = run({ ...buildState(1), credits: { 1: 10, 2: 10 } }, { placeWall: wall(1) })
-      return { ...s, credits: { ...s.credits, 1: n === 10 ? s.credits[1] : n } }
+      return after === undefined ? s : { ...s, credits: { ...s.credits, 1: after } }
     }
     const longer = { player: 1 as const, id: 1, ...hseg(10, 40, 2) }
     it('charges the difference for a longer wall, and demolishing then refunds everything paid', () => {
-      const s = withCredits(10)
+      const s = withCredits()
       expect(s.credits[1]).toBe(8)
       const r = step(s, { moveStructure: longer }, c)
       expect(r.events).toEqual([])
@@ -139,6 +140,27 @@ describe('moving and refunding this turn\'s items', () => {
       expect(r.events).toEqual([{ type: 'refused' }])
       expect(r.state.objects).toEqual(s.objects)
       expect(r.state.credits).toEqual(s.credits)
+    })
+    it('accepts a longer wall that costs exactly the Credits left', () => {
+      const s = withCredits(2)
+      const r = step(s, { moveStructure: longer }, c)
+      expect(r.events).toEqual([])
+      expect(r.state.credits[1]).toBe(0)
+    })
+    it('two units cut to one then demolished nets zero', () => {
+      let s = run({ ...buildState(1), credits: { 1: 10, 2: 10 } }, { placeWall: wall(1, 2) })
+      s = run(s, { moveStructure: { player: 1, id: 1, ...hseg(10, 40, 1) } }, { demolish: { player: 1, wall: 1 } })
+      expect(s.credits[1]).toBe(10)
+    })
+    it('is charged in Siege\'s opening build as in Rounds', () => {
+      const siege = { ...c, mode: 'siege' as const }
+      const base = initialState(1, siege)
+      const builder = base.match.builder!
+      expect(base.match.builder).not.toBeNull()
+      const s = step({ ...base, credits: { ...base.credits, [builder]: 10 } }, { placeWall: { ...wall(builder), ...hseg(10, builder === 1 ? 40 : 10) } }, siege).state
+      const r = step(s, { moveStructure: { player: builder, id: s.objects[0].id, ...hseg(10, builder === 1 ? 40 : 10, 2) } }, siege)
+      expect(r.events).toEqual([])
+      expect(r.state.credits[builder]).toBe(6)
     })
     it('refunds the difference for a shorter wall', () => {
       let s = run({ ...buildState(1), credits: { 1: 10, 2: 10 } }, { placeWall: wall(1, 2) })

@@ -29,7 +29,7 @@ export const structuresOf = (objects: readonly Structure[], p: PlayerId): Struct
 export const maxHp = (s: StructureSpec): number => (s.kind === 'tower' ? POWER_HP[s.power] : rules.wallHp)
 
 /** The wall settings the geometry helpers read; `rules` by default, so tests and tools can pass their own. */
-export type WallRules = { wall: { unit: number; units: readonly number[]; angles: readonly number[]; unitCost: number } }
+export type WallRules = { /** Half a wall's thickness, world units. */ wallHalf: number; wall: { unit: number; units: readonly number[]; angles: readonly number[]; unitCost: number } }
 
 const EPS = 1e-6
 /** How far a wall's length or far end may stray from the allowed sets, in world units. */
@@ -116,15 +116,15 @@ export function segmentsTouchOnly(s1: Segment, s2: Segment, eps = EPS): boolean 
 
 /**
  * Whether two walls cross or overlap (touching end to end or in a T is fine). Walls have thickness: parallel or collinear walls
- * closer than `2 * rules.wallHalf` whose lengths overlap along their direction also count as overlapping.
+ * closer than `2 * wallHalf` whose lengths overlap along their direction also count as overlapping.
  */
-export function wallsOverlap(w1: Pick<WallSpec, 'a' | 'b'>, w2: Pick<WallSpec, 'a' | 'b'>, eps = EPS): boolean {
+export function wallsOverlap(w1: Pick<WallSpec, 'a' | 'b'>, w2: Pick<WallSpec, 'a' | 'b'>, eps = EPS, r: WallRules = rules): boolean {
   if (!segmentsTouchOnly(w1, w2, eps)) return true
   const [d1x, d1y, d2x, d2y] = [w1.b.x - w1.a.x, w1.b.y - w1.a.y, w2.b.x - w2.a.x, w2.b.y - w2.a.y]
   const [l1, l2] = [Math.hypot(d1x, d1y), Math.hypot(d2x, d2y)]
   if (l1 === 0 || l2 === 0 || Math.abs(d1x * d2y - d1y * d2x) > 1e-9 * l1 * l2) return false
   const [ox, oy] = [w2.a.x - w1.a.x, w2.a.y - w1.a.y]
-  if (Math.abs(ox * d1y - oy * d1x) / l1 >= 2 * rules.wallHalf) return false
+  if (Math.abs(ox * d1y - oy * d1x) / l1 >= 2 * r.wallHalf) return false
   const ts = [(ox * d1x + oy * d1y) / l1, ((w2.b.x - w1.a.x) * d1x + (w2.b.y - w1.a.y) * d1y) / l1]
   return Math.min(l1, Math.max(...ts)) - Math.max(0, Math.min(...ts)) > eps
 }

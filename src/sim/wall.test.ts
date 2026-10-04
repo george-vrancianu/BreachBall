@@ -78,7 +78,7 @@ describe('snapWallEnd', () => {
     expect(snapWallEnd(a, p(24, 80))).not.toBeNull()
   })
   it('follows the configured sets', () => {
-    const custom = { wall: { unit: 4, units: [1, 3], angles: [0, 90], unitCost: 1 } }
+    const custom = { wallHalf: rules.wallHalf, wall: { unit: 4, units: [1, 3], angles: [0, 90], unitCost: 1 } }
     near(snapWallEnd(a, p(20 + 7, 80 + 6), custom), p(32, 80)) // nearer 0 than 90 degrees; 2.3 units rounds to 3
     near(snapWallEnd(a, p(21, 80 + 10), custom), p(20, 92))
   })
@@ -112,7 +112,7 @@ describe('rotatedWall', () => {
     expect(r.b).toEqual(p(r.a.x + 8 * Math.SQRT1_2, r.a.y + 8 * Math.SQRT1_2))
   })
   it('steps 90 degrees with a custom angle set of [0, 90]', () => {
-    const custom = { wall: { ...rules.wall, angles: [0, 90] } }
+    const custom = { wallHalf: rules.wallHalf, wall: { ...rules.wall, angles: [0, 90] } }
     expect(rotatedWall(wall(1, p(20, 80), p(28, 80)), custom).b).toEqual(p(20, 88))
   })
   it('re-snaps a stray length to the nearest allowed units', () => {
@@ -258,12 +258,14 @@ describe('isLegal', () => {
     expect(isLegal(tower(2, 12, 24))).toBe(false)
     expect(isLegal(tower(2, 13, 24))).toBe(true)
   })
-  it('refuses a tower straddling the halfway line', () => {
+  it('judges a tower by its whole cell against the halfway line', () => {
     const tower = (owner: 1 | 2, gy: number): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx: 2, gy } })
-    expect(isLegal(tower(1, 26.5))).toBe(false)
-    expect(isLegal(tower(2, 26.5))).toBe(false)
-    expect(isLegal(tower(1, 26))).toBe(false) // wholly on the other half
+    // The halfway line is at grid row 27: a cell resting on it, wholly on the owner's side, is legal.
     expect(isLegal(tower(1, 27))).toBe(true)
+    expect(isLegal(tower(2, 26))).toBe(true)
+    // Wholly on the other half is not.
+    expect(isLegal(tower(1, 26))).toBe(false)
+    expect(isLegal(tower(2, 27))).toBe(false)
   })
   it('does not cross or overlap any existing wall, either owner\'s', () => {
     const existing = [wall(1, p(10, 80), p(18, 80)), wall(2, p(10, 20), p(18, 20))]
