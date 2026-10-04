@@ -19,17 +19,17 @@ export function predictPath(state: SimState, shot: NonNullable<SimInput['shot']>
   const points: Point[] = [state.ball.pos]
   const contacts: Point[] = []
   let left = maxLength
-  /** Extends the path to `p`, cut where the length runs out; whether any length is left. */
-  const reach = (p: Point): boolean => {
+  /** Extends the path toward `p`, cut where the length runs out; whether it reached `p`. */
+  const extendTo = (p: Point): boolean => {
     const last = points.at(-1)!
     const d = Math.hypot(p.x - last.x, p.y - last.y)
-    if (d < left) {
+    if (d <= left) {
       points.push(p)
       left -= d
       return true
     }
-    const t = d ? left / d : 0
-    points.push({ x: last.x + (p.x - last.x) * t, y: last.y + (p.y - last.y) * t })
+    if (left > 0) points.push({ x: last.x + ((p.x - last.x) * left) / d, y: last.y + ((p.y - last.y) * left) / d })
+    left = 0
     return false
   }
   let r = step(structuredClone(state), { shot }, config)
@@ -37,15 +37,15 @@ export function predictPath(state: SimState, shot: NonNullable<SimInput['shot']>
   for (let tick = 0; tick < capSeconds * config.tickHz; tick++) {
     for (const e of r.events) {
       if (e.type === 'goal') {
-        reach(e.at)
+        extendTo(e.at)
         return { points, contacts }
       }
       if (e.type !== 'ball-hit-wall' && e.type !== 'ball-hit-board') continue
-      if (!reach(e.at)) return { points, contacts }
+      if (!extendTo(e.at)) return { points, contacts }
       contacts.push(e.at)
       if (contacts.length >= maxBounces) return { points, contacts }
     }
-    if (!reach(r.state.ball.pos) || !r.state.possession.live) break
+    if (!extendTo(r.state.ball.pos) || !r.state.possession.live) break
     r = step(r.state, {}, config)
   }
   return { points, contacts }

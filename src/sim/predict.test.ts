@@ -50,9 +50,9 @@ describe('predictPath', () => {
     expect(p.points.at(-1)).toEqual(p.contacts[1])
   })
 
-  it('ends early where the stepped ball comes to rest', () => {
+  it('ends early where the stepped ball comes to rest, before its caps', () => {
     const s = at({ x: 30, y: 60 })
-    const p = predictPath(s, { ...up, dir: { x: 0.6, y: -0.8 } }, c, unlimited)
+    const p = predictPath(s, { ...up, dir: { x: 0.6, y: -0.8 } }, c, { maxBounces: 10, maxLength: 1000 })
     const rest = stepUntil(s, { ...up, dir: { x: 0.6, y: -0.8 } }, (st) => !st.possession.live).state.ball.pos
     expect(p.points.at(-1)).toEqual(rest)
     expect(p.contacts.length).toBeGreaterThan(0)
@@ -72,11 +72,17 @@ describe('predictPath', () => {
     expect(p.contacts).toHaveLength(1)
     expect(lengthOf(p.points)).toBeCloseTo(17)
   })
-  it('ends at the goal, whatever the caps', () => {
+  it('counts a bounce that lands exactly at maxLength', () => {
+    const full = predictPath(at({ x: 10, y: 20 }), up, c, { maxBounces: 1, maxLength: Infinity })
+    const p = predictPath(at({ x: 10, y: 20 }), up, c, { maxBounces: 3, maxLength: lengthOf(full.points) })
+    expect(p.contacts).toEqual(full.contacts)
+    expect(p.points.at(-1)!.y).toBeCloseTo(full.contacts[0].y)
+  })
+  it('ends at the goal, before its caps', () => {
     const s = at({ x: 20, y: 10 })
     const shot = { ...up, tier: 1, power: 1 }
     const goal = stepUntil(s, shot, (_, ev) => ev.some((e) => e.type === 'goal')).events.find((e) => e.type === 'goal')!
-    const p = predictPath(s, shot, c, unlimited)
+    const p = predictPath(s, shot, c, { maxBounces: 3, maxLength: 1000 })
     expect(p.points.at(-1)).toEqual(goal.at)
     expect(p.contacts).toEqual([])
   })

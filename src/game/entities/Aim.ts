@@ -112,7 +112,7 @@ export class Aim extends Entity {
     return out
   }
 
-  /** The ball's charge, null when not Charged: the Ghost is drawn wider and badged. */
+  /** The ball's charge, null when not Charged: the Ghost's dots are drawn larger and badged. */
   get charge(): Charge | null {
     return this.state?.charge ?? null
   }

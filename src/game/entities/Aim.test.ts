@@ -88,9 +88,10 @@ describe('Aim Ghost', () => {
   })
   it('reaches as far from a Charged ball as from a plain one', () => {
     const charged: SimState = { ...open, charge: { zone: 'bullseye', factor: rules.boost.bullseye.factor } }
-    // Power at 0.75 reaches 14 units (8 to 20), well short of where either ball would stop.
-    expect(reachOf(1, 0.75)).toBeCloseTo(14)
-    expect(reachOf(1, 0.75, undefined, charged)).toBeCloseTo(14)
+    // Power at 0.75 reaches 20 units (10 to 30), well short of where either ball would stop.
+    const ghost = { maxBounces: 1, reach: [10, 30] } as const
+    expect(reachOf(1, 0.75, ghost)).toBeCloseTo(20)
+    expect(reachOf(1, 0.75, ghost, charged)).toBeCloseTo(20)
   })
   it('shows no Ghost before the drag', () => {
     expect(ghostOf(far, {})).toBeUndefined()
