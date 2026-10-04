@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import type { Structure, Wall } from './wall'
 import { defaultConfig, step, type SimConfig, type SimInput, type SimState } from './step'
-import { emptied, hseg, playState } from './testkit'
+import { hseg, playState } from './testkit'
 
 /** No friction, so the velocity after one tick is the launch velocity. */
 const c: SimConfig = { ...defaultConfig, halfLife: Infinity }
@@ -48,7 +48,7 @@ describe('shot', () => {
     it('with a power above its tier\'s range', () => refused(ready(), { player: 1, dir: up, tier: 0, power: 0.9 }))
     it('with a Touch power on the Power tier', () => refused(ready(), { player: 1, dir: up, tier: 1, power: 0.3 }))
     it('with a Touch power as strong as the weakest Power shot', () => refused(ready(), { player: 1, dir: up, tier: 0, power: 0.5 }))
-    it('with Breaker armed and none left', () => refused(emptied(ready(), 1, 'breaker'), { player: 1, dir: up, tier: 0, power: 0.4, breaker: true }))
+    it('with Breaker armed and too few Credits', () => refused({ ...ready(), credits: { 1: 1, 2: 1 } }, { player: 1, dir: up, tier: 0, power: 0.4, breaker: true }))
   })
 })
 
@@ -90,11 +90,11 @@ describe('Splash', () => {
     expect(r.state.ball.vel.x).toBeCloseTo(60)
     expect(r.state.ball.vel.y).toBeCloseTo(0)
   })
-  it('still happens on a Breaker shot, which stays armed and spends its stock', () => {
+  it('still happens on a Breaker shot, which stays armed and charges its Credits', () => {
     const s = near([wall(1, 2, 39)])
     const r = shoot(s, { player: 1, dir: right, tier: 1, power: 1, breaker: true })
     expect(r.state.objects.find((o) => o.id === 1)?.hp).toBe(1)
     expect(r.state.breaker).toBe(true)
-    expect(r.state.players[1].inventory.breaker).toBe(s.players[1].inventory.breaker - 1)
+    expect(r.state.credits[1]).toBe(s.credits[1] - rules.breakerCost)
   })
 })
