@@ -9,6 +9,7 @@ import { canEdit, defaultConfig, type SimConfig, type SimEvent, type SimInput, t
 import { structuresOf } from '../sim/wall'
 import type { Driver, DriverFactory, Sink } from './driver'
 import { Aim } from './entities/Aim'
+import { AimGauge } from './entities/AimGauge'
 import { Ball } from './entities/Ball'
 import { anchorY, Camera, hudReserve, viewOutline } from './entities/Camera'
 import { EdgeFade } from './entities/EdgeFade'
@@ -119,6 +120,8 @@ export class Game implements Sink {
   readonly mapCam = new Camera(rules.mapY, true)
   readonly pitch = new Pitch()
   readonly structures = new Structures()
+  /** The control gauge around the ball while aiming, drawn under it. */
+  readonly gauge = new AimGauge()
   readonly ball = new Ball()
   readonly aim = new Aim()
   readonly fog = new Fog(() => this.viewCam(), () => this.camera.shakeNow)
@@ -152,6 +155,7 @@ export class Game implements Sink {
     this.ctx = canvas.getContext('2d')!
     this.camera.add(this.pitch)
     this.camera.add(this.structures)
+    this.camera.add(this.gauge)
     this.camera.add(this.ball)
     this.camera.add(this.aim)
     this.camera.add(this.structures.fx)
@@ -278,7 +282,7 @@ export class Game implements Sink {
   private newMatch(seed = (Math.random() * 2 ** 31) | 0): void {
     const s = this.driver.start(this.config, seed)
     // Sim ids restart, so the last match's visual state must not leak into this one.
-    for (const e of [this.camera, this.structures, this.ball, this.aim, this.pitch]) e.reset()
+    for (const e of [this.camera, this.structures, this.gauge, this.ball, this.aim, this.pitch]) e.reset()
     this.input.resetBuild()
     this.menuOpen = false
     this.strategiesOpen = false
@@ -373,7 +377,7 @@ export class Game implements Sink {
     const aim = mapOpen ? undefined : input.aimView()
     const buzz = tierBuzz(this.ball.aim, aim)
     if (buzz) navigator.vibrate?.(buzz)
-    this.aim.aim = this.ball.aim = aim
+    this.aim.aim = this.ball.aim = this.gauge.aim = aim
     // A cancel-armed aim fires nothing, so it previews no Splash.
     structures.previewSplash(state, aim?.cancel ? undefined : aim, this.config)
     structures.mark()
@@ -382,10 +386,11 @@ export class Game implements Sink {
     this.pitch.charge = this.ball.charge = state.charge
     this.ball.radius = this.config.ballRadius
     this.ball.tracer.pxPerUnit = this.camera.view(this.canvas).sy / this.dpr
-    this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.transition.shown === 2
+    this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.gauge.flipped = this.transition.shown === 2
     // During the goal hold the ball rests in the net (the sim has already reset it).
     const inNet = goalBall(this.transition)
     this.ball.sync(inNet ? { ...state.ball, pos: inNet, vel: { x: 0, y: 0 } } : state.ball)
+    this.gauge.at = this.ball.state.pos
     this.ball.placement = input.placement && { at: input.placement, legal: canPlaceBall(shooter, input.placement, state.objects, this.config), radius: this.config.ballRadius }
     this.ball.armed = input.armed || state.breaker ? shooter : undefined
   }

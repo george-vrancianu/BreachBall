@@ -154,12 +154,13 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 
 | Tier | Hold | Control radius | Curve | Power | Ghost | Splash |
 |---|---|---|---|---|---|---|
-| Touch | none | 220 px | longer drag is stronger | 15-45% | full path to the first contact, green | no |
-| Power | 1 s | 90 px | shorter drag is stronger | 50-100% | first 30% of that path, red | yes |
+| Touch | none | 150 px | longer drag is stronger | 15-45% | up to 3 bounces, 25-60 units, green | no |
+| Power | 1 s | 84 px | shorter drag is stronger | 50-100% | up to 1 bounce, 8-20 units, red | yes |
 
-- Drag length is in screen pixels from the press, eased (quadratic) through the tier's curve, with the full range starting at the slop edge. Dragging past the control radius keeps steering at the edge power. The weakest Power shot is always stronger than the strongest Touch shot.
+- Drag length is in screen pixels from the ball's on-screen centre (not the press point, which may be off-centre), so the gauge's rings line up with the finger. It is eased (quadratic) through the tier's curve, with the full range starting at the slop edge. Dragging past the control radius keeps steering at the edge power. The weakest Power shot is always stronger than the strongest Touch shot.
 - The Ghost is the ball's predicted path, from the same step function the game runs, so it never lies. It is recomputed only when the aim changes.
-- Cancel: release without having dragged past the slop, or release within 24 pixels of any canvas edge, where the Ghost greys out and an ✕ sits on the ball. Moving back out of the edge zone re-arms the same shot, tier unchanged. A second finger pans and abandons the aim. A cancel burns nothing.
+- The Ghost stops at its tier's bounce cap or reach, whichever comes first (`rules.shot.tiers[].ghost`). Hits on a structure or a board both count as bounces, including those under the Comet. The reach is in world units of path past the Comet's tip, so it is the same at any zoom and with any Comet length, and it grows with the shot's power across its own tier's range: the weakest shot gets the low end, the strongest the high end. So a Touch shot shows far, and a Power shot only a short stub. A goal ends the Ghost, and so does the ball coming to rest. A Charged ball's reach does not change.
+- Cancel: release without having dragged past the slop, or back within the slop of the ball's centre (the gauge's inner circle), or release within 24 pixels of any canvas edge, where the Ghost greys out and an ✕ sits on the ball. Moving back out of the edge zone re-arms the same shot, tier unchanged. A second finger pans and abandons the aim. A cancel burns nothing.
 - Splash: every Power shot sets off a burst centered on the ball's launch position. Its power is the shot's power rescaled within the tier (50% is a 0 Splash, 100% a full one). Its radius grows with that power from 1 ball diameter to 5 ball diameters (10 units). Pressure at a structure's nearest point is power × (1 − distance / radius). Enemy structures lose 1 HP above 0.4 and 2 HP above 0.8; the shooter's own structures lose 1 HP above 0.8 only. The halfway line shields nothing. Towers use the same rule with their own HP. The Splash does not move the ball.
 - The sim input is a direction, tier and power; the sim refuses a shot from anyone but the shooter, with the ball in hand or in flight, for an unknown tier, or with a power outside the tier's range.
 - Starting values, tune by feel.
@@ -253,12 +254,20 @@ The third family of actions (see `GLOSSARY.md`): items that cripple the opponent
 
 All Tracer sizes are screen px, converted with the camera's px per world unit (`visual.ball.tracer`).
 
-A Charged ball wears a pulsing glow ring and a "×1.5" / "×2" badge that pops in on arrival, and its launch runs the Tracer's white core wide until it stops. While aiming, the Ghost is drawn wider with the badge at its tip. (`visual.ball.charged`, `visual.aim.ghost`).
+A Charged ball wears a pulsing glow ring and a "×1.5" / "×2" badge that pops in on arrival, and its launch runs the Tracer's white core wide until it stops. While aiming, the Ghost's dots are drawn larger with the badge at its tip. (`visual.ball.charged`, `visual.aim.ghost`).
 
 ### Aim and Shot
 
 - While holding still on the ball: a ring around it fills towards Power in the tier's colour (Touch green, Power red). Reaching Power pulses it for 300 ms and gives a short vibration.
-- While aiming: a faint ring shows the tier's control radius, and the Ghost is drawn from the ball in the tier's colour. While cancel-armed the Ghost turns grey and an ✕ sits on the ball.
+- While holding or aiming, the Gauge sits around the ball (`visual.aim.gauge`, `game/entities/AimGauge.ts`), drawn in screen px so it is the same size at any zoom, and turned with the stage so its text reads upright. It shows only the current tier:
+  - a scale band from the inner cancel circle (the slop) out to the tier's limit, a radial gradient in the tier's colour, strong where the tier's power is high (Touch at the limit, Power near the ball); dashed tick rings at 25 / 50 / 75 %; a faint inner cancel circle;
+  - the limit drawn solid with a glow and a slow breathing pulse, a `TOUCH LIMIT` / `POWER LIMIT` chip on it at the lower left, and end labels: Touch `LOW` near the ball and `MAX` at the limit, Power `MAX` near the ball and `MIN` at the limit.
+- While aiming, the Gauge adds a lit wedge (about ±18°) on the pull side out to the finger, a ring at the finger's distance, a ripple running out to it (faster at the strong end of the scale), a dashed elastic line from the ball to the knob, the knob at the finger (clamped to the limit), and a readout chip beside the knob (to its screen right, or left near the right edge) with the tier name, the power in % and 8 meter segments lit by the scale position. Dragging past the limit flares the limit ring and the knob, easing in and out.
+- Reaching Power while holding morphs the Gauge from the Touch size to the Power size over 380 ms with a small overshoot, cross-fading its colour green to red, and a `POWER!` pop rises and fades above the ring over 700 ms.
+- While aiming, the Comet points the shot's way from the ball's edge. It is a tapered spear filled from transparent through the tier's colour to ink, with a glow in that colour, a solid ink arrowhead, and 3 dark chevrons running along it toward the tip, faster higher in the tier's range. It is 34 px long for the weakest shot and 154 px for the strongest (power normalised from 15% to 100%), and its base is 9 to 14 px wide on each side, growing across the tier's range. Its sizes are screen pixels, so it looks the same at any zoom (`visual.aim.comet`; the look is `comet()` in `docs/prototypes/shot-aim-prototype.html`).
+- The Ghost is drawn in the tier's colour as dots from the Comet's tip that shrink and fade toward its end and drift forward, faster with more power, with a small ring at each bounce, ink off a structure and the tier's colour off a board (`visual.aim.ghost`). Its reach is measured from the Comet's tip, so the dots always show `reach` units of path; the path under the Comet is not drawn.
+- A Power aim also shows a dashed ring in its colour around the ball at the Splash radius it would set off.
+- While cancel-armed the Comet and the Ghost turn grey, an ✕ sits on the ball, and there is no Splash preview.
 - While a Power aim is held, structures the Splash would reach are tinted red, own structures darker red, so own-wall damage is always a visible choice.
 - On a Power shot, a Splash ring expands to the Splash radius over 250 ms and fades. Any shot of at least 30% power shakes the screen with amplitude scaled by power (max about 4 px, 200 ms).
 
