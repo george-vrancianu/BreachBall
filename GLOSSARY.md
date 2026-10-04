@@ -20,6 +20,10 @@ _Avoid_: Preview, arrow, trajectory; "ghost" for the ball-in-hand placement or t
 The burst every Power Shot sets off where the ball starts, damaging every structure in range, the shooter's own included and across the halfway line. It grows with power within the Tier; the shooter's own structures lose hit points only to its strongest part. It doesn't move the ball.
 _Avoid_: Blast, explosion, area damage
 
+**Tracer**:
+The glowing tail a fired Shot leaves behind the moving ball, in the colour of the Tier that fired, with the sparks it sheds and the flashes at its bounces. It shows where the ball has been; the Ghost shows where it will go. It loses its colour when the ball rests or possession changes.
+_Avoid_: Trail, streak, trajectory; "Ghost" for the path already travelled
+
 **On time out**:
 The match setting, shown in every mode, for what an expiring shot clock does with the shooter's turn: **Shoot** (the default) fires the aim they are holding, or burns the shot if they hold none (not yet dragged, or cancel-armed at the edge); **Burn** always burns the shot. In code, `expiry: 'shoot' | 'burn'`.
 _Avoid_: Auto-fire, expiry mode, Fire
