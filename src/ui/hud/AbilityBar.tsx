@@ -9,10 +9,9 @@ import { noMenu } from './press'
 import { tileBadge, tileLabel, tileStyle } from './tile'
 
 const { dock } = visual.hud
+const { option, slide } = dock
 const OFFENCE_ICON: Record<OffenceItemSpec['item'], (size: number) => ReactNode> = { breaker: BREAKER, overdrive: OVERDRIVE }
 const SUBTERFUGE_ICON: Record<SubterfugeItem, (size: number) => ReactNode> = { jam: JAM }
-/** How long an ability slides left (and the others fold away), ms. */
-const SLIDE_MS = 220
 
 export type Ability = 'build' | 'powerup' | 'subterfuge'
 
@@ -24,7 +23,7 @@ function AbilityTile({ label, aria, icon, color, available, open, active, onTap 
   return (
     <button aria-label={aria} aria-expanded={open} aria-pressed={open || !!active} aria-disabled={!available} onClick={onTap} onContextMenu={noMenu} style={tileStyle({ color, active: (open || !!active) && available, available, width: dock.abilityPx })}>
       {icon}
-      <span style={{ ...tileLabel, fontSize: dock.labelPx - 1 }}>{label}</span>
+      <span style={{ ...tileLabel, fontSize: option.labelPx }}>{label}</span>
     </button>
   )
 }
@@ -33,14 +32,14 @@ function AbilityTile({ label, aria, icon, color, available, open, active, onTap 
 function Options({ options, color }: { options: OptionSpec[]; color: string }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    ref.current?.animate?.([{ opacity: 0, transform: 'translateX(24px)' }, { opacity: 1, transform: 'none' }], { duration: SLIDE_MS, easing: 'ease-out' })
+    ref.current?.animate?.([{ opacity: 0, transform: `translateX(${slide.px}px)` }, { opacity: 1, transform: 'none' }], { duration: slide.ms, easing: 'ease-out' })
   }, [])
   return (
     <div ref={ref} role="toolbar" aria-label="Options" style={{ display: 'flex', gap: dock.gapPx, minWidth: 0 }}>
       {options.map((o) => (
-        <button key={o.key} data-item={o.key} aria-label={o.aria} aria-pressed={o.pressed} aria-disabled={o.disabled} onClick={() => !o.disabled && o.onPick()} onContextMenu={noMenu} style={tileStyle({ color, active: o.pressed && !o.disabled, available: !o.disabled, width: dock.tilePx - 4 })}>
+        <button key={o.key} data-item={o.key} aria-label={o.aria} aria-pressed={o.pressed} aria-disabled={o.disabled} onClick={() => !o.disabled && o.onPick()} onContextMenu={noMenu} style={tileStyle({ color, active: o.pressed && !o.disabled, available: !o.disabled, width: option.px })}>
           {o.icon}
-          <span style={{ ...tileLabel, fontSize: dock.labelPx - 1, letterSpacing: '0.02em' }}>{o.name}</span>
+          <span style={{ ...tileLabel, fontSize: option.labelPx, letterSpacing: `${option.labelSpacingEm}em` }}>{o.name}</span>
           {o.badge && <span style={tileBadge(color, o.disabled)}>{o.badge}</span>}
         </button>
       ))}
@@ -50,7 +49,7 @@ function Options({ options, color }: { options: OptionSpec[]; color: string }) {
 
 /** A slot that folds to nothing (width and opacity) while another ability is open, so the open one slides to the left edge. */
 function Fold({ hidden, children }: { hidden: boolean; children: ReactNode }) {
-  const t = `max-width ${SLIDE_MS}ms ease, opacity ${SLIDE_MS * 0.7}ms ease, margin ${SLIDE_MS}ms ease`
+  const t = `max-width ${slide.ms}ms ease, opacity ${slide.ms * slide.fadeShare}ms ease, margin ${slide.ms}ms ease`
   const style: CSSProperties = { flex: 'none', maxWidth: hidden ? 0 : dock.abilityPx, opacity: hidden ? 0 : 1, marginRight: hidden ? 0 : dock.gapPx, overflow: hidden ? 'hidden' : 'visible', transition: t, pointerEvents: hidden ? 'none' : undefined }
   return <div aria-hidden={hidden || undefined} style={style}>{children}</div>
 }
@@ -59,7 +58,7 @@ function Fold({ hidden, children }: { hidden: boolean; children: ReactNode }) {
 export const pieceOptions = (defence: DefenceCircleView, onArm: (item: Item) => void): OptionSpec[] =>
   defence.items.map((s) => {
     const off = s.disabled || !defence.available
-    return { key: s.item, aria: s.soon ? `${s.label} · soon` : s.label, name: s.name, icon: s.soon ? LOCK(dock.iconPx - 4) : PIECE_ICON[s.item](dock.iconPx), badge: s.soon ? undefined : s.badge, disabled: off, pressed: s.pressed, onPick: () => s.item !== 'cannon' && onArm(s.item) }
+    return { key: s.item, aria: s.soon ? `${s.label} · soon` : s.label, name: s.name, icon: s.soon ? LOCK(option.lockPx) : PIECE_ICON[s.item](dock.iconPx), badge: s.soon ? undefined : s.badge, disabled: off, pressed: s.pressed, onPick: () => s.item !== 'cannon' && onArm(s.item) }
   })
 
 /**
@@ -85,10 +84,10 @@ export function AbilityBar({ defence, offence, subterfuge, color, trailing, onDe
     open === 'build' && defence
       ? pieceOptions(defence, onDefenceArm)
       : open === 'powerup'
-        ? offence.items.map((i) => ({ key: i.item, aria: i.soon ? `${i.label} · soon` : i.label, name: i.name, icon: i.soon ? LOCK(dock.iconPx - 4) : OFFENCE_ICON[i.item](dock.iconPx), badge: i.soon ? undefined : i.badge, disabled: i.disabled, pressed: i.pressed, onPick: () => (onOffenceArm(i.item), setLocal(undefined)) }))
+        ? offence.items.map((i) => ({ key: i.item, aria: i.soon ? `${i.label} · soon` : i.label, name: i.name, icon: i.soon ? LOCK(option.lockPx) : OFFENCE_ICON[i.item](dock.iconPx), badge: i.soon ? undefined : i.badge, disabled: i.disabled, pressed: i.pressed, onPick: () => (onOffenceArm(i.item), setLocal(undefined)) }))
         : open === 'subterfuge' && subterfuge
           ? subterfuge.items.map((i) => (i.soon
-              ? { key: i.item, aria: 'Locked · soon', name: i.name, icon: LOCK(dock.iconPx - 4), disabled: true, pressed: false, onPick: () => {} }
+              ? { key: i.item, aria: 'Locked · soon', name: i.name, icon: LOCK(option.lockPx), disabled: true, pressed: false, onPick: () => {} }
               : { key: i.item, aria: `${i.label} · ${i.when}`, name: i.name, icon: SUBTERFUGE_ICON[i.item](dock.iconPx), badge: i.badge, disabled: i.disabled || !subterfuge.available, pressed: false, onPick: () => (onSubterfuge(i.item), setLocal(undefined)) }))
           : []
   return (
@@ -104,7 +103,7 @@ export function AbilityBar({ defence, offence, subterfuge, color, trailing, onDe
           <AbilityTile label="Subterfuge" aria="Subterfuge" icon={MASK(dock.iconPx)} color={color} available={subterfuge.available} open={open === 'subterfuge'} onTap={() => toggle('subterfuge')} />
         </Fold>
       )}
-      {open && <span aria-hidden style={{ flex: 'none', width: dock.dividerPx, height: dock.tilePx - 16, background: dock.border, marginRight: dock.gapPx + 2 }} />}
+      {open && <span aria-hidden style={{ flex: 'none', width: dock.dividerPx, height: dock.dividerHeightPx, background: dock.border, marginRight: dock.gapPx + dock.dividerPadPx }} />}
       {open && <Options key={open} options={options} color={color} />}
       <span style={{ flex: 1 }} />
       {!open && trailing}
