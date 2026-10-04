@@ -15,6 +15,7 @@ function recorder() {
     {
       get: (_t, k: string) => {
         if (k === 'setLineDash') return (d: number[]) => void (dash = d)
+        if (k === 'measureText') return (t: string) => ({ width: t.length })
         if (['stroke', 'fill', 'fillRect', 'arc', 'fillText', 'translate'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
         return state[k] ?? (() => {})
       },
@@ -156,6 +157,18 @@ describe('Boost ring and Bullseye', () => {
     expect(p.arrivalCount).toBe(1)
     p.update(0.002)
     expect(p.arrivalCount).toBe(0)
+  })
+})
+
+describe('Boost labels', () => {
+  it('draws the ×1.5 point as a disc between "×1" and "5", so it cannot be read as ×15', () => {
+    const { ctx, calls } = recorder()
+    new Pitch().draw(ctx)
+    const texts = calls.filter((c) => c.fn === 'fillText').map((c) => c.args[0])
+    expect(texts).toContain('×1')
+    expect(texts).toContain('5')
+    expect(texts).not.toContain('×1.5')
+    expect(texts).toContain('×2')
   })
 })
 

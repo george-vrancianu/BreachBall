@@ -7,6 +7,7 @@ import { tierClimbed } from '../feedback'
 import { tierColor } from './Aim'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
+import { placeBadge, textRect, type Rect } from '../layout'
 
 /** What the gauge reads of the aim in progress: its phase and tier, the tier's control radius and the finger's pull in screen px, the aim once there is one, and how many screen px a world unit spans. */
 export type GaugeAim = Pick<AimView, 'phase' | 'tier' | 'radiusPx' | 'pxPerUnit'> & Partial<Pick<AimView, 'dir' | 'power' | 'pullPx' | 'cancel'>>
@@ -54,16 +55,52 @@ export class AimGauge extends Entity {
     return progress < 1 ? { text: `${rules.shot.tiers[aim.tier].name.toUpperCase()}!`, progress } : undefined
   }
 
-  /** The limits drawn: only the current tier's, never the other tier's. */
+  /** A label chip's box in the gauge's screen-px frame (+x right, +y down from the ball): `text` at `sizePx` centred on `at`, padded as drawn. */
+  private chipBox(at: Point, text: string, sizePx: number): Rect {
+    const { padPx, heightPx } = visual.aim.gauge.label
+    const r = textRect(at, text, sizePx, visual.text.glyphEm)
+    return { ...r, w: r.w + padPx, h: heightPx }
+  }
+
+  /** The end chips' boxes in the gauge's screen-px frame: the near-ball one and the one at the limit. */
+  private endBoxesPx(): Rect[] {
+    const { ends, radius, cancelRadius } = this
+    const { aim } = this
+    if (!aim || !ends || radius === undefined || cancelRadius === undefined) return []
+    const { label } = visual.aim.gauge
+    return [
+      this.chipBox({ x: 0, y: -(cancelRadius * aim.pxPerUnit + label.nearGapPx) }, ends.near, label.nearSizePx),
+      this.chipBox({ x: 0, y: -radius * aim.pxPerUnit }, ends.limit, label.sizePx),
+    ]
+  }
+
+  /** The near-ball end chip's box in world units, for the Charged ball's badge to keep clear of; none without an aim. */
+  get chipRects(): Rect[] {
+    const { aim } = this
+    const near = this.endBoxesPx()[0]
+    if (!aim || !near) return []
+    const s = (this.flipped ? -1 : 1) / aim.pxPerUnit
+    return [{ x: this.at.x + near.x * s, y: this.at.y + near.y * s, w: near.w / aim.pxPerUnit, h: near.h / aim.pxPerUnit }]
+  }
+
+  /** The limits drawn: only the current tier's, never the other tier's. The chip is on the ring at the first of `chipDegs` where it keeps clear of the readout and the end chips. */
   get limits(): GaugeLimit[] {
-    const { aim, radius } = this
+    const { aim, radius, readout } = this
     if (!aim || radius === undefined) return []
     const tier = rules.shot.tiers[aim.tier].name
-    const a = (visual.aim.gauge.label.chipDeg * Math.PI) / 180
+    const chip = `${tier.toUpperCase()} LIMIT`
+    const { chipDegs, sizePx } = visual.aim.gauge.label
+    const { wPx, hPx } = visual.aim.gauge.readout
+    const turn = this.flipped ? -1 : 1
+    const ppu = aim.pxPerUnit
+    const avoid = this.endBoxesPx()
+    if (readout) avoid.push({ x: (readout.at.x - this.at.x) * ppu * turn, y: (readout.at.y - this.at.y) * ppu * turn, w: wPx, h: hPx })
     // Screen degrees: on the turned stage screen right and down are world left and up.
-    const r = this.flipped ? -radius : radius
-    const chipAt = { x: this.at.x + r * Math.cos(a), y: this.at.y + r * Math.sin(a) }
-    return [{ tier, radius, chip: `${tier.toUpperCase()} LIMIT`, chipAt, color: this.color }]
+    const spots = chipDegs.map((deg) => ({ dx: radius * ppu * Math.cos((deg * Math.PI) / 180), dy: radius * ppu * Math.sin((deg * Math.PI) / 180) }))
+    const box = this.chipBox({ x: 0, y: 0 }, chip, sizePx)
+    const px = placeBadge({ x: 0, y: 0 }, box, spots, avoid)
+    const chipAt = { x: this.at.x + (px.x * turn) / ppu, y: this.at.y + (px.y * turn) / ppu }
+    return [{ tier, radius, chip, chipAt, color: this.color }]
   }
 
   /** The scale's end labels: its reading near the ball and at the limit, by the tier's curve. */
