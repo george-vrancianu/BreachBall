@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import { splashDamage, splashOf, splashRadius } from './splash'
 import { defaultConfig as c } from './step'
+import { hseg } from './testkit'
 import type { Structure, Wall } from './wall'
 
-const wall = (id: number, owner: 1 | 2, gy: number): Wall => ({ kind: 'wall', owner, shape: 'straight', rotation: 0, at: { gx: 8, gy }, id, hp: rules.wallHp })
+const wall = (id: number, owner: 1 | 2, gy: number): Wall => ({ kind: 'wall', owner, ...hseg(8, gy), id, hp: rules.wallHp })
 const losses = (objects: Structure[], player: 1 | 2 = 1, origin = { x: 20, y: 79.5 }) => splashDamage(objects, origin, { power: 1, radius: 10 }, player).map((h) => [h.wall.id, h.loss])
 
 describe('splash radius', () => {

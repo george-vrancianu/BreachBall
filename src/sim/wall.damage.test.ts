@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { SimState } from './step'
-import { place } from './testkit'
+import { hseg, place } from './testkit'
 import { damageWall, type WallSpec } from './wall'
 
-const spec = (shape: WallSpec['shape']): WallSpec => ({ kind: 'wall', owner: 1, shape, rotation: 0, at: { gx: 5, gy: 40 } })
+const spec = (units: number): WallSpec => ({ kind: 'wall', owner: 1, ...hseg(5, 40, units) })
 const at = { x: 11, y: 80 }
-const placed = (shape: WallSpec['shape'] = 'straight') => place(spec(shape)).state
+const placed = (units = 1) => place(spec(units)).state
 /** Damages the first object through the shared damage path, as a ball hit or splash would. */
 const hit = (s: SimState, id = s.objects[0].id) => {
   const r = damageWall(s.objects, id, at)
@@ -29,8 +29,8 @@ describe('wall damage', () => {
     expect(r.state.objects).toEqual([])
     expect(r.events).toEqual([{ type: 'wall-destroyed', wall: { ...s.objects[0], hp: 0 }, at }])
   })
-  it('an L wall shares one pool', () => {
-    const s = hit(placed('L')).state
+  it('a 2-unit wall is one structure with one pool', () => {
+    const s = hit(placed(2)).state
     expect(s.objects).toHaveLength(1)
     expect(s.objects[0].hp).toBe(2)
   })

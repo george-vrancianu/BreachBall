@@ -6,7 +6,7 @@ import { initialPlayers, type Player, type PowerUp } from './player'
 import { rollBall, type Ball } from './ball'
 import { canPlaceBall, handOver, opponent, resolveRest, type Possession } from './possession'
 import { splashDamage, splashOf } from './splash'
-import { canPlace, damageWall, maxHp, structureCost, type Rotation, type Structure, type StructureSpec, type Vertex } from './wall'
+import { damageWall, isLegal, maxHp, structureCost, type Structure, type Tower, type StructureSpec, type Vertex } from './wall'
 
 const ctxOf = (objects: readonly Structure[], possession: Possession, shooter: PlayerId, credits: Record<PlayerId, number>): ModeContext => ({ objects, possession, shooter, credits })
 
@@ -43,7 +43,7 @@ export type SimEvent =
   | { type: 'match-ended'; winner: PlayerId }
   | { type: 'shot-clock-expired'; player: PlayerId }
   /** An opponent's ball hit a Steal tower: the ball stopped and the tower (hp 0) is gone. */
-  | { type: 'steal-triggered'; tower: Structure; owner: PlayerId; at: Point }
+  | { type: 'steal-triggered'; tower: Tower; owner: PlayerId; at: Point }
   | { type: 'repulsor-fired'; tower: number; at: Point }
   /** A defence-turn Repair restored this structure to full HP. */
   | { type: 'repaired'; id: number; player: PlayerId }
@@ -74,8 +74,8 @@ export type SimInput = {
   shot?: Aiming & { player: PlayerId }
   placeWall?: StructureSpec
   demolish?: { player: PlayerId; wall: number }
-  /** The builder moves a structure placed this build turn. */
-  moveStructure?: { player: PlayerId; id: number; at: Vertex; rotation: Rotation }
+  /** The builder moves a structure placed this build turn: a wall to new ends `a` and `b` (a drag or a 45 degree turn), a tower to a new cell `at`. */
+  moveStructure?: { player: PlayerId; id: number } & ({ a: Point; b: Point } | { at: Vertex })
   /** The shooter's aim in progress (null clears it); it fires when the shot clock runs out. */
   aiming?: Aiming | null
   /** The builder ends their build turn. */
@@ -175,7 +175,7 @@ export function step(
   const place = (spec: StructureSpec): boolean => {
     const cost = structureCost(spec)
     const stocked = spec.kind === 'wall' || players[spec.owner].inventory[spec.power] > 0
-    if (spec.owner !== match.builder || !stocked || credits[spec.owner] < cost || !canPlace(objects, spec)) return false
+    if (spec.owner !== match.builder || !stocked || credits[spec.owner] < cost || !isLegal(spec, objects)) return false
     if (spec.kind === 'tower') players = spend(players, spec.owner, spec.power)
     built = [...built, nextId]
     objects = [...objects, { ...spec, id: nextId++, hp: maxHp(spec) }]
@@ -186,8 +186,8 @@ export function step(
   if (move) {
     const it = objects.find((o) => o.id === move.id)
     const others = objects.filter((o) => o.id !== move.id)
-    const moved = it && (it.kind === 'wall' ? { ...it, at: move.at, rotation: move.rotation } : { ...it, at: move.at })
-    if (moved && move.player === match.builder && it.owner === move.player && built.includes(move.id) && canPlace(others, moved)) objects = objects.map((o) => (o.id === move.id ? moved : o))
+    const moved = it && (it.kind === 'wall' ? ('a' in move ? { ...it, a: move.a, b: move.b } : undefined) : 'at' in move ? { ...it, at: move.at } : undefined)
+    if (moved && move.player === match.builder && it.owner === move.player && built.includes(move.id) && isLegal(moved, others)) objects = objects.map((o) => (o.id === move.id ? moved : o))
     else events.push({ type: 'refused' })
   }
   if (demolish) {

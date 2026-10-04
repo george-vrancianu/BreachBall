@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { defaultConfig, initialState, step, type SimConfig, type SimEvent, type SimInput, type SimState } from './step'
 import type { Structure } from './wall'
 import { hudModel } from '../game/view/hudModel'
+import { hseg } from './testkit'
 
 const timed: SimConfig = { ...defaultConfig, mode: 'siege', buildTime: 2 }
 const hotseat: SimConfig = { ...defaultConfig, mode: 'siege' }
 const TICKS = 2 * timed.tickHz
-const w = (id: number, owner: 1 | 2, gx: number, hp = 1): Structure => ({ id, kind: 'wall', owner, shape: 'straight', rotation: 0, at: { gx, gy: owner === 1 ? 40 : 10 }, hp })
+const w = (id: number, owner: 1 | 2, gx: number, hp = 1): Structure => ({ id, kind: 'wall', owner, ...hseg(gx, owner === 1 ? 40 : 10), hp })
 
 /** The state right after a goal opened a defence choice for player 1. */
 const choice = (c: SimConfig): SimState => {

@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { coinFlip } from './match'
 import { opponent } from './possession'
 import { defaultConfig as c, initialState, step, type SimInput, type SimState } from './step'
-import { buildState, roundsMatch } from './testkit'
+import { buildState, roundsMatch, hseg } from './testkit'
 import type { TowerSpec, WallSpec } from './wall'
 
-const wall = (owner: 1 | 2, shape: 'straight' | 'L' = 'straight'): WallSpec => ({ kind: 'wall', owner, shape, rotation: 0, at: { gx: 10, gy: owner === 1 ? 40 : 10 } })
+const wall = (owner: 1 | 2, units = 1): WallSpec => ({ kind: 'wall', owner, ...hseg(10, owner === 1 ? 40 : 10, units) })
 const run = (s: SimState, ...inputs: SimInput[]) => inputs.reduce((st, i) => step(st, i, c).state, s)
 const loser = opponent(coinFlip(1, 1))
 
@@ -41,7 +41,7 @@ describe('build order', () => {
     expect(second.credits[loser]).toBe(18)
   })
   it('spending 6 of 10 in round 1 leaves 14 at the start of round 2', () => {
-    const at = (gx: number): WallSpec => ({ ...wall(loser), at: { ...wall(loser).at, gx } })
+    const at = (gx: number): WallSpec => ({ ...wall(loser), ...hseg(gx, loser === 1 ? 40 : 10) })
     const played = run(initialState(), { placeWall: at(4) }, { placeWall: at(10) }, { placeWall: at(16) }, { done: loser }, { done: opponent(loser) })
     expect(played.credits[loser]).toBe(4)
     const goal = { ...played, ball: { pos: { x: 20, y: 0.5 }, vel: { x: 0, y: -60 }, rolled: 0 }, possession: { shooter: 1 as const, shots: 3, inHand: false, live: true } }
@@ -64,9 +64,9 @@ describe('build actions', () => {
     expect(step(initialState(), { done: opponent(loser) }, c).events).toEqual([{ type: 'refused' }])
   })
   it('placement costs points; a shape that does not fit the budget is refused', () => {
-    let s = run(initialState(), { placeWall: wall(loser, 'L') })
-    expect(s.credits[loser]).toBe(c.credits - 3)
-    s = { ...s, credits: { ...s.credits, [loser]: 1 } }
+    let s = run(initialState(), { placeWall: wall(loser, 2) })
+    expect(s.credits[loser]).toBe(c.credits - 4)
+    s = { ...initialState(), credits: { ...s.credits, [loser]: 1 } }
     const r = step(s, { placeWall: wall(loser) }, c)
     expect(r.events).toEqual([{ type: 'refused' }])
     expect(r.state.credits[loser]).toBe(1)
@@ -87,19 +87,21 @@ describe('build actions', () => {
 describe('pitch bounds', () => {
   const placed = (spec: WallSpec | TowerSpec) => step(buildState(1), { placeWall: spec }, c).events.every((e) => e.type !== 'refused')
   it('refuses a wall or tower with any cell outside the pitch', () => {
-    expect(placed({ kind: 'wall', owner: 1, shape: 'straight', rotation: 0, at: { gx: 19, gy: 40 } })).toBe(false)
-    expect(placed({ kind: 'wall', owner: 1, shape: 'straight', rotation: 2, at: { gx: 1, gy: 40 } })).toBe(false)
-    expect(placed({ kind: 'wall', owner: 1, shape: 'L', rotation: 1, at: { gx: 2, gy: 40 } })).toBe(false)
+    expect(placed({ kind: 'wall', owner: 1, ...hseg(19, 40) })).toBe(false)
+    expect(placed({ kind: 'wall', owner: 1, a: { x: 2, y: 80 }, b: { x: -6, y: 80 } })).toBe(false)
+    expect(placed({ kind: 'wall', owner: 1, a: { x: 36, y: 80 }, b: { x: 36 + 8 * Math.SQRT1_2, y: 80 + 8 * Math.SQRT1_2 } })).toBe(false)
     expect(placed({ kind: 'tower', owner: 1, power: 'steal', at: { gx: 20, gy: 40 } })).toBe(false)
   })
   it('accepts a wall flush against the boards', () => {
-    expect(placed({ kind: 'wall', owner: 1, shape: 'straight', rotation: 0, at: { gx: 16, gy: 40 } })).toBe(true)
-    expect(placed({ kind: 'wall', owner: 1, shape: 'straight', rotation: 2, at: { gx: 4, gy: 40 } })).toBe(true)
+    expect(placed({ kind: 'wall', owner: 1, ...hseg(16, 40) })).toBe(true)
+    expect(placed({ kind: 'wall', owner: 1, a: { x: 8, y: 80 }, b: { x: 0, y: 80 } })).toBe(true)
+    expect(placed({ kind: 'wall', owner: 1, a: { x: 32, y: 80 }, b: { x: 40, y: 80 } })).toBe(true)
   })
 })
 
 describe('moving and refunding this turn\'s items', () => {
   const moved = { gx: 6, gy: 40 }
+  const movedSeg = hseg(6, 40)
   it('records ids placed this build turn and forgets them when the turn ends', () => {
     let s = run(buildState(1), { placeWall: wall(1) })
     expect(s.built).toEqual([1])
@@ -108,30 +110,30 @@ describe('moving and refunding this turn\'s items', () => {
   })
   it('moves an item placed this turn for free, keeping id and hp', () => {
     const s = run(buildState(1), { placeWall: wall(1) })
-    const r = step(s, { moveStructure: { player: 1, id: 1, at: moved, rotation: 1 } }, c)
+    const r = step(s, { moveStructure: { player: 1, id: 1, ...movedSeg } }, c)
     expect(r.events).toEqual([])
-    expect(r.state.objects).toEqual([{ ...wall(1), id: 1, hp: s.objects[0].hp, at: moved, rotation: 1 }])
+    expect(r.state.objects).toEqual([{ ...wall(1), id: 1, hp: s.objects[0].hp, ...movedSeg }])
     expect(r.state.credits[1]).toBe(s.credits[1])
   })
   it('a move may overlap the item\'s own old spot', () => {
     const s = run(buildState(1), { placeWall: wall(1) })
-    expect(step(s, { moveStructure: { player: 1, id: 1, at: { gx: 11, gy: 40 }, rotation: 0 } }, c).events).toEqual([])
+    expect(step(s, { moveStructure: { player: 1, id: 1, ...hseg(11, 40) } }, c).events).toEqual([])
   })
   it('refuses moving an older item, another player\'s item, or to an illegal spot', () => {
     const s = run(buildState(1), { placeWall: wall(1) })
     const older = { ...s, built: [] }
-    expect(step(older, { moveStructure: { player: 1, id: 1, at: moved, rotation: 0 } }, c).events).toEqual([{ type: 'refused' }])
-    expect(step(s, { moveStructure: { player: 2, id: 1, at: moved, rotation: 0 } }, c).events).toEqual([{ type: 'refused' }])
-    expect(step(s, { moveStructure: { player: 1, id: 1, at: { gx: 19, gy: 40 }, rotation: 0 } }, c).events).toEqual([{ type: 'refused' }])
-    expect(step(s, { moveStructure: { player: 1, id: 1, at: { gx: 10, gy: 10 }, rotation: 0 } }, c).events).toEqual([{ type: 'refused' }])
+    expect(step(older, { moveStructure: { player: 1, id: 1, ...movedSeg } }, c).events).toEqual([{ type: 'refused' }])
+    expect(step(s, { moveStructure: { player: 2, id: 1, ...movedSeg } }, c).events).toEqual([{ type: 'refused' }])
+    expect(step(s, { moveStructure: { player: 1, id: 1, ...hseg(19, 40) } }, c).events).toEqual([{ type: 'refused' }])
+    expect(step(s, { moveStructure: { player: 1, id: 1, ...hseg(10, 10) } }, c).events).toEqual([{ type: 'refused' }])
   })
   it('demolishing an item placed this turn refunds its points and costs nothing', () => {
-    let s = run(buildState(1), { placeWall: wall(1, 'L') })
+    let s = run(buildState(1), { placeWall: wall(1, 2) })
     s = { ...s, credits: { ...s.credits, 1: 0 } }
     const r = step(s, { demolish: { player: 1, wall: 1 } }, c)
     expect(r.events).toEqual([])
     expect(r.state.objects).toEqual([])
-    expect(r.state.credits[1]).toBe(3)
+    expect(r.state.credits[1]).toBe(4)
     expect(r.state.built).toEqual([])
   })
   it('demolishing a tower placed this turn returns its charge', () => {
@@ -160,7 +162,7 @@ describe('moving and refunding this turn\'s items', () => {
   it('moving a tower keeps its power, id and hp', () => {
     const tower: TowerSpec = { kind: 'tower', owner: 1, power: 'repulsor', at: { gx: 10, gy: 40 } }
     const s = run(buildState(1), { placeWall: tower })
-    const r = step(s, { moveStructure: { player: 1, id: 1, at: moved, rotation: 0 } }, c)
+    const r = step(s, { moveStructure: { player: 1, id: 1, at: moved } }, c)
     expect(r.events).toEqual([])
     expect(r.state.objects).toEqual([{ ...s.objects[0], at: moved }])
     expect(r.state.objects[0]).toMatchObject({ power: 'repulsor', id: 1, hp: s.objects[0].hp })
@@ -172,7 +174,7 @@ describe('moving and refunding this turn\'s items', () => {
     expect(s.match.builder).toBeNull()
     expect(s.built).toEqual([])
     s = { ...s, match: { ...s.match, builder: loser }, credits: { ...s.credits, [loser]: c.credits } }
-    expect(step(s, { moveStructure: { player: loser, id: 1, at: moved, rotation: 0 } }, c).events).toEqual([{ type: 'refused' }])
+    expect(step(s, { moveStructure: { player: loser, id: 1, ...movedSeg } }, c).events).toEqual([{ type: 'refused' }])
     const r = step(s, { demolish: { player: loser, wall: 1 } }, c)
     expect(r.events).toEqual([])
     expect(r.state.credits[loser]).toBe(c.credits - 1)

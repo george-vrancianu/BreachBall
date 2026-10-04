@@ -3,7 +3,7 @@ import { lockstep, type Frame } from './lockstep'
 import { canPlaceBall } from '../sim/possession'
 import { defaultConfig, initialState, step, type SimConfig, type SimInput, type SimState } from '../sim/step'
 import type { PlayerId } from '../sim/pitch'
-import { roundsMatch } from '../sim/testkit'
+import { roundsMatch, hseg } from '../sim/testkit'
 
 const config: SimConfig = { ...defaultConfig, buildTime: 1 }
 const DELAY = 4
@@ -156,7 +156,7 @@ describe('lockstep', () => {
 
   describe('Siege defence choice under the build timer', () => {
     const siege: SimConfig = { ...config, mode: 'siege' }
-    const wall = (id: number, owner: PlayerId, gx: number) => ({ id, kind: 'wall' as const, owner, shape: 'straight' as const, rotation: 0 as const, at: { gx, gy: owner === 1 ? 40 : 10 }, hp: 1 })
+    const wall = (id: number, owner: PlayerId, gx: number) => ({ id, kind: 'wall' as const, owner, ...hseg(gx, owner === 1 ? 40 : 10), hp: 1 })
     /** Player 1's ball is about to cross into player 2's goal. */
     const scoring = (seed: number): SimState => {
       const s = initialState(seed, siege)
