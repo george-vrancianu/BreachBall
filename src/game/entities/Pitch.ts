@@ -12,7 +12,7 @@ const ends = [
 /** A dash pattern in reference px, scaled to world units. */
 const dashed = (dashPx: readonly number[]): number[] => dashPx.map((d) => d * visual.pitch.unit)
 
-/** The ground, markings, goal mouths and nets; during a build turn also the build-zone edge on the halfway line, in the builder's colour. */
+/** The ground, markings, goal mouths and nets; during a build turn also the snap grid on the builder's half and the build-zone edge on the halfway line, in the builder's colour. */
 export class Pitch extends Entity {
   /** Whose build turn it is, if any. */
   builder?: PlayerId
@@ -25,6 +25,7 @@ export class Pitch extends Entity {
     ctx.fillRect(-board, rules.mapTop, w + 2 * board, rules.mapHeight)
 
     this.drawDots(ctx)
+    if (this.builder) this.drawSnapGrid(ctx, this.builder)
     ctx.strokeStyle = v.line
     ctx.lineWidth = v.outline.widthPx * u
     ctx.beginPath()
@@ -78,6 +79,19 @@ export class Pitch extends Entity {
     const x0 = (w - cols * cell) / 2
     const y0 = (h - rows * cell) / 2
     for (let i = 0; i <= cols; i++) for (let j = 0; j <= rows; j++) ctx.fillRect(x0 + i * cell - dot / 2, y0 + j * cell - dot / 2, dot, dot)
+  }
+
+  /** The snap grid: a faint dot at every cell corner (`rules.cellSize`) on the builder's half, where pieces snap. Over the ground dots, under the markings. */
+  private drawSnapGrid(ctx: CanvasRenderingContext2D, builder: PlayerId): void {
+    const { pitchWidth: w, pitchHeight: h, halfHeight, cellSize } = rules
+    const { unit: u, snapGrid } = visual.pitch
+    const dot = snapGrid.dotPx * u
+    // Player 1 builds on the bottom half (high y), player 2 on the top.
+    const [top, bottom] = builder === 1 ? [halfHeight, h] : [0, halfHeight]
+    ctx.globalAlpha = snapGrid.alpha
+    ctx.fillStyle = snapGrid.color
+    for (let x = 0; x <= w; x += cellSize) for (let y = top; y <= bottom; y += cellSize) ctx.fillRect(x - dot / 2, y - dot / 2, dot, dot)
+    ctx.globalAlpha = 1
   }
 
   /** One end: corner brackets, goal mouth and keep-out arc. */

@@ -136,6 +136,10 @@ _Avoid_: Goal box, protected area
 The drawn edge of the goal no-build zone: a dashed arc around each goal, neutral, taking the builder's colour while that player builds.
 _Avoid_: No-build line, goal arc
 
+**Snap grid**:
+The faint dots at every cell corner (`rules.cellSize`) drawn on the builder's own half during a build, showing where pieces snap. Separate from the ground's decorative dot grid.
+_Avoid_: Build grid
+
 **Build-zone edge**:
 The dashed halfway-line marker drawn during a build in the builder's colour. It is only a marker; building is allowed on the whole half.
 _Avoid_: Build line, half line

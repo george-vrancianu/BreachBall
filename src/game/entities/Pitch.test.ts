@@ -3,19 +3,19 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import { Pitch } from './Pitch'
 
-type Call = { fn: string; strokeStyle: unknown; dash: number[]; alpha: unknown; args: unknown[] }
+type Call = { fn: string; fillStyle: unknown; strokeStyle: unknown; dash: number[]; alpha: unknown; args: unknown[] }
 
 /** A canvas context that records every draw call with the style state at the time. */
 function recorder() {
   const calls: Call[] = []
-  const state: Record<string, unknown> = { strokeStyle: '', globalAlpha: 1 }
+  const state: Record<string, unknown> = { fillStyle: '', strokeStyle: '', globalAlpha: 1 }
   let dash: number[] = []
   const ctx = new Proxy(
     {},
     {
       get: (_t, k: string) => {
         if (k === 'setLineDash') return (d: number[]) => void (dash = d)
-        if (['stroke', 'fill', 'fillRect', 'arc'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
+        if (['stroke', 'fill', 'fillRect', 'arc'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
         return state[k] ?? (() => {})
       },
       set: (_t, k: string, v) => ((state[k] = v), true),
@@ -27,6 +27,7 @@ function recorder() {
 const { unit } = visual.pitch
 const keepOut = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.keepOut.dashPx[0] * unit)
 const buildEdges = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.buildEdge.dashPx[0] * unit)
+const snapDots = (calls: Call[]) => calls.filter((c) => c.fn === 'fillRect' && c.fillStyle === visual.pitch.snapGrid.color)
 
 describe('Pitch markings', () => {
   it('always draws both keep-out arcs, neutral outside a build, and no build edge', () => {
@@ -60,5 +61,49 @@ describe('Pitch markings', () => {
     new Pitch().draw(ctx)
     const dot = calls.find((c) => c.fn === 'arc' && c.args[2] === visual.pitch.centre.dotRadiusPx * unit)
     expect(dot?.args.slice(0, 2)).toEqual([rules.pitchWidth / 2, rules.halfHeight])
+  })
+
+  describe('snap grid', () => {
+    const centres = (calls: Call[]) => snapDots(calls).map((c) => [(c.args[0] as number) + (c.args[2] as number) / 2, (c.args[1] as number) + (c.args[3] as number) / 2])
+
+    it('is not drawn outside a build', () => {
+      const { ctx, calls } = recorder()
+      new Pitch().draw(ctx)
+      expect(snapDots(calls)).toHaveLength(0)
+    })
+
+    it.each([
+      [1, rules.halfHeight, rules.pitchHeight],
+      [2, 0, rules.halfHeight],
+    ] as const)("covers only player %i's half, one dot per cell corner", (builder, top, bottom) => {
+      const { ctx, calls } = recorder()
+      const pitch = new Pitch()
+      pitch.builder = builder
+      pitch.draw(ctx)
+      const dots = centres(calls)
+      const cols = rules.pitchWidth / rules.cellSize + 1
+      const rows = (bottom - top) / rules.cellSize + 1
+      expect(dots).toHaveLength(cols * rows)
+      for (const [x, y] of dots) {
+        expect(x % rules.cellSize).toBeCloseTo(0)
+        expect(y % rules.cellSize).toBeCloseTo(0)
+        expect(y).toBeGreaterThanOrEqual(top)
+        expect(y).toBeLessThanOrEqual(bottom)
+      }
+    })
+
+    it('is faint, sized in handoff px, drawn over the ground dots and under the markings', () => {
+      const { ctx, calls } = recorder()
+      const pitch = new Pitch()
+      pitch.builder = 1
+      pitch.draw(ctx)
+      const dot = snapDots(calls)[0]
+      expect(dot.alpha).toBe(visual.pitch.snapGrid.alpha)
+      expect(dot.args[2]).toBeCloseTo(visual.pitch.snapGrid.dotPx * unit)
+      const kinds = calls.map((c) => (c.fn === 'fillRect' ? c.fillStyle : c.fn))
+      const { dot: ground, snapGrid } = visual.pitch
+      expect(kinds.indexOf(snapGrid.color)).toBeGreaterThan(kinds.lastIndexOf(ground))
+      expect(kinds.lastIndexOf(snapGrid.color)).toBeLessThan(kinds.indexOf('stroke'))
+    })
   })
 })
