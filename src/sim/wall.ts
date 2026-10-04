@@ -1,4 +1,4 @@
-import { rules } from '../config/rules'
+import { rules, type WallRules } from '../config/rules'
 import { halfOf, type PlayerId, type Point } from './pitch'
 import type { SimEvent } from './step'
 
@@ -28,8 +28,7 @@ const POWER_HP: Record<TowerPower, number> = { repulsor: rules.towerHp, steal: r
 export const structuresOf = (objects: readonly Structure[], p: PlayerId): Structure[] => objects.filter((o) => o.owner === p)
 export const maxHp = (s: StructureSpec): number => (s.kind === 'tower' ? POWER_HP[s.power] : rules.wallHp)
 
-/** The wall settings the geometry helpers read; `rules` by default, so tests and tools can pass their own. */
-export type WallRules = { /** Half a wall's thickness, world units. */ wallHalf: number; wall: { unit: number; units: readonly number[]; angles: readonly number[]; unitCost: number; shapeTol: number } }
+export type { WallRules }
 
 const EPS = 1e-6
 const toDeg = (r: number) => (r * 180) / Math.PI

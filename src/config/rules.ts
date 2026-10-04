@@ -20,7 +20,7 @@ const base = {
    * `units` are the allowed lengths in units; `angles` the allowed directions in degrees (direction is modulo 180);
    * `unitCost` the Credits per unit, the same at any angle.
    */
-  wall: { unit: 4 * cellSize, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 2, shapeTol: 0.01 } as { unit: number; units: readonly number[]; angles: readonly number[]; unitCost: number; shapeTol: number },
+  wall: { unit: 4 * cellSize, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 2, shapeTol: 0.01 } as WallRules['wall'],
   /** Radius of the no-build circle around the centre spot, in world units (3 cells). */
   centreZoneRadius: 3 * cellSize,
   /** Half the drawn wall thickness; the ball cannot be placed on it. */
@@ -62,6 +62,9 @@ const tiers: readonly Tier[] = [
 
 const mapTop = -base.board - base.netDepth
 const mapHeight = base.pitchHeight + 2 * (base.board + base.netDepth)
+
+/** The wall settings the geometry helpers read; `rules` by default, so tests and tools can pass their own. */
+export type WallRules = { /** Half a wall's thickness, world units. */ wallHalf: number; wall: { unit: number; units: readonly number[]; angles: readonly number[]; unitCost: number; shapeTol: number } }
 
 /** Every rule and geometry value; derived values are computed from the base. */
 export const rules = {
