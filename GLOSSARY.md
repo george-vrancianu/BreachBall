@@ -98,7 +98,11 @@ _Avoid_: Sabotage, debuff, special
 
 **Credits**:
 The single resource every Offence, Defence and Subterfuge item is bought with, each item at its own price. A player gets a grant each round and keeps unspent Credits for the rest of the match.
-_Avoid_: Wall points, build points, power-up points, resources, energy
+_Avoid_: Build points, power-up points, resources, energy (and Wall points in Rounds; see below)
+
+**Wall points**:
+Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). Siege has no Credits economy, so it never says Credits.
+_Avoid_: Credits (in Siege), build points
 
 **Refund**:
 Trading an unspent Move point for Credits during your own possession, before a shot. It is a bet that the remaining shots are enough: refunding the last Move point hands the opponent ball-in-hand, as running out of shots does.
