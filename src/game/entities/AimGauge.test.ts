@@ -22,12 +22,31 @@ describe('AimGauge radius', () => {
   })
 })
 
+describe('AimGauge cancel circle', () => {
+  it('is drawn at 12 screen px, in world units: wider than the gesture\'s 8 px slop, so the ball leaves it showing', () => {
+    expect(gauge(touch).cancelRadius).toBe(1.2)
+    expect(gauge({ ...touch, pxPerUnit: 4 }).cancelRadius).toBe(3)
+  })
+  it('is absent without an aim', () => {
+    expect(gauge().cancelRadius).toBeUndefined()
+  })
+})
+
 describe('AimGauge limit', () => {
   it('shows only the Touch limit in Touch, chipped TOUCH LIMIT, in green', () => {
-    expect(gauge(touch).limits).toEqual([{ tier: 'Touch', radius: 15, chip: 'TOUCH LIMIT', color: '#4ade80' }])
+    expect(gauge(touch).limits).toEqual([{ tier: 'Touch', radius: 15, chip: 'TOUCH LIMIT', color: '#4ade80', chipAt: expect.anything() }])
   })
   it('shows only the Power limit in Power: no Touch limit', () => {
-    expect(gauge(power).limits).toEqual([{ tier: 'Power', radius: 8.4, chip: 'POWER LIMIT', color: '#f87171' }])
+    expect(gauge(power).limits).toEqual([{ tier: 'Power', radius: 8.4, chip: 'POWER LIMIT', color: '#f87171', chipAt: expect.anything() }])
+  })
+  // At -45 degrees, up and to the right on screen, clear of the dock below: 15 / sqrt(2) = 10.61 units each way.
+  it('chips the limit at the top right of the ring, clear of the dock', () => {
+    expect(gauge(touch).limits[0].chipAt).toEqual(about(30.61, 69.39))
+  })
+  it('keeps the chip at the screen\'s top right on the flipped stage, where screen up is world down', () => {
+    const g = gauge(touch)
+    g.flipped = true
+    expect(g.limits[0].chipAt).toEqual(about(9.39, 90.61))
   })
   it('shows no limit without an aim', () => {
     expect(gauge().limits).toEqual([])
@@ -69,6 +88,24 @@ describe('AimGauge readout', () => {
     expect(g.readout!.at).toEqual(about(14.6, 84.8))
     g.at = { x: 8, y: 80 }
     expect(g.readout!.at).toEqual(about(13.4, 84.8))
+  })
+  // The knob 5 units (50 px) below the ball at y 85; the readout reaches 22 px below it and keeps 24 px from the dock: it rises 34 px (3.4 units) above the knob within 46 px (4.6 units) of the dock.
+  it('rises above the knob when it would land in the dock band, and stays put otherwise', () => {
+    const g = gauge(pulled(50))
+    g.dockEdge = 89
+    expect(g.readout!.at).toEqual(about(25.4, 81.6))
+    g.dockEdge = 90
+    expect(g.readout!.at).toEqual(about(25.4, 85.2))
+  })
+  it('rises toward world down on the flipped stage, where the dock is at world up', () => {
+    const g = gauge(pulled(50))
+    g.flipped = true
+    g.at = { x: 20, y: 90 }
+    g.aim = { ...pulled(50), dir: { x: 0, y: 1 } }
+    g.dockEdge = 81
+    expect(g.readout!.at).toEqual(about(14.6, 88.4))
+    g.dockEdge = 80
+    expect(g.readout!.at).toEqual(about(14.6, 84.8))
   })
   it('is absent before the drag', () => {
     expect(gauge(touch).readout).toBeUndefined()

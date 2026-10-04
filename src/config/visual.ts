@@ -206,11 +206,16 @@ export const visual = {
      * Screen px throughout (divided by the aim's `pxPerUnit`), so it looks the same at any zoom; `glowBlur` aside. The Ghost's dots start at its tip. Cancel-armed, it is all in the cancel grey but its chevrons.
      */
     comet: {
-      /** The spear's length, from the ball's edge to the arrowhead: `base + perPower * power`, the power normalised from the weakest tier's lowest to the strongest's highest. */
+      /** The spear's length, from the ball's edge to the arrowhead: `base + perPower * power`, the power normalised from the weakest tier's lowest to the strongest's highest; times the tier's `tierScale`. */
       lengthPx: { base: 34, perPower: 120 },
+      /**
+       * The spear's length and base width (`lengthPx`, `widthPx`) scaled by tier, the arrowhead left as is: Touch's is half as long, so the Ghost's dots, which start at its tip,
+       * show more of a weak Touch shot's short roll; Power's as given.
+       */
+      tierScale: { Touch: 0.5, Power: 1 } satisfies Record<TierName, number>,
       /** The gap between the ball's edge and the spear's base. */
       gapPx: 2,
-      /** The spear's half-width at its base: `base + perPower * power`, the power taken across its own tier's range (0 at the bottom, 1 at the top). */
+      /** The spear's half-width at its base: `base + perPower * power`, the power taken across its own tier's range (0 at the bottom, 1 at the top); times the tier's `tierScale`. */
       widthPx: { base: 9, perPower: 5 },
       /** The spear's sides curve in through a point `at` of its length, `width` of its base half-width from the centre line. */
       bend: { at: 0.6, width: 0.5 },
@@ -237,14 +242,16 @@ export const visual = {
     splash: { ms: 250, color: cream, width: 0.3 },
     /**
      * The control gauge around the ball while aiming (the prototype's `gauge()`), showing only the current tier. Sizes in screen px (converted with the aim's `pxPerUnit`),
-     * alphas 0-1, colours from `tierColors` unless named. The scale runs from the inner cancel circle (radius `slopPx`) out to the limit.
+     * alphas 0-1, colours from `tierColors` unless named. The scale runs from the inner cancel circle (radius `cancelPx`) out to the limit.
      */
     gauge: {
+      /** The inner cancel circle's drawn radius, where the scale band starts: larger than the gesture's `slopPx` so the ball does not cover it. Drawing only: releasing within `slopPx` still cancels, and the power scale (and its tick rings) still starts at `slopPx`. */
+      cancelPx: 12,
       /** The end labels, by the tier's curve: the scale's reading near the ball and at the limit. */
       ends: { direct: { near: 'LOW', limit: 'MAX' }, inverted: { near: 'MAX', limit: 'MIN' } } satisfies Record<Tier['curve'], { near: string; limit: string }>,
       /** The scale band's alpha at the inner circle and at the limit, by curve: strong where the tier's power is high. */
       band: { direct: [0.03, 0.3], inverted: [0.5, 0.03] } satisfies Record<Tier['curve'], readonly [number, number]>,
-      /** Dashed tick rings at these shares of the scale: alpha, line width and dash (px). */
+      /** Dashed tick rings at these shares of the power scale (from `slopPx` to the limit, so they line up with the finger): alpha, line width and dash (px). */
       ticks: { at: [0.25, 0.5, 0.75], alpha: 0.22, widthPx: 1, dashPx: [2, 5] },
       /** The faint inner cancel circle. */
       cancel: { color: ink, alpha: 0.25, widthPx: 1.5 },
@@ -254,10 +261,10 @@ export const visual = {
       flare: { rate: 10, widthPx: 2, glowPx: 18, knobPx: 3 },
       /**
        * The label chips (end labels and the "TOUCH LIMIT" chip): font size and weight, the near-ball label's smaller size and its gap past the inner circle, side padding, height, border width and alpha, and fill.
-       * `near`, by curve: the near-ball label's text alpha and fill (Touch's LOW is dimmer). The limit chip sits on the ring at `chipDeg` (screen degrees clockwise from right: 135 is lower left).
+       * `near`, by curve: the near-ball label's text alpha and fill (Touch's LOW is dimmer). The limit chip sits on the ring at `chipDeg` (screen degrees clockwise from right: -45 is upper right, clear of the dock below the ball, which the camera holds low on the screen).
        */
       label: {
-        sizePx: 10, weight: 700, nearSizePx: 8, nearGapPx: 12, padPx: 12, heightPx: 18, borderPx: 1.5, borderAlpha: 0.7, fill: 'rgba(11,15,26,0.8)', chipDeg: 135,
+        sizePx: 10, weight: 700, nearSizePx: 8, nearGapPx: 12, padPx: 12, heightPx: 18, borderPx: 1.5, borderAlpha: 0.7, fill: 'rgba(11,15,26,0.8)', chipDeg: -45,
         near: { direct: { alpha: 0.85, fill: 'rgba(11,15,26,0.6)' }, inverted: { alpha: 1, fill: 'rgba(11,15,26,0.8)' } } satisfies Record<Tier['curve'], { alpha: number; fill: string }>,
       },
       /** The lit wedge on the pull side while aiming: half its angle (degrees) and its alpha at the inner circle and at the finger, by curve. */
@@ -276,9 +283,10 @@ export const visual = {
       pop: { ms: 700, sizePx: 22, weight: 400, growPx: 10, growShare: 1 / 3, gapPx: 26, risePx: 20 },
       /**
        * The readout chip beside the knob: `offsetPx` to the knob's screen right (or left, within `edgePx` of the pitch's right edge as the viewer sees it, which on a phone is the screen's) and `dropPx` lower; its size, corner radius, fill, border width and alpha;
+       * when its bottom edge would come within `dockClearPx` of the dock band (the camera's `hudReservePx`; the dock can stand a little taller, with the safe-area inset), it sits `risePx` above the knob instead;
        * the tier name (`namePx`, `nameWeight`, `nameDyPx` from the centre), the percentage (Bungee, `percentPx`, `percentWeight`, `percentDyPx`), and `segments` meter segments (`segWPx` x `segHPx`, `segPitchPx` apart, `segDyPx` down; unlit at `unlitAlpha`).
        */
-      readout: { offsetPx: 54, dropPx: 2, edgePx: 90, wPx: 80, hPx: 40, radiusPx: 10, fill: 'rgba(11,15,26,0.9)', borderPx: 1.5, borderAlpha: 0.8, namePx: 9, nameWeight: 700, nameDyPx: -10, percentPx: 15, percentWeight: 400, percentDyPx: 5, segments: 8, segWPx: 6, segHPx: 3, segPitchPx: 8, segDyPx: 14, unlitAlpha: 0.18 },
+      readout: { offsetPx: 54, dropPx: 2, edgePx: 90, dockClearPx: 24, risePx: 34, wPx: 80, hPx: 40, radiusPx: 10, fill: 'rgba(11,15,26,0.9)', borderPx: 1.5, borderAlpha: 0.8, namePx: 9, nameWeight: 700, nameDyPx: -10, percentPx: 15, percentWeight: 400, percentDyPx: 5, segments: 8, segWPx: 6, segHPx: 3, segPitchPx: 8, segDyPx: 14, unlitAlpha: 0.18 },
     },
     /** `tier`: the short buzz on reaching a higher tier while holding. */
     vibration: { shotBase: 10, shotPerPower: 40, goal: [60, 40, 60], tier: 30 },
