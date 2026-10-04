@@ -7,7 +7,7 @@ import { canArm, type SimState } from '../../sim/step'
 export type OffenceItemSpec = { item: 'breaker' | 'overdrive'; label: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
 /** What the Offence circle shows: whether the Breaker is armed (the circle fills), the items to offer, and whether it is the viewer's possession (else the circle and its column are greyed, though the column still opens to look at). */
-export type OffenceCircle = { armed: boolean; items: OffenceItemSpec[]; available: boolean }
+export type OffenceCircle = { armed: boolean; items: OffenceItemSpec[]; available: boolean; /** Who holds possession, so a column left open closes when it changes hands. */ shooter: PlayerId }
 
 export type OffenceActions = { arm(item: OffenceItemSpec['item']): void }
 
@@ -18,8 +18,9 @@ export function offenceCircle(s: SimState, viewer: PlayerId, v: { /** The Breake
   // Only the shooter's own play phase is the viewer's possession; a build turn or a pending defence choice is not.
   const available = !s.match.builder && !s.match.choosing && s.possession.shooter === viewer && v.mine(viewer) && !v.blocked
   return {
-    armed: available && v.armed,
+    armed: v.armed,
     available,
+    shooter: s.possession.shooter,
     items: [
       { item: 'breaker', label: breakerLabel(s, viewer), disabled: !available || !canArm(s, viewer), pressed: available && v.armed },
       { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true },

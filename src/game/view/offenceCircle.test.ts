@@ -36,7 +36,7 @@ describe('offenceCircle', () => {
   it('is greyed for the viewer who is not shooting, and for a build turn', () => {
     const s = ready()
     expect(offenceCircle(s, other(shooterOf(s)), { armed: false, mine: hotSeat })).toMatchObject({ available: false, armed: false, items: [{ disabled: true }, { disabled: true }] })
-    expect(offenceCircle(buildState(1), 1, { armed: true, mine: hotSeat })).toMatchObject({ available: false, armed: false })
+    expect(offenceCircle(buildState(1), 1, { armed: true, mine: hotSeat })).toMatchObject({ available: false, armed: true })
   })
   it('is greyed while blocked, or when the shooter\'s seat is another device\'s', () => {
     const s = ready()

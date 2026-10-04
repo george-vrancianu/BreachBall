@@ -13,7 +13,7 @@ const hud = (over: Partial<HudModel> = {}): HudModel => ({
   players: { 1: { digit: '3', inventory: { breaker: 1, repulsor: 0, steal: 2 } }, 2: { digit: '?', inventory: { breaker: 4, repulsor: 4, steal: 4 } } },
   active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, phase: 'Play', ...over,
 })
-const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, items: [{ item: 'breaker', label: 'Breaker · 2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
+const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
 const props = () => ({ hud: hud(), offence: offence(), confirm: false, mapOpen: false, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onOffenceArm: vi.fn(), onConfirm: vi.fn(), onMapStretch: vi.fn(), onMapClose: vi.fn(), onDefenceToggle: vi.fn(), onDefenceArm: vi.fn(), onRefund: vi.fn() })
 
 describe('Shell', () => {
@@ -103,7 +103,7 @@ describe('Shell', () => {
 
   it('shows the active viewer the tower power-ups with counts; the Breaker is in the Offence circle', () => {
     render(<Shell {...props()} />)
-    expect(screen.getAllByRole('button', { name: /^[RS]\d/ })).toHaveLength(2)
+    expect(screen.getAllByRole('img', { name: /^[RS]\d/ })).toHaveLength(2)
     expect(screen.queryByRole('button', { name: /^B\d/ })).toBeNull()
   })
 
@@ -150,7 +150,10 @@ describe('Shell', () => {
       expect(circle().getAttribute('aria-pressed')).toBe('false')
       r.rerender(<Shell {...props()} offence={offence({ armed: true })} />)
       expect(circle().getAttribute('aria-pressed')).toBe('true')
-      expect(circle().style.background).not.toBe('')
+      // The fill is the active player's colour (read back through the DOM, which normalises it).
+      const probe = document.createElement('div')
+      probe.style.background = visual.player.colors[1]
+      expect(circle().style.background).toBe(probe.style.background)
     })
 
     it('Escape closes the column', () => {
@@ -224,7 +227,7 @@ describe('Shell', () => {
       setup()
       const probe = document.createElement('i')
       probe.style.color = visual.tokens.dimOutline
-      const dimmed = () => screen.getAllByRole('button', { name: /^[RS]\d/ }).map((b) => b.style.color === probe.style.color)
+      const dimmed = () => screen.getAllByRole('img', { name: /^[RS]\d/ }).map((b) => b.style.color === probe.style.color)
       expect(dimmed()).toEqual([false, false])
       hold()
       expect(dimmed()).toEqual([true, true])

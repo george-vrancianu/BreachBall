@@ -2,9 +2,9 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { visual } from '../../config/visual'
 import type { DefenceCircle as DefenceCircleView, Item } from '../../game/view/defenceCircle'
 import type { HudModel } from '../../game/view/hudModel'
+import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
 import type { PlayerId, PowerUp } from '../../game/Game'
 import { Button, ButtonRow, FONT } from '../ButtonRow'
-import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
 import { DefenceCircle } from './DefenceCircle'
 import { OffenceCircle } from './OffenceCircle'
 
@@ -133,10 +133,10 @@ export function Shell({ hud: m, offence, defence, confirm, mapOpen, flipped, onM
         {(Object.keys(ICONS) as (keyof typeof ICONS)[]).map((p) => {
           const n = m.players[m.active].inventory[p]
           return (
-            <Button key={p} spec={{ label: ICONS[p], onClick: () => {} }} style={{ position: 'relative', width: 44, height: 44, padding: 0, borderRadius: '50%', border: `2px solid ${columnOpen ? dim : color}`, color: columnOpen ? dim : color, background: 'none', opacity: n > 0 ? 1 : 0.35 }}>
+            <div key={p} role="img" aria-label={`${ICONS[p]}${n}`} style={{ ...FONT, position: 'relative', width: 44, height: 44, boxSizing: 'border-box', borderRadius: '50%', border: `2px solid ${columnOpen ? dim : color}`, color: columnOpen ? dim : color, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: n > 0 ? 1 : 0.35 }}>
               {ICONS[p]}
-              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: columnOpen ? dim : color, color: visual.hud.dark, fontSize: 12 }}>{n}</span>
-            </Button>
+              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: columnOpen ? dim : color, color: visual.hud.dark, fontSize: 12, textAlign: 'center' }}>{n}</span>
+            </div>
           )
         })}
       </div>

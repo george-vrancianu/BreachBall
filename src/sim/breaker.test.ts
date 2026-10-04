@@ -21,7 +21,6 @@ describe('breaker', () => {
   it('charges its price in Credits when an armed shot fires, hit or miss', () => {
     const s = ready()
     const r = fire(s, true)
-    expect(rules.breakerCost).toBe(2)
     expect(r.state.credits[shooter(s)]).toBe(s.credits[shooter(s)] - rules.breakerCost)
     expect(r.state.players[shooter(s)].inventory.breaker).toBe(3)
     expect(r.state.breaker).toBe(true)
@@ -32,10 +31,10 @@ describe('breaker', () => {
     expect(r.state.credits).toEqual(s.credits)
     expect(r.state.breaker).toBe(false)
   })
-  it('charges nothing for arming or a disarm: only the shot that fires pays', () => {
+  it('charges nothing while no shot fires: arming and disarming are the input layer\'s, only the shot pays', () => {
     const s = ready()
     expect(canArm(s, shooter(s))).toBe(true)
-    // A cancelled aim sends no shot, so the step sees only a tick.
+    // Asking whether it can be armed changes nothing, and a tick with no shot costs nothing.
     expect(run(s).state.credits).toEqual(s.credits)
   })
   it('is refused when the shooter cannot afford it', () => {
