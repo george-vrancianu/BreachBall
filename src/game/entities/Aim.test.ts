@@ -154,7 +154,7 @@ describe('Aim Ghost colour', () => {
     const a = new Aim()
     a.sync({ ...playState(), ball }, defaultConfig)
     a.aim = aim
-    return a.ghostColor
+    return a.aimColor
   }
   it('is green for a Touch aim', () => {
     expect(colourOf({ tier: 0, dir: { x: 0, y: -1 }, power: 0.3, ghost: rules.shot.tiers[0].ghost, pxPerUnit: 10 })).toBe('#4ade80')

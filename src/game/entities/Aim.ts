@@ -12,14 +12,14 @@ import { drawLabel } from './label'
 /** The aim in progress, as far as the Comet and Ghost need it: `dir` and `power` once the shooter is dragging, the ghost config in effect; `cancel` while cancel-armed; screen px per world unit. */
 export type AimLine = Pick<AimView, 'tier' | 'dir' | 'power' | 'ghost' | 'cancel' | 'pxPerUnit'>
 
-/** A tier's colour (Touch green, Power red), for its Ghost and hold ring. */
+/** A tier's colour (Touch green, Power red), for its Comet, Ghost, Splash preview and hold ring. */
 export const tierColor = (tier: number): string => visual.aim.tierColors[rules.shot.tiers[tier].name]
 
+/** Where `power` sits in `[lo, hi]`, clamped to 0-1; 1 for an empty range. */
+const fraction = (power: number, [lo, hi]: readonly [number, number]): number => (hi > lo ? Math.min(1, Math.max(0, (power - lo) / (hi - lo))) : 1)
+
 /** Where `power` sits in its tier's power range: 0 at the bottom, 1 at the top. */
-function withinTier(tier: number, power: number): number {
-  const [lo, hi] = rules.shot.tiers[tier].power
-  return hi > lo ? Math.min(1, Math.max(0, (power - lo) / (hi - lo))) : 1
-}
+const withinTier = (tier: number, power: number): number => fraction(power, rules.shot.tiers[tier].power)
 
 /** How far a tier's Ghost reaches for `power`: its `reach` min at the bottom of the tier's power range, max at the top. */
 function reachOf(tier: number, power: number, { reach: [min, max] }: Tier['ghost']): number {
@@ -29,8 +29,7 @@ function reachOf(tier: number, power: number, { reach: [min, max] }: Tier['ghost
 /** `power` across every tier's range: 0 at the weakest tier's lowest, 1 at the strongest's highest. */
 function acrossTiers(power: number): number {
   const ranges = rules.shot.tiers.map((t) => t.power)
-  const [lo, hi] = [Math.min(...ranges.map(([l]) => l)), Math.max(...ranges.map(([, h]) => h))]
-  return hi > lo ? Math.min(1, Math.max(0, (power - lo) / (hi - lo))) : 1
+  return fraction(power, [Math.min(...ranges.map(([lo]) => lo)), Math.max(...ranges.map(([, hi]) => hi))])
 }
 
 /**
@@ -39,7 +38,10 @@ function acrossTiers(power: number): number {
  */
 export type Comet = { dir: Point; base: Point; end: Point; tip: Point; length: number; width: number; color: string }
 
-/** A `#rrggbb` colour at alpha `a` (0-1), as `#rrggbbaa`. */
+/** A splash tier's Splash preview: a dashed ring of `radius` (world units) around the ball at `at`, in `color`. */
+export type SplashPreview = { at: Point; radius: number; color: string }
+
+/** A `#rrggbb` colour at alpha `a` (0-1), as `#rrggbbaa`: for gradient stops, which each need their own alpha. */
 const withAlpha = (hex: string, a: number): string => hex + Math.round(a * 255).toString(16).padStart(2, '0')
 
 /** A chevron on the Comet: its point, arm length (world units) and alpha. */
@@ -81,41 +83,45 @@ export class Aim extends Entity {
     return this.rings.length
   }
 
+  /** The point `d` world units from the ball's centre along `dir`. */
+  private alongAim(dir: Point, d: number): Point {
+    const { pos } = this.state!.ball
+    return { x: pos.x + dir.x * d, y: pos.y + dir.y * d }
+  }
+
   /** The Comet while dragging: longer with more power, wider at its base higher in its tier's range. None before the drag. */
   get comet(): Comet | undefined {
-    const { aim, state, config, ghostColor } = this
-    if (!aim?.dir || aim.power === undefined || !state || !config || !ghostColor) return undefined
-    const { length, gapPx, width, head } = visual.aim.comet
+    const { aim, state, config, aimColor } = this
+    if (!aim?.dir || aim.power === undefined || !state || !config || !aimColor) return undefined
+    const { lengthPx, gapPx, widthPx, head } = visual.aim.comet
     const { tier, dir, power, pxPerUnit } = aim
-    const { pos } = state.ball
     const r = config.ballRadius
-    const at = (d: number) => ({ x: pos.x + dir.x * d, y: pos.y + dir.y * d })
-    const len = (length.base + length.perPower * acrossTiers(power)) / pxPerUnit
+    const at = (d: number) => this.alongAim(dir, d)
+    const len = (lengthPx.base + lengthPx.perPower * acrossTiers(power)) / pxPerUnit
     return {
       dir,
       base: at(r + gapPx / pxPerUnit),
       end: at(r + len),
       tip: at(r + len + head.lengthPx / pxPerUnit),
       length: len,
-      width: (width.base + width.perPower * withinTier(tier, power)) / pxPerUnit,
-      color: ghostColor,
+      width: (widthPx.base + widthPx.perPower * withinTier(tier, power)) / pxPerUnit,
+      color: aimColor,
     }
   }
 
   /** The Comet's chevrons, running from its base toward its end and round again, faster higher in the tier's range; fading in and out at the ends. */
   get cometChevrons(): Chevron[] {
-    const { comet, aim, config, state } = this
-    if (!comet || aim?.power === undefined || !config || !state) return []
+    const { comet, aim, config } = this
+    if (!comet || aim?.power === undefined || !config) return []
     const { count, speed, perPower, startPx, endPx, sizePx, alpha } = visual.aim.comet.chevrons
     const { pxPerUnit } = aim
-    const { pos } = state.ball
     const laps = (this.clock / 1000) * (speed + perPower * withinTier(aim.tier, aim.power))
     const [from, to] = [config.ballRadius + startPx / pxPerUnit, config.ballRadius + comet.length - endPx / pxPerUnit]
     return Array.from({ length: count }, (_, i) => {
       const f = (laps + i / count) % 1
       const d = from + (to - from) * f
       return {
-        at: { x: pos.x + comet.dir.x * d, y: pos.y + comet.dir.y * d },
+        at: this.alongAim(comet.dir, d),
         size: (sizePx[0] + (sizePx[1] - sizePx[0]) * f) / pxPerUnit,
         alpha: alpha * Math.sin(f * Math.PI),
       }
@@ -123,7 +129,7 @@ export class Aim extends Entity {
   }
 
   /** A splash tier's aim previews its Splash around the ball, dashed in the tier's colour; none while cancel-armed, as nothing would fire. */
-  get splashPreview(): { at: Point; radius: number; color: string } | undefined {
+  get splashPreview(): SplashPreview | undefined {
     const { aim, state, config } = this
     if (!aim?.dir || aim.power === undefined || aim.cancel || !state || !config) return undefined
     const splash = splashOf(aim.tier, aim.power, config)
@@ -207,7 +213,7 @@ export class Aim extends Entity {
   }
 
   /** The Ghost's colour: its tier's, or the cancel grey while cancel is armed. */
-  get ghostColor(): string | undefined {
+  get aimColor(): string | undefined {
     const { aim } = this
     return aim && (aim.cancel ? visual.aim.cancel.color : tierColor(aim.tier))
   }
@@ -217,20 +223,24 @@ export class Aim extends Entity {
     this.rings = this.rings.filter((r) => this.clock - r.born < visual.aim.splash.ms)
   }
 
-  /** The dashed Splash preview, then the Comet: its glowing spear, the arrowhead and the chevrons. */
+  /** A splash tier's dashed Splash preview around the ball. */
+  private drawSplashPreview(ctx: CanvasRenderingContext2D, { at, radius, color }: SplashPreview, pxPerUnit: number): void {
+    const { dashPx, widthPx, alpha } = visual.aim.comet.splash
+    ctx.setLineDash(dashPx.map((d) => d / pxPerUnit))
+    ctx.strokeStyle = color
+    ctx.globalAlpha = alpha
+    ctx.lineWidth = widthPx / pxPerUnit
+    ctx.beginPath()
+    ctx.arc(at.x, at.y, radius, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+    ctx.setLineDash([])
+  }
+
+  /** The Comet: its glowing spear, the arrowhead and the chevrons. */
   private drawComet(ctx: CanvasRenderingContext2D, comet: Comet, pxPerUnit: number): void {
-    const { bend, gradient, glowPx, head, chevrons, splash } = visual.aim.comet
+    const { bend, gradient, glowBlur, head, chevrons } = visual.aim.comet
     const px = (n: number) => n / pxPerUnit
-    const preview = this.splashPreview
-    if (preview) {
-      ctx.setLineDash(splash.dashPx.map(px))
-      ctx.strokeStyle = withAlpha(preview.color, splash.alpha)
-      ctx.lineWidth = px(splash.widthPx)
-      ctx.beginPath()
-      ctx.arc(preview.at.x, preview.at.y, preview.radius, 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.setLineDash([])
-    }
     const { dir, base, end, tip, width, color } = comet
     const n = { x: -dir.y, y: dir.x }
     const along = (p: Point, d: number, side: number) => ({ x: p.x + dir.x * d + n.x * side, y: p.y + dir.y * d + n.y * side })
@@ -239,12 +249,12 @@ export class Aim extends Entity {
     const fill = ctx.createLinearGradient(base.x, base.y, end.x, end.y)
     fill.addColorStop(0, withAlpha(color, 0))
     fill.addColorStop(gradient.mid, withAlpha(color, gradient.midAlpha))
-    fill.addColorStop(1, withAlpha(gradient.ink, gradient.tipAlpha))
+    // Cancel-armed, the whole Comet goes grey: the ink tip and arrowhead too.
+    const ink = (c: string) => (this.cancel ? color : c)
+    fill.addColorStop(1, withAlpha(ink(gradient.tipColor), gradient.tipAlpha))
     ctx.save()
-    // shadowBlur is in canvas pixels, which the transform does not scale: take the glow back through it.
-    const m = ctx.getTransform()
     ctx.shadowColor = color
-    ctx.shadowBlur = px(glowPx) * Math.hypot(m.a, m.b)
+    ctx.shadowBlur = glowBlur
     ctx.fillStyle = fill
     ctx.beginPath()
     const [l, r] = [along(base, 0, width), along(bendFrom, 0, width * bend.width)]
@@ -256,7 +266,7 @@ export class Aim extends Entity {
     ctx.fill()
     ctx.restore()
     const [hl, hr] = [along(end, 0, px(head.widthPx)), along(end, 0, -px(head.widthPx))]
-    ctx.fillStyle = head.color
+    ctx.fillStyle = ink(head.color)
     ctx.beginPath()
     ctx.moveTo(tip.x, tip.y)
     ctx.lineTo(hl.x, hl.y)
@@ -277,10 +287,12 @@ export class Aim extends Entity {
   }
 
   protected override render(ctx: CanvasRenderingContext2D): void {
-    const { ghost, cancel, ghostColor, comet, aim } = this
+    const { ghost, cancel, aimColor, comet, aim } = this
+    const preview = this.splashPreview
+    if (preview && aim) this.drawSplashPreview(ctx, preview, aim.pxPerUnit)
     if (comet && aim) this.drawComet(ctx, comet, aim.pxPerUnit)
-    if (ghost && ghostColor) {
-      ctx.fillStyle = ctx.strokeStyle = ghostColor
+    if (ghost && aimColor) {
+      ctx.fillStyle = ctx.strokeStyle = aimColor
       for (const { at, radius, alpha } of this.ghostDots) {
         ctx.globalAlpha = alpha
         ctx.beginPath()
