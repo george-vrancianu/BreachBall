@@ -209,10 +209,10 @@ function SelectionBar({ buttons }: { buttons: SelectionButton[] }) {
   )
 }
 
-/** The map view's pill: taps pass through it to the map. */
-function MapHint() {
+/** A hint pill above the dock: taps pass through it to the pitch. The map's one is a single line; the first-round coaching line may wrap, so the pill grows to fit it. */
+function HintPill({ text, wrap = false }: { text: string; wrap?: boolean }) {
   const { heightPx, padPx, borderPx, fontPx } = visual.hud.minimap.pill
-  return <div style={{ ...FONT, fontSize: fontPx, height: heightPx, lineHeight: `${heightPx - 2 * borderPx}px`, padding: `0 ${padPx}px`, boxSizing: 'border-box', borderRadius: heightPx / 2, border: `${borderPx}px solid ${visual.tokens.ghostBorder}`, background: visual.hud.panel, whiteSpace: 'nowrap' }}>Tap to jump · tap ✕ to close</div>
+  return <div style={{ ...FONT, fontSize: fontPx, [wrap ? 'minHeight' : 'height']: heightPx, padding: wrap ? `${padPx / 3}px ${padPx}px` : `0 ${padPx}px`, maxWidth: `calc(100% - ${2 * visual.hud.gap}px)`, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: heightPx / 2, border: `${borderPx}px solid ${visual.tokens.ghostBorder}`, background: visual.hud.panel, whiteSpace: wrap ? 'normal' : 'nowrap' }}>{text}</div>
 }
 
 export type ShellProps = {
@@ -247,7 +247,7 @@ export type ShellProps = {
 
 /**
  * The in-match controls: one dock at the bottom of the screen, only for the active viewer, plus what floats over the pitch above it (the Strategies tray, the
- * selected piece's controls, Confirm, the map hint). Mount inside the rotating stage. Flipped, it sits at the stage's top and runs in reverse, so the floating rows stay on the pitch side.
+ * selected piece's controls, Confirm, the map hint or, on the first round, the coaching hint). Mount inside the rotating stage. Flipped, it sits at the stage's top and runs in reverse, so the floating rows stay on the pitch side.
  *
  * The dock has two rows: the status row (balance, round and phase, clock, Recenter, and the turn's primary pill) and the action row, which depends on `hud.dock`:
  * a build turn gets the Build tools and Strategies; play gets the shots, Refund, Powerup and Subterfuge; a Rearrange turn and a defence choice get a prompt.
@@ -269,7 +269,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
       {building && strategies && m.balance && <StrategyTray cards={strategies} color={color} unit={m.balance.unit} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `${dock.trayPadPx.y}px ${dock.padPx}px` }} />}
       {defence?.selection && <SelectionBar buttons={defence.selection.buttons} />}
       {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(dock.primary.iconPx)} />}
-      {mapOpen && <MapHint />}
+      {mapOpen ? <HintPill text="Tap to jump · tap ✕ to close" /> : m.hint && <HintPill text={m.hint} wrap />}
       {children && <div style={auto}>{children}</div>}
       <div data-testid="dock" data-dock={m.dock} style={{ ...FONT, ...auto, alignSelf: 'stretch', boxSizing: 'border-box', display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', gap: dock.rowGapPx, paddingInline: dock.padPx, paddingTop: flipped ? safeEdge : dock.padPx, paddingBottom: flipped ? dock.padPx : safeEdge, background: dock.fill, [flipped ? 'borderBottom' : 'borderTop']: `${dock.borderPx}px solid ${dock.border}`, borderRadius: radius, boxShadow: `0 ${flipped ? dock.shadowPx.y : -dock.shadowPx.y}px ${dock.shadowPx.blur}px ${visual.hud.shadow}` }}>
         <div data-testid="status-row" style={row}>

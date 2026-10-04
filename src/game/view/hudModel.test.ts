@@ -71,6 +71,36 @@ describe('hudModel', () => {
       expect(hudModel(sieged, c, view).phase).toBe('Play phase')
     })
   })
+  describe('first-round hint', () => {
+    const play = () => {
+      const s = playState()
+      return { ...s, possession: { ...s.possession, inHand: false, shots: defaultConfig.shots } }
+    }
+    const hint = (s: SimState, acted?: boolean) => hudModel(s, defaultConfig, { ...view, acted }).hint
+    it('coaches the ball placement, then the aim, in round 1', () => {
+      const s = play()
+      expect(hint({ ...s, possession: { ...s.possession, inHand: true } })).toBe('Tap to place the ball, then Confirm')
+      expect(hint(s)).toBe('Drag back from the ball to shoot; hold first for Power')
+    })
+    it('coaches the build turn that places pieces', () => {
+      const s = initialState(1)
+      expect(s.match.builder).not.toBeNull()
+      expect(hint(s)).toBe('Drag on your half to draw a wall, or pick a piece below, then OK')
+    })
+    it('is gone once the player has acted', () => {
+      const s = play()
+      expect(hint(s, true)).toBeUndefined()
+      expect(hint({ ...s, possession: { ...s.possession, inHand: true } }, true)).toBeUndefined()
+    })
+    it('is gone after the first shot, after round 1, mid-shot and in Siege', () => {
+      const s = play()
+      expect(hint({ ...s, possession: { ...s.possession, shots: defaultConfig.shots - 1 } })).toBeUndefined()
+      expect(hint({ ...s, possession: { ...s.possession, live: true } })).toBeUndefined()
+      expect(hint({ ...s, match: { ...s.match, round: 2 } as typeof s.match })).toBeUndefined()
+      const c = { ...defaultConfig, mode: 'siege' as const }
+      expect(hudModel(initialState(1, c), c, view).hint).toBeUndefined()
+    })
+  })
   describe('Move point dots', () => {
     const placed = (): SimState => {
       const s = playState()
