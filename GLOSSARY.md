@@ -13,8 +13,12 @@ The kind of Shot, picked by how long the shooter holds still on the ball before 
 _Avoid_: Mode, level, charge
 
 **Ghost**:
-The ball's predicted path, drawn from the ball while aiming a Shot in its Tier's colour as drifting, fading dots, showing where it will go. Each Tier caps it at a number of bounces (off structures or boards) and a reach that grows with the shot's power: Touch shows up to 3 bounces and far, Power 1 bounce and a short stub. A goal ends it. Only this is the Ghost: the translucent ball-in-hand disc is the placement, and the translucent piece dragged in a build turn is the build piece.
+The ball's predicted path, drawn while aiming a Shot in its Tier's colour as drifting, fading dots from the Comet's tip, showing where it will go. Each Tier caps it at a number of bounces (off structures or boards, those under the Comet included) and a reach past the Comet's tip that grows with the shot's power: Touch shows up to 3 bounces and far, Power 1 bounce and a short stub. A goal ends it. Only this is the Ghost: the translucent ball-in-hand disc is the placement, and the translucent piece dragged in a build turn is the build piece.
 _Avoid_: Preview, arrow, trajectory; "ghost" for the ball-in-hand placement or the build piece
+
+**Comet**:
+The direction indicator while aiming a Shot: a glowing spear with an arrowhead from the ball's edge along the shot, in its Tier's colour, longer with more power, chevrons running along it. It shows only the direction and strength; the Ghost starts at its tip, its reach measured from there, and shows where the ball will go.
+_Avoid_: Trajectory, Ghost, arrow
 
 **Splash**:
 The burst every Power Shot sets off where the ball starts, damaging every structure in range, the shooter's own included and across the halfway line. It grows with power within the Tier; the shooter's own structures lose hit points only to its strongest part. It doesn't move the ball.
