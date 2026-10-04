@@ -101,7 +101,7 @@ describe('Shell', () => {
     it('OK submits the build (the Done phase button) and greys while it may not', () => {
       const done = vi.fn()
       const { rerender } = render(<Shell {...props()} hud={buildHud({ buttons: [{ label: 'Done', onClick: done }] })} defence={defence()} />)
-      const ok = () => screen.getByRole('button', { name: 'Done' })
+      const ok = () => screen.getByRole('button', { name: 'OK' })
       expect(ok().textContent).toContain('OK')
       fireEvent.click(ok())
       expect(done).toHaveBeenCalledTimes(1)
@@ -144,7 +144,7 @@ describe('Shell', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Build' }))
       expect(p.onDefenceToggle).not.toHaveBeenCalled()
       expect(screen.queryByRole('button', { name: 'Strategies' })).toBeNull()
-      expect(screen.queryByRole('button', { name: 'Done' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'OK' })).toBeNull()
     })
   })
 
@@ -152,7 +152,7 @@ describe('Shell', () => {
     it('a Rearrange turn shows a prompt and OK, no pieces', () => {
       render(<Shell {...props()} hud={hud({ dock: 'rearrange', phase: 'Rearrange', buttons: [{ label: 'Done', onClick: vi.fn() }] })} defence={defence({ building: false, available: false })} />)
       expect(screen.getByText(/Drag your pieces/)).toBeTruthy()
-      expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'OK' })).toBeTruthy()
       expect(screen.queryByRole('button', { name: /^Wall/ })).toBeNull()
     })
 

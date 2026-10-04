@@ -276,7 +276,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
           <Status m={m} />
           {m.clock && <Clock clock={m.clock} />}
           <Recenter onClick={onRecenter} />
-          {done && <Primary spec={done} color={color} icon={CHECK(dock.primary.iconPx)} label="OK" aria="Done" />}
+          {done && <Primary spec={done} color={color} icon={CHECK(dock.primary.iconPx)} label="OK" aria="OK" />}
         </div>
         <div data-testid="action-row" style={{ ...row, minHeight: dock.tilePx }}>
           {m.dock === 'build' && defence && <div style={{ flex: 1, minWidth: 0 }}><BuildTools defence={defence} color={color} trayOpen={!!strategies} strategies={!!defence.available} onToggle={onDefenceToggle} onArm={onDefenceArm} onStrategies={onStrategies} /></div>}

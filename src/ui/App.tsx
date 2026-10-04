@@ -69,7 +69,7 @@ export function App() {
               onStrategies={() => actions().strategies.toggle()}
               onStrategy={(id) => actions().strategies.apply(id)}
             />
-            {/* The minimap chip and ☰ sit together at the top-left, under the far-edge bars. */}
+            {/* The minimap chip (top-left) and ☰ (top-right) sit level with each other, under the far-edge bars. */}
             {!screen && <Minimap minimap={view.minimap} open={view.mapOpen} color={visual.player.colors[view.hud.active]} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onToggle={() => actions().map()} />}
             {/* Both sit in the stage, so they turn with the flip and open from the viewer's left. */}
             {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onOpen={() => actions().menu(true)} />}
