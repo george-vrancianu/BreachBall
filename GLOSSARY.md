@@ -57,7 +57,7 @@ The defence-turn choice that restores every surviving structure the scorer owns 
 _Avoid_: Heal, rebuild
 
 **Rearrange**:
-The defence-turn choice that opens a build-style turn for the scorer in which every structure they own can be moved and rotated to any legal spot on their half, HP unchanged. Placing and demolishing are refused, so the structure count can only fall. Done ends it, and Done with nothing moved is the escape hatch. The choice is final: there is no way back to Repair.
+The defence-turn choice that opens a build-style turn for the scorer in which every structure they own can be moved and rotated to any legal spot on their half, HP unchanged. Placing and demolishing are refused, so the structure count can only fall. OK ends it, and OK with nothing moved is the escape hatch. The choice is final: there is no way back to Repair.
 _Avoid_: Reposition, rebuild
 
 **Wipe-out**:
@@ -69,7 +69,7 @@ Siege's opening build, during which each viewer sees only their own half; the op
 _Avoid_: Hidden build, secret build
 
 **Reveal**:
-The 1.5 s hold after the second Done of a Siege opening build: the fog lifts and the map camera shows both layouts at once, then play begins. Rounds and Rearrange have none.
+The 1.5 s hold after the second OK of a Siege opening build: the fog lifts and the map camera shows both layouts at once, then play begins. Rounds and Rearrange have none.
 _Avoid_: Unveil, showdown
 
 **Fog**:

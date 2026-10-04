@@ -89,15 +89,16 @@ export class Aim extends Entity {
     return { x: pos.x + dir.x * d, y: pos.y + dir.y * d }
   }
 
-  /** The Comet while dragging: longer with more power, wider at its base higher in its tier's range. None before the drag. */
+  /** The Comet while dragging: longer with more power, wider at its base higher in its tier's range, both scaled by its tier (`tierScale`). None before the drag. */
   get comet(): Comet | undefined {
     const { aim, state, config, aimColor } = this
     if (!aim?.dir || aim.power === undefined || !state || !config || !aimColor) return undefined
-    const { lengthPx, gapPx, widthPx, head } = visual.aim.comet
+    const { lengthPx, gapPx, widthPx, head, tierScale } = visual.aim.comet
     const { tier, dir, power, pxPerUnit } = aim
     const r = config.ballRadius
     const at = (d: number) => this.alongAim(dir, d)
-    const len = (lengthPx.base + lengthPx.perPower * acrossTiers(power)) / pxPerUnit
+    const k = tierScale[rules.shot.tiers[tier].name]
+    const len = (k * (lengthPx.base + lengthPx.perPower * acrossTiers(power))) / pxPerUnit
     const span = r + len + head.lengthPx / pxPerUnit
     return {
       dir,
@@ -106,7 +107,7 @@ export class Aim extends Entity {
       tip: at(span),
       span,
       length: len,
-      width: (widthPx.base + widthPx.perPower * withinTier(tier, power)) / pxPerUnit,
+      width: (k * (widthPx.base + widthPx.perPower * withinTier(tier, power))) / pxPerUnit,
       color: aimColor,
     }
   }

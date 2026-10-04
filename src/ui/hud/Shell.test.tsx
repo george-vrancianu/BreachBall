@@ -17,7 +17,7 @@ const hud = (over: Partial<HudModel> = {}): HudModel => ({
   active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, score: null, phase: 'Play',
   dock: 'play', balance: null, refundRate: null, ...over,
 })
-const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
+const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', name: 'Breaker', badge: '2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', name: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
 const items = (over: Record<string, Partial<ItemSpec>> = {}): ItemSpec[] => [
   { item: 'wall', label: 'Wall · 2/unit', name: 'Wall', badge: '2', disabled: false, pressed: true, ...over.wall },
   { item: 'repulsor', label: 'Repulsor · 3', name: 'Repulsor', badge: '3', disabled: false, pressed: false, ...over.repulsor },
@@ -101,7 +101,7 @@ describe('Shell', () => {
     it('OK submits the build (the Done phase button) and greys while it may not', () => {
       const done = vi.fn()
       const { rerender } = render(<Shell {...props()} hud={buildHud({ buttons: [{ label: 'Done', onClick: done }] })} defence={defence()} />)
-      const ok = () => screen.getByRole('button', { name: 'Done' })
+      const ok = () => screen.getByRole('button', { name: 'OK' })
       expect(ok().textContent).toContain('OK')
       fireEvent.click(ok())
       expect(done).toHaveBeenCalledTimes(1)
@@ -131,7 +131,7 @@ describe('Shell', () => {
 
     it('floats the selected structure\'s controls over the pitch, named', () => {
       const del = vi.fn()
-      render(<Shell {...props()} hud={buildHud()} defence={defence({ selection: { buttons: [{ label: '🗑', onClick: del }, { label: '↻', onClick: vi.fn() }, { label: '✕', onClick: vi.fn() }] } })} />)
+      render(<Shell {...props()} hud={buildHud()} defence={defence({ selection: { buttons: [{ action: 'demolish', label: 'Demolish', onClick: del }, { action: 'rotate', label: 'Rotate', onClick: vi.fn() }, { action: 'deselect', label: 'Deselect', onClick: vi.fn() }] } })} />)
       fireEvent.click(screen.getByRole('button', { name: 'Demolish' }))
       expect(del).toHaveBeenCalled()
       expect(screen.getByRole('button', { name: 'Rotate' })).toBeTruthy()
@@ -144,7 +144,7 @@ describe('Shell', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Build' }))
       expect(p.onDefenceToggle).not.toHaveBeenCalled()
       expect(screen.queryByRole('button', { name: 'Strategies' })).toBeNull()
-      expect(screen.queryByRole('button', { name: 'Done' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'OK' })).toBeNull()
     })
   })
 
@@ -152,7 +152,7 @@ describe('Shell', () => {
     it('a Rearrange turn shows a prompt and OK, no pieces', () => {
       render(<Shell {...props()} hud={hud({ dock: 'rearrange', phase: 'Rearrange', buttons: [{ label: 'Done', onClick: vi.fn() }] })} defence={defence({ building: false, available: false })} />)
       expect(screen.getByText(/Drag your pieces/)).toBeTruthy()
-      expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'OK' })).toBeTruthy()
       expect(screen.queryByRole('button', { name: /^Wall/ })).toBeNull()
     })
 
@@ -212,7 +212,7 @@ describe('Shell', () => {
 
     it('Subterfuge opens to its options (the Jam with its price, two locked); buying closes it; tapping it again closes it', () => {
       const p = props()
-      const sub = { available: true, queued: [], items: [{ item: 'jam' as const, label: 'Jam · 2', when: 'next possession', disabled: false }, { item: 'soon1' as const, label: 'Soon', when: '', disabled: true as const, soon: true as const }, { item: 'soon2' as const, label: 'Soon', when: '', disabled: true as const, soon: true as const }] }
+      const sub = { available: true, queued: [], items: [{ item: 'jam' as const, label: 'Jam · 2', name: 'Jam', badge: '2', when: 'next possession', disabled: false }, { item: 'soon1' as const, label: 'Soon', name: 'Soon', when: '', disabled: true as const, soon: true as const }, { item: 'soon2' as const, label: 'Soon', name: 'Soon', when: '', disabled: true as const, soon: true as const }] }
       render(<Shell {...p} subterfuge={sub} />)
       const tile = () => screen.getByRole('button', { name: 'Subterfuge' })
       expect(screen.queryByRole('button', { name: 'Jam · 2 · next possession' })).toBeNull()
@@ -232,7 +232,7 @@ describe('Shell', () => {
 
     it('a greyed Subterfuge still opens, its Jam greyed, and buys nothing', () => {
       const p = props()
-      render(<Shell {...p} subterfuge={{ available: false, queued: [], items: [{ item: 'jam', label: 'Jam · 2', when: 'next possession', disabled: false }] }} />)
+      render(<Shell {...p} subterfuge={{ available: false, queued: [], items: [{ item: 'jam', label: 'Jam · 2', name: 'Jam', badge: '2', when: 'next possession', disabled: false }] }} />)
       fireEvent.click(screen.getByRole('button', { name: 'Subterfuge' }))
       const jam = screen.getByRole('button', { name: 'Jam · 2 · next possession' })
       expect(jam.getAttribute('aria-disabled')).toBe('true')
@@ -310,6 +310,13 @@ describe('Shell', () => {
       expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
     })
 
+    it('names and badges each option as its model says (a Siege stock reads ×3)', () => {
+      render(<Shell {...props()} offence={offence({ items: [{ item: 'breaker', label: 'Breaker · 3 left', name: 'Breaker', badge: '×3', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', name: 'Overdrive', disabled: true, pressed: false, soon: true }] })} />)
+      fireEvent.click(circle())
+      expect(screen.getByRole('button', { name: 'Breaker · 3 left' }).textContent).toBe('Breaker×3')
+      expect(screen.getByRole('button', { name: 'Overdrive · soon' }).textContent).toBe('Overdrive')
+    })
+
     it('tapping the Breaker arms it and closes the options', () => {
       const p = props()
       render(<Shell {...p} />)
@@ -321,7 +328,7 @@ describe('Shell', () => {
 
     it('a greyed item and the locked one arm nothing', () => {
       const p = props()
-      render(<Shell {...p} offence={offence({ items: [{ item: 'breaker', label: 'Breaker · 2', disabled: true, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }] })} />)
+      render(<Shell {...p} offence={offence({ items: [{ item: 'breaker', label: 'Breaker · 2', name: 'Breaker', badge: '2', disabled: true, pressed: false }, { item: 'overdrive', label: 'Overdrive', name: 'Overdrive', disabled: true, pressed: false, soon: true }] })} />)
       fireEvent.click(circle())
       fireEvent.click(screen.getByRole('button', { name: 'Breaker · 2' }))
       fireEvent.click(screen.getByRole('button', { name: 'Overdrive · soon' }))
@@ -370,7 +377,7 @@ describe('Shell', () => {
   })
 
   it('only its controls take pointer input, so gestures pass through the gaps to the pitch', () => {
-    const { container } = render(<Shell {...props()} hud={buildHud()} defence={defence({ selection: { buttons: [{ label: '✕', onClick: vi.fn() }] } })} strategies={[]} confirm mapOpen><i>extra</i></Shell>)
+    const { container } = render(<Shell {...props()} hud={buildHud()} defence={defence({ selection: { buttons: [{ action: 'deselect', label: 'Deselect', onClick: vi.fn() }] } })} strategies={[]} confirm mapOpen><i>extra</i></Shell>)
     const shell = container.firstElementChild as HTMLElement
     expect(shell.style.pointerEvents).toBe('none')
     // The map's hint pill lets taps through to the map.

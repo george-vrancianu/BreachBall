@@ -11,7 +11,7 @@ import type { Driver, DriverFactory, Sink } from './driver'
 import { Aim } from './entities/Aim'
 import { AimGauge } from './entities/AimGauge'
 import { Ball } from './entities/Ball'
-import { anchorY, Camera, hudReserve, viewOutline } from './entities/Camera'
+import { anchorY, Camera, hudReserve, screenDown, viewOutline } from './entities/Camera'
 import { EdgeFade } from './entities/EdgeFade'
 import { Fog } from './entities/Fog'
 import { Pitch } from './entities/Pitch'
@@ -391,6 +391,8 @@ export class Game implements Sink {
     const inNet = goalBall(this.transition)
     this.ball.sync(inNet ? { ...state.ball, pos: inNet, vel: { x: 0, y: 0 } } : state.ball)
     this.gauge.at = this.ball.state.pos
+    // The view's edge on the HUD's side: the dock band starts there.
+    this.gauge.dockEdge = this.camera.y + (screenDown(this.transition.shown) * this.camera.visibleHeight) / 2
     this.ball.placement = input.placement && { at: input.placement, legal: canPlaceBall(shooter, input.placement, state.objects, this.config), radius: this.config.ballRadius }
     this.ball.armed = input.armed || state.breaker ? shooter : undefined
   }

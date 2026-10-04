@@ -100,6 +100,10 @@ describe('Aim Ghost', () => {
     expect(reachOf(1, 0.5, undefined, open, 9.75)).toBeCloseTo(8)
     expect(reachOf(1, 0.5, undefined, open, 30)).toBeCloseTo(8)
   })
+  it('shows the weakest Touch shot\'s short roll past a Comet half as long: about 5.66 units of dots on a 390 px phone, not 3.9', () => {
+    // It rolls about 10 units from the ball's centre, well short of its 25-unit reach; the Comet's 17 px spear (not 34) leaves 17 / 9.75 = 1.74 units more of it showing.
+    expect(reachOf(0, 0.15, undefined, open, 9.75)).toBeCloseTo(5.66)
+  })
   it('counts a bounce under the Comet toward its cap', () => {
     // 3 units below the end board: a Power shot bounces off it well inside its Comet, and its 1-bounce cap ends the Ghost there.
     const a = new Aim()
@@ -226,8 +230,10 @@ describe('Aim Comet', () => {
     return a
   }
 
-  it('runs 34 px for the weakest shot and 154 px for the strongest', () => {
-    expect(aiming({ tier: 0, power: 0.15 }).comet!.length).toBeCloseTo(3.4)
+  it('runs 34 px for the weakest shot and 154 px for the strongest, at half length in Touch', () => {
+    expect(aiming({ tier: 0, power: 0.15 }).comet!.length).toBeCloseTo(1.7)
+    expect(aiming({ tier: 0, power: 0.45 }).comet!.length).toBeCloseTo(3.82)
+    expect(aiming({ tier: 1, power: 0.5 }).comet!.length).toBeCloseTo(8.34)
     expect(aiming({ tier: 1, power: 1 }).comet!.length).toBeCloseTo(15.4)
   })
   it('points along the aim, from just past the ball\'s edge', () => {
@@ -237,10 +243,11 @@ describe('Aim Comet', () => {
     expect(along(tip).x).toBeGreaterThan(along(base).x)
     expect(Math.hypot(base.x - 20, base.y - 20)).toBeCloseTo(defaultConfig.ballRadius + 0.2)
   })
-  it('is wider at its base higher in its tier\'s range: 9 px at the bottom, 14 px at the top', () => {
+  it('is wider at its base higher in its tier\'s range: 9 px at the bottom, 14 px at the top, half that in Touch', () => {
     expect(aiming({ tier: 1, power: 0.5 }).comet!.width).toBeCloseTo(0.9)
     expect(aiming({ tier: 1, power: 1 }).comet!.width).toBeCloseTo(1.4)
-    expect(aiming({ tier: 0, power: 0.45 }).comet!.width).toBeCloseTo(1.4)
+    expect(aiming({ tier: 0, power: 0.15 }).comet!.width).toBeCloseTo(0.45)
+    expect(aiming({ tier: 0, power: 0.45 }).comet!.width).toBeCloseTo(0.7)
   })
   it('is its tier\'s colour, grey while cancel is armed', () => {
     expect(aiming({ tier: 1, power: 0.8 }).comet!.color).toBe('#f87171')

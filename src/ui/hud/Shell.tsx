@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
-import type { DefenceCircle as DefenceCircleView, Item, ItemSpec } from '../../game/view/defenceCircle'
-import type { ButtonSpec, HudModel } from '../../game/view/hudModel'
+import type { DefenceCircle as DefenceCircleView, Item, SelectionAction, SelectionButton } from '../../game/view/defenceCircle'
+import { BALANCE_UNIT, type ButtonSpec, type HudModel } from '../../game/view/hudModel'
 import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
 import type { StrategyCard } from '../../game/view/strategies'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
 import { FONT } from '../ButtonRow'
-import { CANNON, CHECK, CLOSE, CREDIT, LAYERS, LOCK, RECENTER, REFUND, REPULSOR, ROTATE, STEAL, TOWER, TRASH, WALL } from './icons'
+import { CHECK, CLOSE, CREDIT, LAYERS, LOCK, PIECE_ICON, RECENTER, REFUND, ROTATE, TOWER, TRASH } from './icons'
 import { noMenu } from './press'
 import { AbilityBar } from './AbilityBar'
 import { StrategyTray } from './StrategyTray'
@@ -16,7 +16,8 @@ import { tileBadge, tileLabel, tileStyle } from './tile'
 const ELLIPSIS: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const ring = (f: number, color: string = visual.hud.ink) => `conic-gradient(${color} ${f * 360}deg,${visual.hud.track} 0)`
 const { dock } = visual.hud
-const PIECE_ICON: Record<ItemSpec['item'], (size: number) => ReactNode> = { wall: WALL, repulsor: REPULSOR, steal: STEAL, cannon: CANNON }
+/** Each selection control's glyph. */
+const SELECTION_ICON: Record<SelectionAction, (size: number) => ReactNode> = { demolish: TRASH, rotate: ROTATE, deselect: CLOSE }
 
 /** The clock ring: a conic drain around a dark disc holding the seconds; at the urgent seconds it turns red with a halo and pulses. */
 function Clock({ clock }: { clock: HudModel['clock'] }) {
@@ -44,15 +45,16 @@ function Recenter({ onClick }: { onClick(): void }) {
 function CreditsChip({ balance, color }: { balance: NonNullable<HudModel['balance']>; color: string }) {
   const ref = useRef<HTMLSpanElement>(null)
   const last = useRef(balance.amount)
+  const chip = dock.credits
   useEffect(() => {
-    if (last.current !== balance.amount) ref.current?.animate?.([{ transform: 'scale(1.35)' }, { transform: 'scale(1)' }], 260)
+    if (last.current !== balance.amount) ref.current?.animate?.([{ transform: `scale(${chip.pop.scale})` }, { transform: 'scale(1)' }], chip.pop.ms)
     last.current = balance.amount
   }, [balance.amount])
   return (
-    <div role="status" aria-label={`${balance.amount} ${balance.unit}`} style={{ ...FONT, flex: 'none', boxSizing: 'border-box', height: dock.chipPx, padding: '0 12px 0 6px', display: 'flex', alignItems: 'center', gap: 6, borderRadius: dock.chipPx / 2, border: `2px solid ${color}`, background: `linear-gradient(135deg, ${color}2e, ${color}0a 60%)`, color: visual.hud.ink, boxShadow: `inset 0 0 12px ${color}22` }}>
-      <span style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: color, color: visual.hud.dark }}>{CREDIT(18)}</span>
+    <div role="status" aria-label={`${balance.amount} ${balance.unit}`} style={{ ...FONT, flex: 'none', boxSizing: 'border-box', height: dock.chipPx, padding: `0 ${chip.padEndPx}px 0 ${chip.padStartPx}px`, display: 'flex', alignItems: 'center', gap: chip.gapPx, borderRadius: dock.chipPx / 2, border: `${chip.borderPx}px solid ${color}`, background: `linear-gradient(135deg, ${color}2e, ${color}0a 60%)`, color: visual.hud.ink, boxShadow: `inset 0 0 ${chip.glowPx}px ${color}22` }}>
+      <span style={{ width: chip.tokenPx, height: chip.tokenPx, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: color, color: visual.hud.dark }}>{CREDIT(chip.iconPx)}</span>
       <span ref={ref} style={{ fontFamily: visual.hud.display, fontSize: dock.creditFontPx, lineHeight: 1, display: 'inline-block' }}>{balance.amount}</span>
-      <span style={{ fontSize: 10, letterSpacing: '0.1em', color: visual.tokens.muted }}>{balance.unit}</span>
+      <span style={{ fontSize: chip.unitFontPx, letterSpacing: `${chip.unitSpacingEm}em`, color: visual.tokens.muted }}>{balance.unit}</span>
     </div>
   )
 }
@@ -60,8 +62,9 @@ function CreditsChip({ balance, color }: { balance: NonNullable<HudModel['balanc
 /** The primary pill of a dock (OK to submit the build; Repair or Rearrange): filled in the player's colour, a check when it submits. */
 function Primary({ spec, color, icon, label, aria, grow = false }: { spec: ButtonSpec; color: string; icon?: ReactNode; label?: string; aria?: string; /** Fill the space it is given (the defence choice's two halves). */ grow?: boolean }) {
   const off = !!spec.disabled
+  const pill = dock.primary
   return (
-    <button disabled={spec.disabled} aria-label={aria ?? spec.label} onClick={spec.onClick} style={{ ...FONT, flex: grow ? 1 : 'none', boxSizing: 'border-box', minWidth: dock.okMinPx, height: grow ? dock.tilePx - 4 : dock.chipPx, padding: '0 14px', borderRadius: dock.chipPx / 2, border: `2px solid ${off ? visual.tokens.ghostBorder : color}`, background: off ? 'transparent' : color, color: off ? visual.tokens.muted : visual.hud.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 15, letterSpacing: '0.06em', boxShadow: off ? 'none' : `0 0 16px ${color}55`, cursor: off ? 'default' : 'pointer', pointerEvents: 'auto' }}>
+    <button disabled={spec.disabled} aria-label={aria ?? spec.label} onClick={spec.onClick} style={{ ...FONT, flex: grow ? 1 : 'none', boxSizing: 'border-box', minWidth: dock.okMinPx, height: grow ? pill.choicePx : dock.chipPx, padding: `0 ${pill.padPx}px`, borderRadius: dock.chipPx / 2, border: `${pill.borderPx}px solid ${off ? visual.tokens.ghostBorder : color}`, background: off ? 'transparent' : color, color: off ? visual.tokens.muted : visual.hud.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: pill.gapPx, fontSize: pill.fontPx, letterSpacing: `${pill.spacingEm}em`, boxShadow: off ? 'none' : `0 0 ${pill.glowPx}px ${color}55`, cursor: off ? 'default' : 'pointer', pointerEvents: 'auto' }}>
       {icon}
       {label ?? spec.label}
     </button>
@@ -70,12 +73,12 @@ function Primary({ spec, color, icon, label, aria, grow = false }: { spec: Butto
 
 /** The Move points left this possession: a ball per point, filled while unspent. */
 function ShotPips({ left, max, color }: { left: number; max: number; color: string }) {
-  const px = 14
+  const { px, borderPx, glowPx, gapPx, labelGapPx, shine, shade } = dock.shots
   return (
-    <div role="img" aria-label={`${left} of ${max} shots left`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-      <div style={{ display: 'flex', gap: 5 }}>
+    <div role="img" aria-label={`${left} of ${max} shots left`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: labelGapPx }}>
+      <div style={{ display: 'flex', gap: gapPx }}>
         {Array.from({ length: max }, (_, i) => (
-          <span key={i} style={{ width: px, height: px, boxSizing: 'border-box', borderRadius: '50%', border: `2px solid ${i < left ? visual.ball.fill : visual.tokens.ghostBorder}`, background: i < left ? `radial-gradient(circle at 35% 35%, #fff, ${visual.ball.fill} 60%, #c9c9c0)` : 'none', boxShadow: i < left ? `0 0 6px ${color}66` : 'none' }} />
+          <span key={i} style={{ width: px, height: px, boxSizing: 'border-box', borderRadius: '50%', border: `${borderPx}px solid ${i < left ? visual.ball.fill : visual.tokens.ghostBorder}`, background: i < left ? `radial-gradient(circle at 35% 35%, ${shine}, ${visual.ball.fill} 60%, ${shade})` : 'none', boxShadow: i < left ? `0 0 ${glowPx}px ${color}66` : 'none' }} />
         ))}
       </div>
       <span style={{ ...tileLabel, color: visual.tokens.muted }}>{`Shots ${left}/${max}`}</span>
@@ -128,10 +131,10 @@ function RefundButton({ rate, left, refundable, color, onRefund }: { rate: numbe
       onPointerCancel={cancel}
       onContextMenu={noMenu}
       onClick={(e) => e.detail === 0 && refundable && onRefund(1)}
-      style={{ ...tileStyle({ color, available: refundable }), width: dock.tilePx + 6, ...(pressed && { background: visual.hud.pressed, borderColor: visual.hud.pressedBorder }), ...(refundable && { borderColor: color }) }}
+      style={{ ...tileStyle({ color, available: refundable }), width: dock.refundPx, ...(pressed && { background: visual.hud.pressed, borderColor: visual.hud.pressedBorder }), ...(refundable && { borderColor: color }) }}
     >
       <span style={{ color: refundable ? color : 'inherit', display: 'flex' }}>{REFUND(dock.iconPx)}</span>
-      <span style={tileLabel}>{`+${rate} CR`}</span>
+      <span style={tileLabel}>{`+${rate} ${BALANCE_UNIT.rounds}`}</span>
     </button>
   )
 }
@@ -165,14 +168,14 @@ function BuildTools({ defence, color, trayOpen, strategies, onToggle, onArm, onS
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: dock.gapPx, minWidth: 0 }}>
       <BuildTile defence={defence} color={color} onToggle={onToggle} />
-      <span aria-hidden style={{ flex: 'none', width: dock.dividerPx, height: dock.tilePx - 16, background: dock.border, margin: '0 2px' }} />
+      <span aria-hidden style={{ flex: 'none', width: dock.dividerPx, height: dock.dividerHeightPx, background: dock.border, margin: `0 ${dock.dividerPadPx}px` }} />
       <div role="toolbar" aria-label="Pieces" style={{ display: 'flex', gap: dock.gapPx, minWidth: 0 }}>
         {items.map((s) => {
           const off = s.disabled || !available
           return (
-            <button key={s.item} data-item={s.item} aria-label={s.soon ? `${s.label} · soon` : s.label} aria-pressed={s.pressed} aria-disabled={off} onClick={() => !off && s.item !== 'cannon' && onArm(s.item)} onContextMenu={noMenu} style={{ ...tileStyle({ color, active: s.pressed && !off, available: !off, width: dock.tilePx - 4 }) }}>
-              {s.soon ? LOCK(dock.iconPx - 4) : PIECE_ICON[s.item](dock.iconPx)}
-              <span style={{ ...tileLabel, fontSize: dock.labelPx - 1, letterSpacing: '0.02em' }}>{s.name}</span>
+            <button key={s.item} data-item={s.item} aria-label={s.soon ? `${s.label} · soon` : s.label} aria-pressed={s.pressed} aria-disabled={off} onClick={() => !off && s.item !== 'cannon' && onArm(s.item)} onContextMenu={noMenu} style={{ ...tileStyle({ color, active: s.pressed && !off, available: !off, width: dock.option.px }) }}>
+              {s.soon ? LOCK(dock.option.lockPx) : PIECE_ICON[s.item](dock.iconPx)}
+              <span style={{ ...tileLabel, fontSize: dock.option.labelPx, letterSpacing: `${dock.option.labelSpacingEm}em` }}>{s.name}</span>
               {s.badge && !s.soon && <span style={tileBadge(color, off)}>{s.badge}</span>}
             </button>
           )
@@ -190,15 +193,15 @@ function BuildTools({ defence, color, trayOpen, strategies, onToggle, onArm, onS
 }
 
 /** The selected structure's controls (demolish, rotate, deselect), floating over the pitch above the dock. */
-function SelectionBar({ buttons }: { buttons: ButtonSpec[] }) {
-  const GLYPH: Record<string, { icon: ReactNode; aria: string }> = { '🗑': { icon: TRASH(20), aria: 'Demolish' }, '↻': { icon: ROTATE(20), aria: 'Rotate' }, '✕': { icon: CLOSE(20), aria: 'Deselect' } }
+function SelectionBar({ buttons }: { buttons: SelectionButton[] }) {
+  const { buttonPx, buttonBorderPx, iconPx, gapPx, padPx, radiusPx, disabledOpacity } = dock.selection
   return (
-    <div role="toolbar" aria-label="Selected piece" style={{ display: 'flex', gap: 8, padding: 6, borderRadius: 26, background: dock.fill, border: `1px solid ${dock.border}`, boxShadow: `0 6px 18px ${visual.hud.shadow}`, pointerEvents: 'auto' }}>
+    <div role="toolbar" aria-label="Selected piece" style={{ display: 'flex', gap: gapPx, padding: padPx, borderRadius: radiusPx, background: dock.fill, border: `${dock.borderPx}px solid ${dock.border}`, boxShadow: `0 ${dock.floatShadowPx.y}px ${dock.floatShadowPx.blur}px ${visual.hud.shadow}`, pointerEvents: 'auto' }}>
       {buttons.map((b) => {
-        const g = GLYPH[b.label]
+        const danger = b.action === 'demolish'
         return (
-          <button key={b.label} disabled={b.disabled} aria-label={g?.aria ?? b.label} onClick={b.onClick} style={{ ...FONT, width: 40, height: 40, padding: 0, borderRadius: '50%', border: `2px solid ${b.label === '🗑' ? visual.hud.urgent : visual.tokens.ghostBorder}`, background: visual.hud.panel, color: b.label === '🗑' ? visual.hud.urgent : visual.hud.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: b.disabled ? 0.4 : 1 }}>
-            {g?.icon ?? b.label}
+          <button key={b.action} disabled={b.disabled} aria-label={b.label} onClick={b.onClick} style={{ ...FONT, width: buttonPx, height: buttonPx, padding: 0, borderRadius: '50%', border: `${buttonBorderPx}px solid ${danger ? visual.hud.urgent : visual.tokens.ghostBorder}`, background: visual.hud.panel, color: danger ? visual.hud.urgent : visual.hud.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: b.disabled ? disabledOpacity : 1 }}>
+            {SELECTION_ICON[b.action](iconPx)}
           </button>
         )
       })}
@@ -257,23 +260,23 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
   const building = m.dock === 'build' && !!defence?.available
   const auto: CSSProperties = { pointerEvents: 'auto' }
   const radius = `${flipped ? 0 : dock.cornerPx}px ${flipped ? 0 : dock.cornerPx}px ${flipped ? dock.cornerPx : 0}px ${flipped ? dock.cornerPx : 0}px`
-  const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: dock.gapPx + 2, minWidth: 0 }
+  const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: dock.wideGapPx, minWidth: 0 }
   // The screen-edge side clears the home indicator; longhands only, so a flip never mixes them with the `padding` shorthand.
   const safeEdge = `max(${dock.padPx}px, env(safe-area-inset-bottom))`
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
-      {building && strategies && <StrategyTray cards={strategies} color={color} unit={m.balance?.unit ?? 'CR'} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `4px ${dock.padPx}px` }} />}
+      {building && strategies && <StrategyTray cards={strategies} color={color} unit={m.balance?.unit ?? BALANCE_UNIT.rounds} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `${dock.trayPadPx.y}px ${dock.padPx}px` }} />}
       {defence?.selection && <SelectionBar buttons={defence.selection.buttons} />}
-      {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(18)} />}
+      {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(dock.primary.iconPx)} />}
       {mapOpen && <MapHint />}
       {children && <div style={auto}>{children}</div>}
-      <div data-testid="dock" data-dock={m.dock} style={{ ...FONT, ...auto, alignSelf: 'stretch', boxSizing: 'border-box', display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', gap: dock.rowGapPx, paddingInline: dock.padPx, paddingTop: flipped ? safeEdge : dock.padPx, paddingBottom: flipped ? dock.padPx : safeEdge, background: dock.fill, [flipped ? 'borderBottom' : 'borderTop']: `1px solid ${dock.border}`, borderRadius: radius, boxShadow: `0 ${flipped ? 8 : -8}px 24px ${visual.hud.shadow}` }}>
+      <div data-testid="dock" data-dock={m.dock} style={{ ...FONT, ...auto, alignSelf: 'stretch', boxSizing: 'border-box', display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', gap: dock.rowGapPx, paddingInline: dock.padPx, paddingTop: flipped ? safeEdge : dock.padPx, paddingBottom: flipped ? dock.padPx : safeEdge, background: dock.fill, [flipped ? 'borderBottom' : 'borderTop']: `${dock.borderPx}px solid ${dock.border}`, borderRadius: radius, boxShadow: `0 ${flipped ? dock.shadowPx.y : -dock.shadowPx.y}px ${dock.shadowPx.blur}px ${visual.hud.shadow}` }}>
         <div data-testid="status-row" style={row}>
           {m.balance && <CreditsChip balance={m.balance} color={color} />}
           <Status m={m} />
           {m.clock && <Clock clock={m.clock} />}
           <Recenter onClick={onRecenter} />
-          {done && <Primary spec={done} color={color} icon={CHECK(18)} label="OK" aria="Done" />}
+          {done && <Primary spec={done} color={color} icon={CHECK(dock.primary.iconPx)} label="OK" aria="OK" />}
         </div>
         <div data-testid="action-row" style={{ ...row, minHeight: dock.tilePx }}>
           {m.dock === 'build' && defence && <div style={{ flex: 1, minWidth: 0 }}><BuildTools defence={defence} color={color} trayOpen={!!strategies} strategies={!!defence.available} onToggle={onDefenceToggle} onArm={onDefenceArm} onStrategies={onStrategies} /></div>}
@@ -290,7 +293,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
               onOffenceArm={onOffenceArm}
               onSubterfuge={onSubterfuge}
               trailing={
-                <div style={{ display: 'flex', alignItems: 'center', gap: dock.gapPx + 2 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: dock.wideGapPx }}>
                   <ShotPips left={m.shotsLeft} max={m.shotsMax} color={color} />
                   {m.refundRate !== null && <RefundButton rate={m.refundRate} left={m.shotsLeft} refundable={m.refundable} color={color} onRefund={onRefund} />}
                 </div>
@@ -304,5 +307,5 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
 }
 
 function Prompt({ text }: { text: string }) {
-  return <div style={{ flex: 1, minWidth: 0, fontSize: 12, letterSpacing: '0.08em', color: visual.tokens.muted, textAlign: 'center', ...ELLIPSIS }}>{text}</div>
+  return <div style={{ flex: 1, minWidth: 0, fontSize: dock.prompt.fontPx, letterSpacing: `${dock.prompt.spacingEm}em`, color: visual.tokens.muted, textAlign: 'center', ...ELLIPSIS }}>{text}</div>
 }

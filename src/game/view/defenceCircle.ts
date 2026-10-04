@@ -124,7 +124,13 @@ export type ItemSpec = { item: Item | 'cannon'; label: string; /** The short nam
 export type Balance = { amount: number; unit: string }
 
 /** What the Defence circle shows (nothing when no build turn is running): the viewer's balance on their own spending build turn, whether the viewer is building, the pieces to offer, whether they can build now (else the circle is greyed), and the controls of the selected structure. */
-export type DefenceCircle = { balance?: Balance; building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: ButtonSpec[] } }
+export type DefenceCircle = { balance?: Balance; building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: SelectionButton[] } }
+
+/** What a selection control does: demolish the structure, rotate the wall, or let go of the selection. */
+export type SelectionAction = 'demolish' | 'rotate' | 'deselect'
+
+/** One control of the selected structure; the dock draws it by `action`. */
+export type SelectionButton = ButtonSpec & { action: SelectionAction }
 
 export type BuildActions = { toggle(): void; arm(item: Item): void; cancel(): void; rotate(): void; remove(): void }
 
@@ -179,9 +185,9 @@ export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed 
     ...(sel && {
       selection: {
         buttons: [
-          ...(sel.id !== undefined && edit ? [{ label: '🗑', disabled: !sel.movable && s.credits[viewer] < rules.demolishCost, onClick: a.remove }] : []),
-          ...(sel.movable && sel.spec.kind === 'wall' ? [{ label: '↻', onClick: a.rotate }] : []),
-          { label: '✕', onClick: a.cancel },
+          ...(sel.id !== undefined && edit ? [{ action: 'demolish' as const, label: 'Demolish', disabled: !sel.movable && s.credits[viewer] < rules.demolishCost, onClick: a.remove }] : []),
+          ...(sel.movable && sel.spec.kind === 'wall' ? [{ action: 'rotate' as const, label: 'Rotate', onClick: a.rotate }] : []),
+          { action: 'deselect', label: 'Deselect', onClick: a.cancel },
         ],
       },
     }),
