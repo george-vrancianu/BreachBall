@@ -77,7 +77,7 @@ Placing Defence pieces in play, in Rounds, by the shooter before the round's fir
 _Avoid_: Mid-game build, quick build
 
 **Strategy**:
-A ready-made defence layout offered in the build dock's tray, drawn as a card with a preview of the builder's half and its net cost. Tapping one clears this turn's own pieces (refunded in full) and places the layout a piece a tick through the normal placing rules; a piece that does not fit or cannot be paid for is skipped. Each declares its core, the number of leading pieces that form its essential shape and fit one round's Credits per round, so a full-budget Strategy tapped in a later, poorer round still drops its core. Authored on Player 1's half and point-reflected for Player 2.
+A ready-made defence layout offered in the build dock's tray, drawn as a card with a preview of the builder's half and its net cost. Tapping one clears this turn's own pieces (refunded in full) and places the layout a piece a tick through the normal placing rules; a piece that does not fit or cannot be paid for is skipped. Each declares its core, the number of leading pieces that form its essential shape and fit one round's Credits per round (and, in Siege, the default Wall points (30) and the tower stock), so a full-budget Strategy tapped in a later, poorer round still drops its core. Authored on Player 1's half and point-reflected for Player 2.
 _Avoid_: Preset, template, formation, plan (the tile's short label is Plans)
 
 **Map view**:
@@ -117,7 +117,7 @@ The Credits each player's round-1 build turn holds in Rounds, instead of (not on
 _Avoid_: Start points, starting credits
 
 **Wall points**:
-Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). It comes from the Opening slider, labelled Wall points in Siege (default 30, so matches do not drag on), and Siege has no Credits-per-round slider. Siege has no Credits economy, so it never says Credits. It shares the Rounds wall price: 1 wall point per unit.
+Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). It comes from the Opening Credits setting, labelled Wall points in Siege (default 30, so matches do not drag on), and Siege has no Credits-per-round slider. Siege has no Credits economy, so it never says Credits. It shares the Rounds wall price: 1 wall point per unit.
 _Avoid_: Credits (in Siege), build points
 
 **Refund**:

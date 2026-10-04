@@ -230,7 +230,7 @@ export const defaultConfig: SimConfig = {
   destroyedSpeedFactor: 0.5,
   shots: 3,
   refundRate: 2,
-  // Rounds here on purpose: the sim default stays the original mode so tests and tools that never name a mode keep Rounds behaviour. The settings screen defaults to Siege (`defaultSettings`), and `configFrom` always sets the mode.
+  // Rounds here on purpose: the sim default stays the original mode so tests and tools that never name a mode keep Rounds behaviour. The settings screen defaults to Siege (`defaultSettings`), and `configFrom` always sets the mode. Siege's 30 Wall points default lives in `sliderDefault`; hand-built Siege configs get 40.
   mode: 'rounds',
   rounds: 5,
   credits: 10,

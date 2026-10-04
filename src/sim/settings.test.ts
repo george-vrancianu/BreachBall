@@ -22,7 +22,7 @@ describe('settings', () => {
     expect(slidersFor('siege')).toEqual(['shots', 'openingCredits'])
   })
 
-  it('the Opening slider is Wall points in Siege, default 30, and Credits per round is not shown there', () => {
+  it('the Opening Credits slider is Wall points in Siege, default 30, and Credits per round is not shown there', () => {
     expect(sliderLabel('siege', 'openingCredits')).toBe('Wall points')
     expect(sliderLabel('rounds', 'openingCredits')).toBe('Opening Credits')
     expect(sliderLabel('siege', 'credits')).toBe('Credits per round')
@@ -34,13 +34,15 @@ describe('settings', () => {
   it('switching mode applies that mode\'s Opening default and keeps the other sliders', () => {
     const custom = { ...defaultSettings, shots: 7, openingCredits: 55 }
     expect(withMode(custom, 'rounds')).toEqual({ ...custom, mode: 'rounds', openingCredits: 40 })
+    expect(withMode(custom, 'siege')).toBe(custom)
     expect(withMode(withMode(custom, 'rounds'), 'siege')).toEqual({ ...custom, mode: 'siege', openingCredits: 30 })
   })
 
   it('a Siege opening build holds exactly the Opening amount, whatever Credits per round says', () => {
     const s = initialState(1, configFrom({ ...defaultSettings, mode: 'siege', credits: 3, openingCredits: 25 }))
     expect(s.credits[s.match.builder!]).toBe(25)
-    expect(initialState(1, configFrom(defaultSettings)).credits[initialState(1, configFrom(defaultSettings)).match.builder!]).toBe(30)
+    const d = initialState(1, configFrom(defaultSettings))
+    expect(d.credits[d.match.builder!]).toBe(30)
   })
 
   it('chosen values reach the sim', () => {

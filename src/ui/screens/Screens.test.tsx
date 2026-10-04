@@ -36,12 +36,14 @@ it('settings: the mode picker and sliders report changes, and Start fires', () =
   expect(screen.getByText('Siege').getAttribute('aria-pressed')).toBe('true')
   expect(screen.queryByLabelText(/rounds/i)).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Rounds' }))
-  expect(change).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'rounds' }))
+  expect(change).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'rounds', openingCredits: 40 }))
   const settings = { ...defaultSettings, mode: 'rounds' as const }
   rerender(<SettingsScreen settings={settings} onChange={change} flipOnTurn={false} onFlipOnTurn={() => {}} onStart={start} />)
   const rounds = screen.getByLabelText(/rounds/i) as HTMLInputElement
   fireEvent.change(rounds, { target: { value: rounds.max } })
   expect(change).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'rounds', rounds: Number(rounds.max) }))
+  fireEvent.click(screen.getByRole('button', { name: 'Siege' }))
+  expect(change).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'siege', openingCredits: 30 }))
   fireEvent.click(screen.getByText('Start'))
   expect(start).toHaveBeenCalled()
 })

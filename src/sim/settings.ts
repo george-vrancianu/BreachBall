@@ -40,7 +40,7 @@ export const UNITS: Record<GameModeName, { short: string; long: string }> = {
   siege: { short: 'pts', long: 'wall points' },
 }
 
-/** A slider's label in `mode`: Siege's Opening slider reads as Wall points for its one opening build, Rounds banks Credits (ADR-0004). */
+/** A slider's label in `mode`: Siege's Opening Credits slider reads as Wall points for its one opening build, Rounds banks Credits (ADR-0004). */
 export const sliderLabel = (mode: GameModeName, key: SliderKey): string => {
   switch (mode) {
     case 'rounds':
@@ -50,7 +50,7 @@ export const sliderLabel = (mode: GameModeName, key: SliderKey): string => {
   }
 }
 
-/** A slider's default in `mode`: Siege's budget buys only walls, so its Opening slider starts lower than Rounds'. */
+/** A slider's default in `mode`: Siege's budget buys only walls, so its Opening Credits slider starts lower than Rounds'. */
 export const sliderDefault = (mode: GameModeName, key: SliderKey): number => {
   switch (mode) {
     case 'rounds':
@@ -60,8 +60,8 @@ export const sliderDefault = (mode: GameModeName, key: SliderKey): number => {
   }
 }
 
-/** `s` switched to `mode`, with that mode's default Opening amount (the other sliders keep their values: they mean the same in both modes). */
-export const withMode = (s: Settings, mode: GameModeName): Settings => ({ ...s, mode, openingCredits: sliderDefault(mode, 'openingCredits') })
+/** `s` switched to `mode`, with that mode's default Opening Credits amount (the other sliders keep their values: they mean the same in both modes); the current mode leaves `s` as it is. */
+export const withMode = (s: Settings, mode: GameModeName): Settings => (s.mode === mode ? s : { ...s, mode, openingCredits: sliderDefault(mode, 'openingCredits') })
 
 /** What the settings screen starts with: Siege is the default mode. */
 export const defaultSettings: Settings = { mode: 'siege', shots: SLIDERS.shots.def, rounds: SLIDERS.rounds.def, credits: SLIDERS.credits.def, openingCredits: sliderDefault('siege', 'openingCredits'), refundRate: SLIDERS.refundRate.def, expiry: 'shoot' }

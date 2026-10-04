@@ -14,7 +14,7 @@ it('lists a Rounds match: mode, rounds, Credits per round, Opening Credits, refu
 })
 
 it('lists a Siege match without rounds or refunds, its Opening amount as Wall points', () => {
-  expect(settingRows({ ...defaultConfig, mode: 'siege', credits: 10, openingCredits: 30, expiry: 'shoot' })).toEqual([
+  expect(settingRows({ ...defaultConfig, mode: 'siege', credits: 7, openingCredits: 30, expiry: 'shoot' })).toEqual([
     { label: 'Mode', value: 'Siege' },
     { label: 'Wall points', value: '30 pts' },
     { label: 'On time out', value: 'Shoot' },

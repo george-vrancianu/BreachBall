@@ -7,7 +7,7 @@ import type { StructureSpec, TowerPower, Vertex } from '../../sim/wall'
  * A Strategy: a ready-made defence layout the builder can drop in one tap from the build dock. Pieces are authored on Player 1's half
  * (goal at the bottom, y = pitchHeight) and point-reflected for Player 2, so each player sees the same shape from their own end.
  * Order matters: pieces are placed first to last and a piece the builder cannot afford is skipped, so the core of the layout goes first.
- * `core` is how many leading pieces form the essential shape: it must fit one later round's Credits per round, so a poorer round still drops it.
+ * `core` is how many leading pieces form the essential shape: it must fit one later round's Credits per round and, in Siege, the default Wall points (30) and the tower stock, so a poorer round still drops it.
  */
 export type StrategyPiece = { kind: 'wall'; a: Point; b: Point } | { kind: 'tower'; power: TowerPower; at: Vertex }
 export type Strategy = { id: string; name: string; core: number; pieces: StrategyPiece[] }

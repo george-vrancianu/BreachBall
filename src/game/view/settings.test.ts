@@ -18,7 +18,7 @@ describe('slider rows', () => {
     expect(siege.find((r) => r.key === 'shots')!.value).toBe(2)
     expect(sliderRows({ ...defaultSettings, mode: 'rounds' }).map((r) => r.key)).toContain('rounds')
   })
-  it('names the Opening slider Opening Credits in Rounds and Wall points in Siege, and Siege has no Credits per round', () => {
+  it('names the Opening Credits slider Opening Credits in Rounds and Wall points in Siege, and Siege has no Credits per round', () => {
     const label = (mode: 'rounds' | 'siege') => sliderRows({ ...defaultSettings, mode }).find((r) => r.key === 'openingCredits')!.label
     expect(label('rounds')).toBe('Opening Credits')
     expect(label('siege')).toBe('Wall points')
