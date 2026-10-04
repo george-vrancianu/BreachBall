@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest'
 import type { GameActions, HudView } from '../game/Game'
 
 // Game needs a real canvas; the seam under test is how App creates, feeds and drives it.
-const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, phase: 'Play', breaker: { armed: false, tappable: false } } }) as HudView)
+const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, refundable: false, score: null, phase: 'Play' }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
 const games = vi.hoisted(() => [] as { destroyed: boolean; onView: (v: HudView) => void; actions: { [K in 'start' | 'rematch' | 'map']: Mock<GameActions[K]> } }[])
 vi.mock('../game/Game', () => ({
   Game: class {

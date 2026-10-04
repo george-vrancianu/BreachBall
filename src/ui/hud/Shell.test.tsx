@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DefenceCircle, ItemSpec } from '../../game/view/defenceCircle'
+import type { OffenceCircle } from '../../game/view/offenceCircle'
 import type { HudModel } from '../../game/view/hudModel'
 import { visual } from '../../config/visual'
 import { Shell } from './Shell'
@@ -10,9 +11,10 @@ afterEach(cleanup)
 
 const hud = (over: Partial<HudModel> = {}): HudModel => ({
   players: { 1: { digit: '3', inventory: { breaker: 1, repulsor: 0, steal: 2 } }, 2: { digit: '?', inventory: { breaker: 4, repulsor: 4, steal: 4 } } },
-  active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, phase: 'Play', breaker: { armed: false, tappable: true }, ...over,
+  active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, score: null, phase: 'Play', ...over,
 })
-const props = () => ({ hud: hud(), confirm: false, mapOpen: false, minimap: { frame: { top: 0.5, height: 0.5 } }, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onPowerUp: vi.fn(), onConfirm: vi.fn(), onDefenceToggle: vi.fn(), onDefenceArm: vi.fn(), onRefund: vi.fn() })
+const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
+const props = () => ({ hud: hud(), offence: offence(), confirm: false, mapOpen: false, minimap: { frame: { top: 0.5, height: 0.5 } }, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onOffenceArm: vi.fn(), onConfirm: vi.fn(), onDefenceToggle: vi.fn(), onDefenceArm: vi.fn(), onRefund: vi.fn() })
 
 describe('Shell', () => {
   describe('Move point dots', () => {
@@ -99,24 +101,108 @@ describe('Shell', () => {
     expect(screen.getByText('?')).toBeTruthy()
   })
 
-  it('offers only the active viewer power-ups, and the breaker taps through', () => {
-    const p = props()
-    render(<Shell {...p} />)
-    expect(screen.getAllByRole('button', { name: /^[BRS]\d/ })).toHaveLength(3)
-    fireEvent.click(screen.getByRole('button', { name: /^B\d/ }))
-    expect(p.onPowerUp).toHaveBeenCalledWith('breaker')
+  describe('shared row', () => {
+    it('reads the round and score over the phase label, and the score digit shows once', () => {
+      render(<Shell {...props()} hud={hud({ round: 3, rounds: 7, score: '2–1', phase: 'Build phase', players: { 1: { digit: '2', inventory: { breaker: 5, repulsor: 6, steal: 7 } }, 2: { digit: '1', inventory: { breaker: 5, repulsor: 6, steal: 7 } } } })} />)
+      expect(screen.getByText('Round 3/7 · 2–1')).toBeTruthy()
+      expect(screen.getByText('Build phase')).toBeTruthy()
+      expect(screen.getAllByText('2')).toHaveLength(1)
+      expect(screen.queryByText('1')).toBeNull()
+    })
+    it('Siege shows the phase label alone', () => {
+      render(<Shell {...props()} hud={hud({ round: null, phase: 'Play phase' })} />)
+      expect(screen.queryByText(/Round/)).toBeNull()
+      expect(screen.getByText('Play phase')).toBeTruthy()
+    })
+    it('holds the phase buttons, the Recenter circle and the Move points', () => {
+      const p = props()
+      const done = vi.fn()
+      render(<Shell {...p} hud={hud({ buttons: [{ label: 'Done', onClick: done }] })} />)
+      const row = screen.getByTestId('shared-row')
+      expect(row.contains(screen.getByText('Done'))).toBe(true)
+      expect(row.contains(screen.getByRole('button', { name: 'Recenter' }))).toBe(true)
+      expect(row.contains(screen.getByText('12'))).toBe(true)
+    })
+    it('moves Siege\'s Repair and Rearrange above the row, which keeps the Move points and Recenter', () => {
+      render(<Shell {...props()} hud={hud({ buttons: [{ label: 'Repair', onClick: vi.fn() }, { label: 'Rearrange', onClick: vi.fn() }] })} />)
+      const row = screen.getByTestId('shared-row')
+      expect(row.contains(screen.getByText('Repair'))).toBe(false)
+      expect(row.contains(screen.getByRole('button', { name: 'Recenter' }))).toBe(true)
+    })
+    it('keeps right padding clear for the minimap chip', () => {
+      render(<Shell {...props()} />)
+      expect(screen.getByTestId('shared-row').style.paddingRight).toBe(`${visual.hud.sharedRow.chipPadPx}px`)
+    })
   })
 
-  it('disables the breaker when it may not be tapped', () => {
-    render(<Shell {...props()} hud={hud({ breaker: { armed: false, tappable: false } })} />)
-    expect((screen.getByRole('button', { name: /^B\d/ }) as HTMLButtonElement).disabled).toBe(true)
+  it('shows the active viewer the tower power-ups with counts; the Breaker is in the Offence circle', () => {
+    render(<Shell {...props()} />)
+    expect(screen.getAllByRole('img', { name: /^[RS]\d/ })).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /^B\d/ })).toBeNull()
+  })
+
+  describe('Offence circle', () => {
+    const circle = () => screen.getByRole('button', { name: /^Offence/ })
+
+    it('a tap opens the column of items and a second tap closes it', () => {
+      render(<Shell {...props()} />)
+      expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
+      fireEvent.click(circle())
+      expect(screen.getByRole('button', { name: 'Breaker · 2' })).toBeTruthy()
+      expect(screen.getByText('Overdrive · soon')).toBeTruthy()
+      fireEvent.click(circle())
+      expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
+    })
+
+    it('tapping the Breaker arms it and closes the column', () => {
+      const p = props()
+      render(<Shell {...p} />)
+      fireEvent.click(circle())
+      fireEvent.click(screen.getByRole('button', { name: 'Breaker · 2' }))
+      expect(p.onOffenceArm).toHaveBeenCalledWith('breaker')
+      expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
+    })
+
+    it('a greyed item and the locked one arm nothing', () => {
+      const p = props()
+      render(<Shell {...p} offence={offence({ items: [{ item: 'breaker', label: 'Breaker · 2', disabled: true, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }] })} />)
+      fireEvent.click(circle())
+      fireEvent.click(screen.getByRole('button', { name: 'Breaker · 2' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Overdrive' }))
+      expect(p.onOffenceArm).not.toHaveBeenCalled()
+    })
+
+    it('outside the viewer\'s possession it is greyed but its column still opens', () => {
+      render(<Shell {...props()} offence={offence({ available: false })} />)
+      expect(circle().getAttribute('aria-disabled')).toBe('true')
+      fireEvent.click(circle())
+      expect(screen.getByRole('button', { name: 'Breaker · 2' })).toBeTruthy()
+    })
+
+    it('shows the armed state on the circle', () => {
+      const r = render(<Shell {...props()} />)
+      expect(circle().getAttribute('aria-pressed')).toBe('false')
+      r.rerender(<Shell {...props()} offence={offence({ armed: true })} />)
+      expect(circle().getAttribute('aria-pressed')).toBe('true')
+      // The fill is the active player's colour (read back through the DOM, which normalises it).
+      const probe = document.createElement('div')
+      probe.style.background = visual.player.colors[1]
+      expect(circle().style.background).toBe(probe.style.background)
+    })
+
+    it('Escape closes the column', () => {
+      render(<Shell {...props()} />)
+      fireEvent.click(circle())
+      fireEvent.keyDown(circle(), { key: 'Escape' })
+      expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
+    })
   })
 
   it('runs recenter and phase buttons', () => {
     const p = props()
     const repair = vi.fn()
     render(<Shell {...p} hud={hud({ buttons: [{ label: 'Repair', onClick: repair }, { label: 'Rearrange', onClick: () => {} }] })} />)
-    fireEvent.click(screen.getByText('Recenter'))
+    fireEvent.click(screen.getByRole('button', { name: 'Recenter' }))
     fireEvent.click(screen.getByText('Repair'))
     expect(p.onRecenter).toHaveBeenCalled()
     expect(repair).toHaveBeenCalled()
@@ -187,7 +273,7 @@ describe('Shell', () => {
       render(<Shell {...props()} mapOpen />)
       const probe = document.createElement('i')
       probe.style.color = visual.tokens.dimOutline
-      expect(screen.getAllByRole('button', { name: /^[BRS]\d/ }).map((b) => b.style.color === probe.style.color)).toEqual([true, true, true])
+      expect(screen.getAllByRole('img', { name: /^[RS]\d/ }).map((b) => b.style.color === probe.style.color)).toEqual([true, true])
     })
   })
 
@@ -229,13 +315,13 @@ describe('Shell', () => {
       setup()
       const probe = document.createElement('i')
       probe.style.color = visual.tokens.dimOutline
-      const dimmed = () => screen.getAllByRole('button', { name: /^[BRS]\d/ }).map((b) => b.style.color === probe.style.color)
-      expect(dimmed()).toEqual([false, false, false])
+      const dimmed = () => screen.getAllByRole('img', { name: /^[RS]\d/ }).map((b) => b.style.color === probe.style.color)
+      expect(dimmed()).toEqual([false, false])
       hold()
-      expect(dimmed()).toEqual([true, true, true])
+      expect(dimmed()).toEqual([true, true])
       // Lifting off both the circle and the column closes it.
       fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
-      expect(dimmed()).toEqual([false, false, false])
+      expect(dimmed()).toEqual([false, false])
     })
 
     it('a tap toggles build mode, idle or building', () => {
@@ -446,7 +532,7 @@ describe('Shell', () => {
     const { container } = render(<Shell {...props()} hud={hud({ buttons })} defence={{ building: false, items: [], available: true }} confirm mapOpen><i>extra</i></Shell>)
     const shell = container.firstElementChild as HTMLElement
     expect(shell.style.pointerEvents).toBe('none')
-    expect(shell.children.length).toBe(8)
+    expect(shell.children.length).toBe(7)
     // The map's hint pill lets taps through to the map.
     const pill = screen.getByText('Tap to jump · tap ✕ to close')
     expect([...shell.children].filter((c) => c !== pill).every((c) => (c as HTMLElement).style.pointerEvents === 'auto')).toBe(true)

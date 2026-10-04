@@ -27,6 +27,8 @@ const base = {
   wallHalf: 0.35,
   /** Credits it costs to demolish a piece placed in an earlier turn. */
   demolishCost: 1,
+  /** Credits an armed Breaker shot costs when it fires (Rounds); Siege has no Credits economy and spends the stock instead. */
+  breakerCost: 2,
   startInventory: 3,
   /** Where a timed-out blind opening build drops its 1-unit horizontal wall for P1: `gap` is the distance in world units from the goal no-build zone to its line; P2's mirrors across the halfway line. */
   fallbackPiece: { gap: 1 },

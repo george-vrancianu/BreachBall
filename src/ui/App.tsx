@@ -42,6 +42,7 @@ export function App() {
             <Overlay view={view.overlay} onTap={() => actions().dismiss()} />
             <Shell
               hud={view.hud}
+              offence={view.offence}
               defence={view.defence}
               confirm={view.confirm}
               mapOpen={view.mapOpen}
@@ -49,7 +50,7 @@ export function App() {
               flipped={view.flipped}
               onMap={() => actions().map()}
               onRecenter={() => actions().recenter()}
-              onPowerUp={(p) => actions().powerUp(p)}
+              onOffenceArm={(item) => actions().offence.arm(item)}
               onRefund={(n) => actions().refund(n)}
               onConfirm={() => actions().confirmBall()}
               onDefenceToggle={() => actions().build.toggle()}

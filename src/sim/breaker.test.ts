@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { defaultConfig, step, type SimInput, type SimState } from './step'
-import { canArm } from './possession'
+import { rules } from '../config/rules'
+import { canArm, defaultConfig, step, type SimInput, type SimState } from './step'
 import { emptied, hseg, place, playState } from './testkit'
 import type { WallSpec } from './wall'
 
@@ -13,25 +13,51 @@ const fire = (s: SimState, breaker: boolean, power = 0.4) => run(s, { shot: { pl
 const wall = (owner: 1 | 2, gy: number): WallSpec => ({ kind: 'wall', owner, ...hseg(9, gy) })
 const flying = (s: SimState, vy: number, y = 60): SimState => ({ ...s, breaker: true, possession: { ...s.possession, live: true }, ball: { pos: { x: 20, y }, vel: { x: 0, y: vy }, rolled: 0 } })
 
+const credits = (s: SimState, p: 1 | 2, n: number): SimState => ({ ...s, credits: { ...s.credits, [p]: n } })
+/** Siege has no Credits economy, so its Breaker still draws on the 3-each stock. */
+const siege = (s: SimState): SimState => ({ ...s, match: { mode: 'siege', seed: 1, winner: null, builder: null, choosing: null, opening: false } })
+
 describe('breaker', () => {
-  it('consumes one on fire, hit or miss', () => {
+  it('charges its price in Credits when an armed shot fires, hit or miss', () => {
     const s = ready()
     const r = fire(s, true)
-    expect(r.state.players[shooter(s)].inventory.breaker).toBe(2)
+    expect(r.state.credits[shooter(s)]).toBe(s.credits[shooter(s)] - rules.breakerCost)
+    expect(r.state.players[shooter(s)].inventory.breaker).toBe(3)
     expect(r.state.breaker).toBe(true)
   })
-  it('an unarmed shot keeps the count', () => {
+  it('charges nothing on an unarmed shot', () => {
     const s = ready()
     const r = fire(s, false)
-    expect(r.state.players[shooter(s)].inventory.breaker).toBe(3)
+    expect(r.state.credits).toEqual(s.credits)
     expect(r.state.breaker).toBe(false)
   })
-  it('is refused with none left', () => {
+  it('charges nothing while no shot fires: arming and disarming are the input layer\'s, only the shot pays', () => {
     const s = ready()
-    const p = shooter(s)
-    const r = fire(emptied(s, p, 'breaker'), true)
+    expect(canArm(s, shooter(s))).toBe(true)
+    // Asking whether it can be armed changes nothing, and a tick with no shot costs nothing.
+    expect(run(s).state.credits).toEqual(s.credits)
+  })
+  it('is refused when the shooter cannot afford it', () => {
+    const s = credits(ready(), shooter(ready()), rules.breakerCost - 1)
+    const r = fire(s, true)
     expect(r.events).toEqual([{ type: 'refused' }])
     expect(r.state.possession.live).toBe(false)
+    expect(r.state.credits).toEqual(s.credits)
+  })
+  it('can spend the last Credits it is worth', () => {
+    const s = credits(ready(), shooter(ready()), rules.breakerCost)
+    expect(fire(s, true).state.credits[shooter(s)]).toBe(0)
+  })
+  it('ignores the stock in Rounds', () => {
+    const s = ready()
+    expect(canArm(emptied(s, shooter(s), 'breaker'), shooter(s))).toBe(true)
+  })
+  it('keeps the stock in Siege: one consumed, no Credits charged', () => {
+    const s = siege(ready())
+    const r = fire(s, true)
+    expect(r.state.players[shooter(s)].inventory.breaker).toBe(2)
+    expect(r.state.credits).toEqual(s.credits)
+    expect(fire(emptied(s, shooter(s), 'breaker'), true).events).toEqual([{ type: 'refused' }])
   })
   it('destroys the first structure it touches at full speed, whoever owns it', () => {
     for (const owner of [1, 2] as const) {
@@ -62,7 +88,7 @@ describe('breaker', () => {
     t = run(t).state
     expect(t.breaker).toBe(false)
   })
-  it('can be armed only by the shooter in their own play phase with some left', () => {
+  it('can be armed only by the shooter in their own play phase with enough Credits', () => {
     const s = ready()
     const p = shooter(s)
     expect(canArm(s, p)).toBe(true)
@@ -70,6 +96,6 @@ describe('breaker', () => {
     expect(canArm({ ...s, match: { ...s.match, builder: p } }, p)).toBe(false)
     expect(canArm({ ...s, possession: { ...s.possession, live: true } }, p)).toBe(false)
     expect(canArm({ ...s, possession: { ...s.possession, inHand: true } }, p)).toBe(false)
-    expect(canArm(emptied(s, p, 'breaker'), p)).toBe(false)
+    expect(canArm(credits(s, p, rules.breakerCost - 1), p)).toBe(false)
   })
 })

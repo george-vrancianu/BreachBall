@@ -17,9 +17,6 @@ export const MODES: { mode: GameModeName; label: string }[] = [
   { mode: 'rounds', label: 'Rounds' },
 ]
 
-/** What a builder's balance is called in each mode: Rounds banks Credits (ADR-0004), Siege keeps wall points. */
-export const UNITS: Record<GameModeName, string> = { rounds: 'credits', siege: 'pts' }
-
 /** The "On time out" choices in toggle order; shown in every mode. */
 export const EXPIRIES: { expiry: Settings['expiry']; label: string }[] = [
   { expiry: 'shoot', label: 'Shoot' },

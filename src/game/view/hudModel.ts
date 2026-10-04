@@ -4,7 +4,6 @@ import type { PlayerId } from '../../sim/pitch'
 import { STARTING_INVENTORY, type PowerUp } from '../../sim/player'
 import { opponent } from '../../sim/possession'
 import { canRefund, type SimConfig, type SimState } from '../../sim/step'
-import { UNITS } from '../../sim/settings'
 import { structuresOf, type Structure } from '../../sim/wall'
 import type { Item } from './defenceCircle'
 
@@ -28,15 +27,16 @@ export type HudModel = {
   shotsMax: number
   /** The active player may tap a Move point dot to refund it now. */
   refundable: boolean
+  /** The score as `2–1`, the active player's first; null in modes without rounds, which show a structure count instead. */
+  score: string | null
+  /** The phase label: Build phase, Play phase, Rearrange or Placing …, and `· Drag to aim` while the first-play hint would show. */
   phase: string
   /** Phase buttons (Done in a build turn; Repair and Rearrange on a defence choice) shown above the HUD row. The row is rebuilt only when a label or `disabled` flag changes, so handlers must read live state at click time (see `ButtonSpec`). */
   buttons?: ButtonSpec[]
-  /** Breaker is armed (highlighted) and whether the active player may tap it now. */
-  breaker: { armed: boolean; tappable: boolean }
 }
 
 /** What the game knows that the sim state does not. `viewer` is the local player (online: the peer's own seat; hot-seat: whoever holds the device), not necessarily the seat shown at the bottom. */
-export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; armed: boolean; tappable: boolean; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item }
+export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item }
 
 const PLACING: Record<Item, string> = { wall: 'Placing wall', repulsor: 'Placing Repulsor', steal: 'Placing Steal' }
 
@@ -65,6 +65,12 @@ function digitsOf(m: Match, objects: readonly Structure[]): Record<PlayerId, str
   }
 }
 
+/** The first-play hints (here and in the turn card) show only on round 1. */
+export const isFirstRound = (round: number | null | undefined): boolean => round === 1
+
+/** The first-play hint is up: round 1, a shot still to be aimed from a placed ball. */
+const aimHint = (s: SimState, c: SimConfig): boolean => isFirstRound(roundOf(s.match)) && !s.match.builder && !s.match.choosing && !s.possession.inHand && !s.possession.live && s.possession.shots === c.shots
+
 export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
   const b = s.match.builder
   const digit = digitsOf(s.match, s.objects)
@@ -82,9 +88,8 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
     shotsLeft: s.possession.shots,
     shotsMax: c.shots,
     refundable: canRefund(s, v.active),
-    // Waiting on a blind opponent's build, the spent points would show what they placed.
-    phase: buildPhase(s.match) === 'Rearrange' ? 'Rearrange' : v.placing ? PLACING[v.placing] : b ? (b === hidden ? 'Build' : `Build · ${s.credits[b]} ${UNITS[s.match.mode]}`) : 'Play',
+    score: s.match.mode === 'rounds' ? `${s.match.score[v.active]}–${s.match.score[opponent(v.active)]}` : null,
+    phase: buildPhase(s.match) === 'Rearrange' ? 'Rearrange' : v.placing ? PLACING[v.placing] : b ? 'Build phase' : aimHint(s, c) ? 'Play phase · Drag to aim' : 'Play phase',
     buttons: v.buttons,
-    breaker: { armed: v.armed, tappable: v.tappable },
   }
 }
