@@ -48,7 +48,16 @@ export const structureCost = (s: StructureSpec): number => (s.kind === 'wall' ? 
 
 /** Every allowed direction in degrees, `[0, 360)` and ascending: each allowed angle and its opposite (a wall from a to b at 225 degrees is the same set as 45). */
 const directions = (r: WallRules): number[] => [...new Set(r.wall.angles.flatMap((d) => [norm360(d), norm360(d + 180)]))].sort((p, q) => p - q)
-const along = (a: Point, deg: number, len: number): Point => ({ x: a.x + Math.cos(toRad(deg)) * len, y: a.y + Math.sin(toRad(deg)) * len })
+/** The point `len` from `a` along `deg`; components that should be exactly 0 (multiples of 90 degrees) or equal (odd multiples of 45) come out so. */
+function along(a: Point, deg: number, len: number): Point {
+  let [c, s] = [Math.cos(toRad(deg)), Math.sin(toRad(deg))]
+  if (Math.abs(c) < 1e-12) c = 0
+  if (Math.abs(s) < 1e-12) s = 0
+  if (c !== 0 && s !== 0 && Math.abs(Math.abs(c) - Math.abs(s)) < 1e-12) [c, s] = [Math.sign(c) * Math.SQRT1_2, Math.sign(s) * Math.SQRT1_2]
+  return { x: a.x + c * len, y: a.y + s * len }
+}
+/** The allowed unit count nearest to `len` world units. */
+const nearestUnits = (len: number, r: WallRules): number => r.wall.units.reduce((best, u) => (Math.abs(u - len / r.wall.unit) < Math.abs(best - len / r.wall.unit) ? u : best))
 
 /**
  * The wall end for a drag from `a` to `pointer`: the direction snapped to the nearest allowed angle, the length to the nearest allowed unit count.
@@ -60,16 +69,16 @@ export function snapWallEnd(a: Point, pointer: Point, r: WallRules = rules): Poi
   const heading = norm360(toDeg(Math.atan2(pointer.y - a.y, pointer.x - a.x)))
   const gap = (d: number) => Math.abs(((d - heading + 540) % 360) - 180)
   const dir = directions(r).reduce((best, d) => (gap(d) < gap(best) ? d : best))
-  const units = r.wall.units.reduce((best, u) => (Math.abs(u - len / r.wall.unit) < Math.abs(best - len / r.wall.unit) ? u : best))
-  return along(a, dir, units * r.wall.unit)
+  return along(a, dir, nearestUnits(len, r) * r.wall.unit)
 }
 
-/** The wall turned to the next allowed direction (45 degrees by default) around `a`, keeping its length. */
+/** The wall turned to the next allowed direction (45 degrees by default) around `a`, stepping from the nearest allowed direction and snapping the length to the nearest allowed unit count. */
 export function rotatedWall<W extends Pick<WallSpec, 'a' | 'b'>>(w: W, r: WallRules = rules): W {
   const heading = norm360(toDeg(Math.atan2(w.b.y - w.a.y, w.b.x - w.a.x)))
   const dirs = directions(r)
-  const next = dirs.find((d) => d > heading + EPS) ?? dirs[0]
-  return { ...w, b: along(w.a, next, lengthOf(w.a, w.b)) }
+  const gap = (d: number) => Math.abs(((d - heading + 540) % 360) - 180)
+  const nearest = dirs.reduce((best, d, i) => (gap(d) < gap(dirs[best]) ? i : best), 0)
+  return { ...w, b: along(w.a, dirs[(nearest + 1) % dirs.length], nearestUnits(lengthOf(w.a, w.b), r) * r.wall.unit) }
 }
 
 /** The wall moved by `delta`, both ends together. */
@@ -105,8 +114,20 @@ export function segmentsTouchOnly(s1: Segment, s2: Segment, eps = EPS): boolean 
   return overlap * l1 <= eps
 }
 
-/** Whether two walls cross or overlap (touching is fine). */
-export const wallsOverlap = (w1: Pick<WallSpec, 'a' | 'b'>, w2: Pick<WallSpec, 'a' | 'b'>, eps = EPS): boolean => !segmentsTouchOnly(w1, w2, eps)
+/**
+ * Whether two walls cross or overlap (touching end to end or in a T is fine). Walls have thickness: parallel or collinear walls
+ * closer than `2 * rules.wallHalf` whose lengths overlap along their direction also count as overlapping.
+ */
+export function wallsOverlap(w1: Pick<WallSpec, 'a' | 'b'>, w2: Pick<WallSpec, 'a' | 'b'>, eps = EPS): boolean {
+  if (!segmentsTouchOnly(w1, w2, eps)) return true
+  const [d1x, d1y, d2x, d2y] = [w1.b.x - w1.a.x, w1.b.y - w1.a.y, w2.b.x - w2.a.x, w2.b.y - w2.a.y]
+  const [l1, l2] = [Math.hypot(d1x, d1y), Math.hypot(d2x, d2y)]
+  if (l1 === 0 || l2 === 0 || Math.abs(d1x * d2y - d1y * d2x) > 1e-9 * l1 * l2) return false
+  const [ox, oy] = [w2.a.x - w1.a.x, w2.a.y - w1.a.y]
+  if (Math.abs(ox * d1y - oy * d1x) / l1 >= 2 * rules.wallHalf) return false
+  const ts = [(ox * d1x + oy * d1y) / l1, ((w2.b.x - w1.a.x) * d1x + (w2.b.y - w1.a.y) * d1y) / l1]
+  return Math.min(l1, Math.max(...ts)) - Math.max(0, Math.min(...ts)) > eps
+}
 
 /** A tower's four edges, in world units. */
 const towerEdges = (w: TowerSpec): Segment[] => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import type { Point } from './pitch'
 import { hseg } from './testkit'
-import { isLegal, rotatedWall, segmentsTouchOnly, snapWallEnd, structureCost, translatedWall, wallCost, wallSegments, wallsOverlap, wallUnits, type WallSpec } from './wall'
+import { isDrawable, isLegal, rotatedWall, segmentsTouchOnly, snapWallEnd, structureCost, translatedWall, wallCost, wallSegments, wallsOverlap, wallUnits, type TowerSpec, type WallSpec } from './wall'
 
 const U = rules.wall.unit
 const D = U * Math.SQRT1_2 // a diagonal unit's run along each axis
@@ -101,6 +101,23 @@ describe('rotatedWall', () => {
     near(seen[3], p(12, 80))
     near(seen[7], p(28, 80)) // full circle
   })
+  it('8 rotations of an off-grid wall return exactly the start', () => {
+    const start = wall(1, p(20.3, 80.7), p(20.3 + 8, 80.7))
+    let r = start
+    for (let i = 0; i < 8; i++) r = rotatedWall(r)
+    expect(r).toEqual(start)
+  })
+  it('translating then rotating gives exact 45 degree components', () => {
+    const r = rotatedWall(translatedWall(wall(1, p(20, 80), p(28, 80)), p(0.3, 0.7)))
+    expect(r.b).toEqual(p(r.a.x + 8 * Math.SQRT1_2, r.a.y + 8 * Math.SQRT1_2))
+  })
+  it('steps 90 degrees with a custom angle set of [0, 90]', () => {
+    const custom = { wall: { ...rules.wall, angles: [0, 90] } }
+    expect(rotatedWall(wall(1, p(20, 80), p(28, 80)), custom).b).toEqual(p(20, 88))
+  })
+  it('re-snaps a stray length to the nearest allowed units', () => {
+    expect(wallUnits(rotatedWall(wall(1, p(20, 80), p(30.5, 80))))).toBe(1)
+  })
   it('keeps a 2-unit length', () => {
     const r = rotatedWall(wall(1, p(20, 80), p(36, 80)))
     expect(Math.hypot(r.b.x - 20, r.b.y - 80)).toBeCloseTo(2 * U, 6)
@@ -151,6 +168,14 @@ describe('segments touching, crossing and overlapping', () => {
     // Two walls from the same point at 45 degrees apart share an end only.
     expect(wallsOverlap(a, wall(1, p(0, 0), p(8, 0)))).toBe(false)
   })
+  it('wallsOverlap counts parallel walls closer than the wall thickness, and lets touches be', () => {
+    const w = wall(1, p(0, 80), p(8, 80))
+    expect(wallsOverlap(w, wall(1, p(0, 80.5), p(8, 80.5)))).toBe(true)
+    expect(wallsOverlap(w, wall(1, p(0, 81), p(8, 81)))).toBe(false)
+    expect(wallsOverlap(w, wall(1, p(8, 80), p(16, 80)))).toBe(false) // end to end
+    expect(wallsOverlap(w, wall(1, p(4, 80), p(4, 88)))).toBe(false) // a T
+    expect(wallsOverlap(w, wall(1, p(4, 76), p(4, 84)))).toBe(true) // crossing
+  })
   it('wallsOverlap reads the same as not touching', () => {
     expect(wallsOverlap(wall(1, p(0, 0), p(8, 0)), wall(1, p(4, -4), p(4, 4)))).toBe(true)
     expect(wallsOverlap(wall(1, p(0, 0), p(8, 0)), wall(1, p(8, 0), p(16, 0)))).toBe(false)
@@ -158,6 +183,11 @@ describe('segments touching, crossing and overlapping', () => {
 })
 
 describe('isLegal', () => {
+  /** Asserts the wall is a drawable shape first, so a failure below is down to the rule under test. */
+  const illegal = (w: WallSpec) => {
+    expect(isDrawable(w)).toBe(true)
+    expect(isLegal(w)).toBe(false)
+  }
   it('allows a wall on the owner half, and refuses the opponent half', () => {
     expect(isLegal(wall(1, ...ends(2, 40)))).toBe(true)
     expect(isLegal(wall(2, ...ends(2, 10)))).toBe(true)
@@ -165,9 +195,10 @@ describe('isLegal', () => {
     expect(isLegal(wall(2, ...ends(2, 40)))).toBe(false)
   })
   it('refuses a wall with any part off the owner half, even if its ends are on it', () => {
-    expect(isLegal(wall(1, p(4, 90), p(4, 50)))).toBe(false) // runs up across the halfway line
-    expect(isLegal(wall(2, p(4, 10), p(4 + D, 10 + 2 * D + 40)))).toBe(false)
-    expect(isLegal(wall(1, p(4, 56), p(4 + D, 56 - D)))).toBe(false) // a diagonal stepping over the line
+    illegal(wall(1, p(4, 58), p(4, 50))) // a vertical unit stepping over the halfway line
+    illegal(wall(2, p(4, 50), p(4, 58)))
+    illegal(wall(1, p(4, 56), p(4 + D, 56 - D))) // a diagonal stepping over the line
+    illegal(wall(2, p(4, 52), p(4 + D, 52 + D)))
   })
   it('refuses a wall lying on the halfway line, allows one touching it from the owner side', () => {
     expect(isLegal(wall(1, p(4, 54), p(12, 54)))).toBe(false)
@@ -180,7 +211,7 @@ describe('isLegal', () => {
     expect(isLegal(wall(1, p(34, 80), p(42, 80)))).toBe(false)
     expect(isLegal(wall(1, p(32, 80), p(40, 80)))).toBe(true)
     expect(isLegal(wall(1, p(0, 80), p(8, 80)))).toBe(true)
-    expect(isLegal(wall(1, p(30, 100), p(30 + D, 100 + D)))).toBe(false) // past the goal line
+    illegal(wall(1, p(2, 104), p(2, 112))) // past the goal line
   })
   it('refuses a wall inside the own goal no-build semicircle, by distance to the whole segment', () => {
     expect(isLegal(wall(2, ...ends(8, 2)))).toBe(false)
@@ -188,27 +219,51 @@ describe('isLegal', () => {
     // Radius 15 around (20, 0), inclusive. A vertical wall on x=20 from y=14 is 14 away; from y=16, 16.
     expect(isLegal(wall(2, p(20, 14), p(20, 22)))).toBe(false)
     expect(isLegal(wall(2, p(20, 16), p(20, 24)))).toBe(true)
-    // Horizontal y=14, x 14..22: both ends are 15+ away from the centre only via... the nearest point (20, 14) is inside.
+    // Horizontal on y=14 from x=14: the nearest point (20, 14) is inside.
     expect(isLegal(wall(2, ...ends(7, 7)))).toBe(false)
     expect(isLegal(wall(2, ...ends(1, 7)))).toBe(true)
-    // A diagonal whose ends are outside but whose middle clips the zone: from (2, 20) to (22, 0)... endpoints at (4,22) and (24,2) are in/out.
+    // A diagonal: one clear of the zone, one with its far end inside.
     expect(isLegal(wall(2, p(2, 20), p(2 + D, 20 - D)))).toBe(true)
     expect(isLegal(wall(2, p(10, 18), p(10 + D, 18 - D)))).toBe(false)
   })
-  it('tests the zone against the segment, not just its ends', () => {
-    // Ends (6, 14.5) and (34, 14.5) are each 15+ from (20, 0)... use a 2-unit span: its middle is the nearest point.
-    expect(isLegal(wall(2, p(4, 14), p(20, 14)))).toBe(false)
-    expect(isLegal(wall(2, p(4, 16), p(20, 16)))).toBe(true)
+  it('tests the goal zone against the segment, not just its ends', () => {
+    const [clear, clipped] = [wall(2, p(12, 15.5), p(28, 15.5)), wall(2, p(12, 14.5), p(28, 14.5))]
+    // Both ends are outside the zone; only the middle (20, y) can be inside.
+    for (const w of [clear, clipped]) expect(Math.min(Math.hypot(w.a.x - 20, w.a.y), Math.hypot(w.b.x - 20, w.b.y))).toBeGreaterThan(rules.noBuildRadius)
+    expect(isDrawable(clear)).toBe(true)
+    expect(isDrawable(clipped)).toBe(true)
+    expect(isLegal(clear)).toBe(true)
+    expect(isLegal(clipped)).toBe(false)
   })
   it('refuses a wall inside the Centre zone (radius 3 cells around the centre spot), by distance to the segment', () => {
-    // Centre (20, 54). A vertical wall on x=20 from y=62 is 8 away; its end at y=60 is 6 away (inside, inclusive).
-    expect(isLegal(wall(1, p(20, 60), p(20, 68)))).toBe(false)
+    // Centre (20, 54). A vertical wall on x=20 from y=60 is 6 away (inside, inclusive).
+    illegal(wall(1, p(20, 60), p(20, 68)))
     expect(isLegal(wall(1, p(20, 60.5), p(20, 68.5)))).toBe(true)
     // Ends outside the circle but the middle passing through it.
-    expect(isLegal(wall(1, p(10, 56), p(30, 56)))).toBe(false)
-    expect(isLegal(wall(2, p(10, 52), p(30, 52)))).toBe(false)
+    const [inside, clear] = [wall(1, p(14, 60), p(30, 60)), wall(1, p(14, 60.5), p(30, 60.5))]
+    expect(Math.hypot(inside.a.x - 20, inside.a.y - 54)).toBeGreaterThan(rules.centreZoneRadius)
+    illegal(inside)
+    expect(isDrawable(clear)).toBe(true)
+    expect(isLegal(clear)).toBe(true)
+    illegal(wall(2, p(14, 48), p(30, 48)))
+    expect(isLegal(wall(2, p(14, 47.5), p(30, 47.5)))).toBe(true)
     // Far enough along the line.
     expect(isLegal(wall(1, p(26.5, 56), p(34.5, 56)))).toBe(true)
+  })
+  it('refuses a tower inside the Centre zone and accepts one just outside', () => {
+    const tower = (owner: 1 | 2, gx: number, gy: number): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx, gy } })
+    // Centre (20, 54), radius 6: the cell at (24..26, 58..60) has its nearest corner 5.66 away; the one at (26..28, 58..60) 7.2.
+    expect(isLegal(tower(1, 12, 29))).toBe(false)
+    expect(isLegal(tower(1, 13, 29))).toBe(true)
+    expect(isLegal(tower(2, 12, 24))).toBe(false)
+    expect(isLegal(tower(2, 13, 24))).toBe(true)
+  })
+  it('refuses a tower straddling the halfway line', () => {
+    const tower = (owner: 1 | 2, gy: number): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx: 2, gy } })
+    expect(isLegal(tower(1, 26.5))).toBe(false)
+    expect(isLegal(tower(2, 26.5))).toBe(false)
+    expect(isLegal(tower(1, 26))).toBe(false) // wholly on the other half
+    expect(isLegal(tower(1, 27))).toBe(true)
   })
   it('does not cross or overlap any existing wall, either owner\'s', () => {
     const existing = [wall(1, p(10, 80), p(18, 80)), wall(2, p(10, 20), p(18, 20))]

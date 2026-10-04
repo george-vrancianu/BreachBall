@@ -20,12 +20,6 @@ export function worldToCell({ x, y }: Point): Cell {
   return { cx: Math.floor(x / rules.cellSize), cy: Math.floor(y / rules.cellSize) }
 }
 
-/** Inside the semicircle of the no-build radius around either goal mouth. */
-export function inNoBuildZone({ x, y }: Point): boolean {
-  const dy = Math.min(y, rules.pitchHeight - y)
-  return (x - rules.pitchWidth / 2) ** 2 + dy ** 2 <= rules.noBuildRadius ** 2
-}
-
 /** The owner of the goal whose line the segment from -> to crosses inside the mouth, else null. */
 export function goalCrossed(from: Point, to: Point): PlayerId | null {
   const top = from.y > 0 && to.y <= 0

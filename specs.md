@@ -91,7 +91,8 @@ The match structure below is Rounds.
 - Walls are segments in free coordinates at an angle from the configured set (default 0°, 45°, 90°, 135°) and a length from the configured unit set (default 1 or 2), see `docs/adr/0005-free-angle-walls.md`. One unit is 4 cells end to end, so a diagonal unit is as long on the pitch as a horizontal one.
 - Editing: tap a wall placed this turn to select it (the wall just placed is selected already); only the selected wall shows its two end handles. Dragging the body moves the whole wall, with either end snapping onto a nearby wall end. Dragging an end swings and resizes the wall around the other end. On touch, two fingers may take both ends: the wall's midpoint follows the fingers' midpoint and the angle and length follow the fingers. Rotate (↻ or R) turns the selected wall 45° around its start. A new drag that starts near an existing wall end snaps onto it. A second finger off a handle is ignored mid-drag; two-finger pan only works with no drag active.
 - Walls may touch end to end or in a T, but may not cross or overlap. Corners and boxes are chained walls.
-- Placement is illegal unless the whole wall lies on your half, inside the pitch, outside your goal's no-build zone and outside the Centre zone (a circle of radius 3 cells around the centre spot, in the rules config).
+- Placement is illegal unless the whole wall (or tower) lies on your half, inside the pitch, outside your goal's no-build zone and outside the Centre zone (a circle of radius 3 cells around the centre spot, in the rules config).
+- Moving a wall by its ends may change its length: the Credit difference is charged or refunded, refused if unaffordable, and Rearrange refuses any length change. Demolishing it the same turn refunds what it now costs, which is the total paid.
 - Demolishing your own wall costs 1 point and refunds nothing (a piece placed this turn refunds in full). Siege's Rearrange turn refuses demolishing. You cannot demolish the opponent's walls.
 - The camera starts centered on your own half at the beginning of your build turn.
 
@@ -163,7 +164,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 ## Power-ups (milestone 2)
 
 - Each player starts the match with 3 of each power-up. No economy. Counts are visible to both players.
-- Towers follow the wall placement rules: own half only, outside the no-build zones, persistent across rounds, placed in the build phase by appearing under the finger, following the drag and placing on lift. They cost 0 Credits; the power-up is the cost.
+- Towers follow the wall placement rules: own half only, outside the goal no-build zones and the Centre zone, persistent across rounds, placed in the build phase by appearing under the finger, following the drag and placing on lift. They cost 0 Credits; the power-up is the cost.
 
 ### Breaker shot (play phase)
 

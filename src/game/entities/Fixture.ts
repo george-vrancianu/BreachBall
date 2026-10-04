@@ -114,7 +114,7 @@ export abstract class Fixture<D extends FixtureData = FixtureData> extends Entit
     this.flash ??= { dim, age: 0 }
   }
 
-  /** Breaks into one fragment per cell flying from `from`, after `delay` ms (the structure stays whole until then). */
+  /** Breaks into one per cell-length run flying from `from`, after `delay` ms (the structure stays whole until then). */
   shatter(from: Point, delay = 0): void {
     const fragments = pieces(this.data)
     this.shattering = { from, delay, age: 0, fragments }

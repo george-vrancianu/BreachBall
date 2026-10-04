@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { coinFlip, firstBuilder } from './match'
 import { opponent } from './possession'
 import type { PlayerId } from './pitch'
-import type { Structure, WallSpec } from './wall'
+import { isLegal, type Structure, type WallSpec } from './wall'
 import { canFinishBuild, defaultConfig, initialState, step, type SimConfig, type SimEvent, type SimState } from './step'
 import { hseg } from './testkit'
 
@@ -309,6 +309,8 @@ describe('Siege build timeout', () => {
       expect([a.length, b.length]).toEqual([1, 1])
       expect(a[0].kind).toBe(credits === 1 ? 'tower' : 'wall')
       const [p1, p2] = first === 1 ? [a[0], b[0]] : [b[0], a[0]]
+      expect(isLegal(p1, [])).toBe(true)
+      expect(isLegal(p2, [])).toBe(true)
       if (p1.kind === 'wall' && p2.kind === 'wall') {
         // A 1-unit horizontal wall centred left-right, just in front of the no-build zone; the seats mirror across the halfway line.
         expect(p1).toMatchObject({ a: { x: 16, y: 92 }, b: { x: 24, y: 92 } })

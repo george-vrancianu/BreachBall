@@ -59,6 +59,17 @@ describe('ball', () => {
       expect(s.ball.pos.y).toBeGreaterThan(80)
     }
   })
+  it('never tunnels through a 45 degree wall at max speed', () => {
+    // A "/" wall from (10, 90) to (15.66, 84.34); at x=13 it sits at y=87.
+    const d = 8 * Math.SQRT1_2
+    for (const startY of [100, 100.37, 100.9]) {
+      let s = withWall(wall({ x: 10, y: 90 }, { x: 10 + d, y: 90 - d }), 13, startY, 0, -60)
+      for (let i = 0; i < 40; i++) {
+        s = run(s).state
+        expect(s.ball.pos.y).toBeGreaterThan(84)
+      }
+    }
+  })
   it('does not tunnel through the end of a wall when grazing a corner', () => {
     let s = withWall(straight(), 9.2, 84, 10, -50)
     for (let i = 0; i < 20; i++) s = run(s).state
