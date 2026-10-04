@@ -131,21 +131,54 @@ export const visual = {
     fill: cream,
     outline,
     illegal,
+    /** The Title screen's Attract ball trail colour. */
     trail: 'rgba(255,255,255,0.5)',
-    trailBright: white,
-    trailClear: 'rgba(255,255,255,0)',
+    /** After a Repulsor fires, the tracer's white core runs bright (`tracer.brightCore`) for this long. */
     trailMs: 500,
-    trailLength: 0.08,
-    trailWidth: 2,
-    trailWidthBright: 3,
+    /**
+     * The Tracer: the glowing tail behind a shot, its sparks and its bounce flashes, drawn additively. Sizes are screen px (converted with the camera's px per world unit),
+     * speeds screen px per second, times ms.
+     */
+    tracer: {
+      /** Tail points older than this drop off. */
+      tailMs: 520,
+      /** Points are added this far apart between frames, so a fast shot's tail stays smooth. */
+      stepPx: 5,
+      /** The most tail points kept; the oldest go first. */
+      maxPoints: 240,
+      /** The tail's width at the ball, by the tier that fired: Power's is heavier. */
+      widthPx: { Touch: 14, Power: 20 } satisfies Record<TierName, number>,
+      /** The narrowest a tail segment is drawn. */
+      minWidthPx: 0.5,
+      /** The ribbon's three passes, back to front: a wide glow and a narrower band in the tier's colour, then the white core. Each has its width (share of the tail width) and peak alpha; width and alpha shrink with age and with distance back along the tail. */
+      glow: { width: 1, alpha: 0.35 },
+      band: { width: 0.45, alpha: 0.9 },
+      core: { width: 0.18, alpha: 1, color: white },
+      /** The core's width (share of the tail width) while a Repulsor has just fired or a Charged shot is in flight. */
+      brightCore: 0.35,
+      /** The tail's colour once the ball has rested (or before any shot), while its last points fade. */
+      idle: cream,
+      /** The transparent end of the flash and halo gradients (black adds nothing when drawn additively). */
+      clear: 'rgba(0,0,0,0)',
+      /** Sparks: at most `max` alive (past it, new sparks take over old ones' slots); each lives a random time in `lifeMs` with a radius in `radiusPx`, flies at the burst's speed times a random share in `spread`, and keeps `drag` of its speed per second. The tail sheds one every `everyPx` travelled, at `trailSpeedPx`. */
+      sparks: { max: 120, lifeMs: [250, 600], radiusPx: [1, 2.8], spread: [0.4, 1.4], drag: 0.002, everyPx: 24, trailSpeedPx: 40 },
+      /** The burst at launch, by the tier that fired: how many sparks, at what speed. */
+      launch: { count: { Touch: 8, Power: 18 } satisfies Record<TierName, number>, speedPx: { Touch: 140, Power: 220 } satisfies Record<TierName, number> },
+      /** The spray at a bounce, by the tier that fired: how many sparks, at what speed. Wall hits spray `wall` (white), board hits the tier's colour. */
+      bounce: { count: { Touch: 10, Power: 16 } satisfies Record<TierName, number>, speedPx: 160, wall: white },
+      /** A bounce flash, gone after `ms` (at most `max` at once): a radial glow `glowPx` wide, white at `glowAlpha` in the middle, and a ring in the tier's colour that snaps out from `ringFromPx` to `ringToPx`, thinning from `ringWidthPx[1]` to `ringWidthPx[0]`. */
+      flash: { ms: 360, max: 12, glowPx: 26, glowAlpha: 0.8, ringFromPx: 6, ringToPx: 28, ringWidthPx: [0.5, 3] },
+      /** The halo around a moving ball: `radius` ball radii out, fading from `inner` ball radii; its alpha rises with speed to `alpha` at `fullSpeedPx`. */
+      halo: { radius: 3, inner: 0.5, alpha: 0.5, fullSpeedPx: 600 },
+    },
     outlineWidth: 0.12,
     /** The dot that rolls with the distance travelled. */
     dot: { offset: 0.55, radius: 0.2 },
     stealMs: 300,
     /** The ball-in-hand placement disc. */
     placementAlpha: 0.5,
-    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), the badge's pop-in (`popMs`, growing from `popScale`), and the launch trail, brighter and `trailWidth` wide. */
-    charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700 }, popMs: 250, popScale: 0.5, trailWidth: 4 },
+    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), and the badge's pop-in (`popMs`, growing from `popScale`). Its launch runs the tracer's core bright (`tracer.brightCore`). */
+    charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700 }, popMs: 250, popScale: 0.5 },
     /** The Breaker outline. */
     armed: { radius: 1.5, swing: 0.25, periodMs: 120, width: 0.3 },
     /** The faint control-radius ring while aiming. */

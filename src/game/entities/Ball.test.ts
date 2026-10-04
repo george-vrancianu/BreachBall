@@ -86,3 +86,107 @@ describe('Ball reset', () => {
     expect([b.bright, b.stealing, b.controlRing]).toEqual([false, false, undefined])
   })
 })
+
+// Touch green, Power red; at 10 screen px per world unit, a 5 px tail step is 0.5 units and a 14 px tail 1.4.
+describe('Ball tracer', () => {
+  const green = '#4ade80'
+  const red = '#f87171'
+  const at = (b: Ball, x: number, y: number, moving = true) => b.sync({ pos: { x, y }, vel: moving ? { x: 0, y: -30 } : { x: 0, y: 0 }, rolled: 0 })
+  const fired = (tier: number) => {
+    const b = new Ball()
+    b.tracer.pxPerUnit = 10
+    at(b, 20, 80, false)
+    b.fire(tier, { x: 20, y: 80 })
+    return b
+  }
+
+  it('starts its tail at the launch and fills the gap a fast frame leaves, one point per 5 px', () => {
+    const b = fired(0)
+    expect(b.tracer.points).toBe(1)
+    at(b, 20, 70)
+    expect(b.tracer.points).toBe(21)
+  })
+
+  it('drops tail points older than 520 ms', () => {
+    const b = fired(0)
+    at(b, 20, 70)
+    ms(b, 519)
+    expect(b.tracer.points).toBe(21)
+    ms(b, 2)
+    expect(b.tracer.points).toBe(0)
+  })
+
+  it('takes the colour of the tier that fired', () => {
+    expect(fired(0).tracer.color).toBe(green)
+    expect(fired(1).tracer.color).toBe(red)
+  })
+
+  it('loses its colour when the ball comes to rest', () => {
+    const b = fired(1)
+    at(b, 20, 70)
+    at(b, 20, 70, false)
+    expect(b.tracer.color).toBeUndefined()
+  })
+
+  it('draws a Power tail wider than a Touch tail', () => {
+    expect(fired(0).tracer.width).toBe(1.4)
+    expect(fired(1).tracer.width).toBe(2)
+  })
+
+  it('bursts sparks at launch, more for Power', () => {
+    expect(fired(1).tracer.sparks).toBeGreaterThan(fired(0).tracer.sparks)
+  })
+
+  it('sheds sparks along its path', () => {
+    const b = fired(0)
+    const before = b.tracer.sparks
+    at(b, 20, 60)
+    expect(b.tracer.sparks).toBeGreaterThan(before)
+  })
+
+  it('flashes and sprays sparks at a bounce, the flash fading after its time', () => {
+    const b = fired(0)
+    const before = b.tracer.sparks
+    b.bounce({ x: 0, y: 70 }, true)
+    expect(b.tracer.flashes).toBe(1)
+    expect(b.tracer.sparks).toBeGreaterThan(before)
+    ms(b, visual.ball.tracer.flash.ms + 1)
+    expect(b.tracer.flashes).toBe(0)
+  })
+
+  it('holds its sparks and flashes to their caps however many bounces land', () => {
+    const b = fired(1)
+    for (let i = 0; i < 100; i++) b.bounce({ x: 0, y: 70 }, i % 2 === 0)
+    expect(b.tracer.sparks).toBe(visual.ball.tracer.sparks.max)
+    expect(b.tracer.flashes).toBe(visual.ball.tracer.flash.max)
+  })
+
+  it('lets its sparks fade out', () => {
+    const b = fired(1)
+    ms(b, visual.ball.tracer.sparks.lifeMs[1] + 1)
+    expect(b.tracer.sparks).toBe(0)
+  })
+
+  it('runs its white core bright after a Repulsor fires, and for a Charged shot until the ball stops', () => {
+    const b = fired(0)
+    expect(b.brightCore).toBe(false)
+    b.pulse()
+    expect(b.brightCore).toBe(true)
+    ms(b, visual.ball.trailMs + 1)
+    b.launch()
+    at(b, 20, 70)
+    ms(b, 16)
+    expect(b.brightCore).toBe(true)
+    at(b, 20, 70, false)
+    ms(b, 16)
+    expect(b.brightCore).toBe(false)
+  })
+
+  it('a new match forgets the tail, its colour, sparks and flashes', () => {
+    const b = fired(1)
+    at(b, 20, 70)
+    b.bounce({ x: 0, y: 70 }, false)
+    b.reset()
+    expect([b.tracer.points, b.tracer.color, b.tracer.sparks, b.tracer.flashes]).toEqual([0, undefined, 0, 0])
+  })
+})
