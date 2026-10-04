@@ -44,7 +44,7 @@ describe('goal, Rearrange, Done as the shell drives them', () => {
     expect(g.log.reveals).toBe(0)
   })
 
-  it('hot-seat: the conceder gets a handover after Done, with no turn card, held until the flip ends', () => {
+  it('hot-seat: the conceder gets a handover after Done, held until the flip ends', () => {
     const g = play()
     g.tick()
     g.tick({ defence: { player: 1, choice: 'rearrange' } })
