@@ -1,4 +1,4 @@
-import { rules, type TierName } from './rules'
+import { rules, type Tier, type TierName } from './rules'
 
 const ink = '#e8eaf0'
 const dark = '#0b0f1a'
@@ -131,43 +131,155 @@ export const visual = {
     fill: cream,
     outline,
     illegal,
+    /** The Title screen's Attract ball trail colour. */
     trail: 'rgba(255,255,255,0.5)',
-    trailBright: white,
-    trailClear: 'rgba(255,255,255,0)',
-    trailMs: 500,
-    trailLength: 0.08,
-    trailWidth: 2,
-    trailWidthBright: 3,
+    /**
+     * The Tracer: the glowing tail behind a shot, its sparks and its bounce flashes, drawn additively. Sizes are screen px (converted with the camera's px per world unit),
+     * speeds screen px per second, times ms.
+     */
+    tracer: {
+      /** Tail points older than this drop off. */
+      tailMs: 520,
+      /** Points are added this far apart between frames, so a fast shot's tail stays smooth. */
+      stepPx: 5,
+      /** The most tail points kept; the oldest go first. */
+      maxPoints: 240,
+      /** The tail's width at the ball, by the tier that fired: Power's is heavier. */
+      widthPx: { Touch: 14, Power: 20 } satisfies Record<TierName, number>,
+      /** The narrowest a tail segment is drawn, screen px. */
+      minWidthPx: 0.5,
+      /** The ribbon's three passes, back to front: a wide glow and a narrower band in the tier's colour, then the white core. Each has its width (share of the tail width) and peak alpha; width and alpha shrink with age and with distance back along the tail. */
+      glow: { width: 1, alpha: 0.35 },
+      band: { width: 0.45, alpha: 0.9 },
+      core: { width: 0.18, alpha: 1, color: white },
+      /** The core's width (share of the tail width) while a Repulsor has just fired or a Charged shot is in flight. */
+      brightCore: 0.35,
+      /** After a Repulsor fires, the core runs bright for this long. */
+      brightMs: 500,
+      /** The tail's colour once the ball has rested (or before any shot), while its last points fade. */
+      idle: cream,
+      /** Sparks: at most `max` alive (past it, new sparks take over old ones' slots); each lives a random time in `lifeMs` with a radius in `radiusPx`, flies at the burst's speed times a random share in `spread`, and keeps `drag` of its speed per second. It shrinks as it fades, from `1 + shrink` to `shrink` times its radius. The tail sheds one every `everyPx` travelled, at `trailSpeedPx`. */
+      sparks: { max: 120, lifeMs: [250, 600], radiusPx: [1, 2.8], spread: [0.4, 1.4], drag: 0.002, shrink: 0.5, everyPx: 24, trailSpeedPx: 40 },
+      /** The burst at launch, by the tier that fired: how many sparks, at what speed. */
+      launch: { count: { Touch: 8, Power: 18 } satisfies Record<TierName, number>, speedPx: { Touch: 140, Power: 220 } satisfies Record<TierName, number> },
+      /** The spray at a bounce, by the tier that fired: how many sparks, at what speed. Wall hits spray `wall` (white), board hits the tier's colour. */
+      bounce: { count: { Touch: 10, Power: 16 } satisfies Record<TierName, number>, speedPx: 160, wall: white },
+      /** A bounce flash, gone after `ms` (at most `max` at once): a radial glow `glowPx` wide, white at `glowAlpha` in the middle, and a ring in the tier's colour that snaps out from `ringFromPx` to `ringToPx` (easing out with power `ringEase`: higher snaps harder), thinning from `ringWidthPx[1]` to `ringWidthPx[0]`. */
+      flash: { ms: 360, max: 12, glowPx: 26, glowAlpha: 0.8, ringFromPx: 6, ringToPx: 28, ringEase: 3, ringWidthPx: [0.5, 3] },
+      /** The halo around a moving ball: `radius` ball radii out, fading from `inner` ball radii; its alpha rises with speed to `alpha` at `fullSpeedPx`. */
+      halo: { radius: 3, inner: 0.5, alpha: 0.5, fullSpeedPx: 600 },
+    },
     outlineWidth: 0.12,
     /** The dot that rolls with the distance travelled. */
     dot: { offset: 0.55, radius: 0.2 },
     stealMs: 300,
     /** The ball-in-hand placement disc. */
     placementAlpha: 0.5,
-    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), the badge's pop-in (`popMs`, growing from `popScale`), and the launch trail, brighter and `trailWidth` wide. */
-    charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700 }, popMs: 250, popScale: 0.5, trailWidth: 4 },
+    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), and the badge's pop-in (`popMs`, growing from `popScale`). Its launch runs the tracer's core bright (`tracer.brightCore`). */
+    charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700 }, popMs: 250, popScale: 0.5 },
     /** The Breaker outline. */
     armed: { radius: 1.5, swing: 0.25, periodMs: 120, width: 0.3 },
-    /** The faint control-radius ring while aiming. */
-    control: { color: white, alpha: 0.25, width: 0.15 },
     /** The hold ring, `radiusPx` screen px out, filling while the shooter holds still; reaching a new tier pulses it (up to `grow` larger) over `pulseMs`. */
     hold: { radiusPx: 36, width: 0.3, trackAlpha: 0.25, pulseMs: 300, grow: 0.35 },
   },
   aim: {
     /** A press this close to the ball's centre (or within its on-screen radius, if larger) starts aiming, in screen px. */
     ballHitPx: 28,
-    /** Pointer travel from the press, in screen px, before a drag counts: releasing within it cancels, and full power range starts at its edge. */
+    /** Pointer travel from the press, in screen px, before a drag counts (until then the hold climbs tiers); the drag's distance from the ball's centre must pass it too: releasing within it cancels, and full power range starts at its edge. */
     slopPx: 8,
     /** Within this many screen px of any canvas edge the aim is cancel-armed: releasing cancels, moving back out re-arms. */
     edgeCancelPx: 24,
-    /** The Ghost: the ball's predicted path while aiming. */
-    ghost: { width: 0.3, /** A Charged ball's Ghost: drawn this much wider, with its "x1.5" / "x2" badge at the tip (size and distance past it, world units). */ chargedWidth: 0.6, badge: { size: 1.6, offset: 1.6, weight: 700 } },
-    /** Each tier's colour, by name: the Ghost and the hold ring. */
+    /** The Ghost: the ball's predicted path while aiming, drawn as dots from the Comet's tip that fade toward the end and drift forward. World units throughout. */
+    ghost: {
+      /** `gap` between dots along the path; `radius` and `alpha` run from the first dot's value to the last's. */
+      dots: { gap: 1.35, radius: [0.33, 0.16], alpha: [0.9, 0.15] },
+      /** How fast the dots drift forward, world units per second: `speed + perPower * power` (power 0-1 of maxSpeed). */
+      drift: { speed: 2.5, perPower: 4 },
+      /** The ring marking each bounce on the path: its radius, line width and alpha; `wallColor` (ink) for a structure, a board's ring takes the tier's colour. */
+      bounce: { radius: 0.6, width: 0.2, alpha: 0.8, wallColor: ink },
+      /** A Charged ball's Ghost: dots this many times larger, with its "x1.5" / "x2" badge at the tip (size and distance past it). */
+      chargedScale: 2,
+      badge: { size: 1.6, offset: 1.6, weight: 700 },
+    },
+    /**
+     * The Comet: the direction indicator while aiming, a tapered spear from the ball's edge along the shot with an ink arrowhead and chevrons running along it.
+     * Screen px throughout (divided by the aim's `pxPerUnit`), so it looks the same at any zoom; `glowBlur` aside. The Ghost's dots start at its tip. Cancel-armed, it is all in the cancel grey but its chevrons.
+     */
+    comet: {
+      /** The spear's length, from the ball's edge to the arrowhead: `base + perPower * power`, the power normalised from the weakest tier's lowest to the strongest's highest. */
+      lengthPx: { base: 34, perPower: 120 },
+      /** The gap between the ball's edge and the spear's base. */
+      gapPx: 2,
+      /** The spear's half-width at its base: `base + perPower * power`, the power taken across its own tier's range (0 at the bottom, 1 at the top). */
+      widthPx: { base: 9, perPower: 5 },
+      /** The spear's sides curve in through a point `at` of its length, `width` of its base half-width from the centre line. */
+      bend: { at: 0.6, width: 0.5 },
+      /** The fill, base to tip: transparent, then the tier colour at `mid` along it with alpha `midAlpha`, then `tipColor` with alpha `tipAlpha`. */
+      gradient: { mid: 0.55, midAlpha: 0.55, tipColor: ink, tipAlpha: 0.95 },
+      /** The glow around the spear in its colour: the canvas shadow blur, in canvas (device) pixels, which the stage's transform does not scale; as the prototype draws it. */
+      glowBlur: 14,
+      /** The solid arrowhead past the spear's end: half its width, its length and its colour. */
+      head: { widthPx: 9, lengthPx: 13, color: ink },
+      /**
+       * The chevrons running from the base toward the tip: `count` of them, evenly spaced, each lap taking `1 / (speed + perPower * power)` seconds (power across its tier's range);
+       * their travel from `startPx` past the ball's edge to `endPx` short of the spear's end; arm length shrinking from `sizePx[0]` to `sizePx[1]` as they go; stroke width, colour,
+       * and alpha peaking at `alpha` midway, fading in and out at the ends.
+       */
+      chevrons: { count: 3, speed: 0.5, perPower: 1.8, startPx: 6, endPx: 4, sizePx: [6, 4], widthPx: 2.5, color: dark, alpha: 0.75 },
+      /** A splash tier's dashed preview of its Splash radius around the ball: dash and gap lengths, line width and alpha, in its tier colour. */
+      splash: { dashPx: [4, 5], widthPx: 1.5, alpha: 0.5 },
+    },
+    /** Each tier's colour, by name: the Comet, the Ghost, the Splash preview, the hold ring and the Gauge. */
     tierColors: { Touch: '#4ade80', Power: '#f87171' } satisfies Record<TierName, string>,
-    /** Cancel-armed: the Ghost greys out and an ✕ (half-size `size`, world units) sits on the ball. */
+    /** Cancel-armed: the Comet and the Ghost grey out, the Splash preview goes, and an ✕ (half-size `size`, world units) sits on the ball. */
     cancel: { color: '#9ca3af', size: 1.2, width: 0.35 },
     /** The Splash ring of a fired Power shot: expands to the Splash radius over `ms`. */
     splash: { ms: 250, color: cream, width: 0.3 },
+    /**
+     * The control gauge around the ball while aiming (the prototype's `gauge()`), showing only the current tier. Sizes in screen px (converted with the aim's `pxPerUnit`),
+     * alphas 0-1, colours from `tierColors` unless named. The scale runs from the inner cancel circle (radius `slopPx`) out to the limit.
+     */
+    gauge: {
+      /** The end labels, by the tier's curve: the scale's reading near the ball and at the limit. */
+      ends: { direct: { near: 'LOW', limit: 'MAX' }, inverted: { near: 'MAX', limit: 'MIN' } } satisfies Record<Tier['curve'], { near: string; limit: string }>,
+      /** The scale band's alpha at the inner circle and at the limit, by curve: strong where the tier's power is high. */
+      band: { direct: [0.03, 0.3], inverted: [0.5, 0.03] } satisfies Record<Tier['curve'], readonly [number, number]>,
+      /** Dashed tick rings at these shares of the scale: alpha, line width and dash (px). */
+      ticks: { at: [0.25, 0.5, 0.75], alpha: 0.22, widthPx: 1, dashPx: [2, 5] },
+      /** The faint inner cancel circle. */
+      cancel: { color: ink, alpha: 0.25, widthPx: 1.5 },
+      /** The limit ring: line width, glow blur, and its breathing (swing in px, period in ms), which stills as it flares. */
+      limit: { widthPx: 2.5, glowPx: 10, breathePx: 1.5, breatheMs: 2640 },
+      /** Past the limit the limit ring and the knob flare: `rate` is how fast the flare eases in and out (share of the gap closed per second, x dt); at full flare the ring is `widthPx` wider with `glowPx` more blur, and the knob `knobPx` larger. */
+      flare: { rate: 10, widthPx: 2, glowPx: 18, knobPx: 3 },
+      /**
+       * The label chips (end labels and the "TOUCH LIMIT" chip): font size and weight, the near-ball label's smaller size and its gap past the inner circle, side padding, height, border width and alpha, and fill.
+       * `near`, by curve: the near-ball label's text alpha and fill (Touch's LOW is dimmer). The limit chip sits on the ring at `chipDeg` (screen degrees clockwise from right: 135 is lower left).
+       */
+      label: {
+        sizePx: 10, weight: 700, nearSizePx: 8, nearGapPx: 12, padPx: 12, heightPx: 18, borderPx: 1.5, borderAlpha: 0.7, fill: 'rgba(11,15,26,0.8)', chipDeg: 135,
+        near: { direct: { alpha: 0.85, fill: 'rgba(11,15,26,0.6)' }, inverted: { alpha: 1, fill: 'rgba(11,15,26,0.8)' } } satisfies Record<Tier['curve'], { alpha: number; fill: string }>,
+      },
+      /** The lit wedge on the pull side while aiming: half its angle (degrees) and its alpha at the inner circle and at the finger, by curve. */
+      wedge: { halfDeg: 18, direct: [0.08, 0.55], inverted: [0.55, 0.12] } satisfies { halfDeg: number } & Record<Tier['curve'], readonly [number, number]>,
+      /** The ring at the finger's distance: alpha at the scale's weak and strong ends, and line width. */
+      level: { alpha: [0.55, 1], widthPx: 2 },
+      /** A ring rippling from the ball out to the finger's ring, once per period: `slowMs` at the scale's weak end, `fastMs` at its strong end; starting alpha and line width. */
+      ripple: { slowMs: 900, fastMs: 400, alpha: 0.5, widthPx: 1.5 },
+      /** The dashed elastic line from the ball to the knob: colour, alpha, width and dash (px). */
+      elastic: { color: ink, alpha: 0.5, widthPx: 2, dashPx: [4, 4] },
+      /** The knob at the finger: radius, ring width, fill, and the centre dot's radius. */
+      knob: { radiusPx: 9, widthPx: 3, fill: dark, dotPx: 3.5 },
+      /** On reaching a higher tier the gauge morphs to the new tier's radius over `ms`, overshooting (back ease, `overshoot` its strength) as the colour cross-fades. */
+      morph: { ms: 380, overshoot: 1.7 },
+      /** The tier name ("POWER!") popping above the ring on a switch, in the new tier's colour: over `ms` it fades and rises `risePx` from `gapPx` above the ring, its Bungee text (`weight`) growing from `sizePx` by `growPx` over the first `growShare` of it. */
+      pop: { ms: 700, sizePx: 22, weight: 400, growPx: 10, growShare: 1 / 3, gapPx: 26, risePx: 20 },
+      /**
+       * The readout chip beside the knob: `offsetPx` to the knob's screen right (or left, within `edgePx` of the pitch's right edge as the viewer sees it, which on a phone is the screen's) and `dropPx` lower; its size, corner radius, fill, border width and alpha;
+       * the tier name (`namePx`, `nameWeight`, `nameDyPx` from the centre), the percentage (Bungee, `percentPx`, `percentWeight`, `percentDyPx`), and `segments` meter segments (`segWPx` x `segHPx`, `segPitchPx` apart, `segDyPx` down; unlit at `unlitAlpha`).
+       */
+      readout: { offsetPx: 54, dropPx: 2, edgePx: 90, wPx: 80, hPx: 40, radiusPx: 10, fill: 'rgba(11,15,26,0.9)', borderPx: 1.5, borderAlpha: 0.8, namePx: 9, nameWeight: 700, nameDyPx: -10, percentPx: 15, percentWeight: 400, percentDyPx: 5, segments: 8, segWPx: 6, segHPx: 3, segPitchPx: 8, segDyPx: 14, unlitAlpha: 0.18 },
+    },
     /** `tier`: the short buzz on reaching a higher tier while holding. */
     vibration: { shotBase: 10, shotPerPower: 40, goal: [60, 40, 60], tier: 30 },
   },

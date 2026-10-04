@@ -9,16 +9,28 @@ How the shooter moves the ball, pool-style: press on the ball, drag back, releas
 _Avoid_: Blast, kick, charge
 
 **Tier**:
-The kind of Shot, picked by how long the shooter holds still on the ball before dragging; the first drag locks it. Each tier sets its control radius, power curve and range, and Ghost. **Touch** (drag right away) is weak and precise: a large radius, a longer drag is stronger, a full green Ghost. **Power** (hold 1 s) is strong: a small radius, a shorter drag is stronger, a short red Ghost.
+The kind of Shot, picked by how long the shooter holds still on the ball before dragging; the first drag locks it. Each tier sets its control radius (how far the drag can usefully go, drawn as the Gauge's limit), power curve and range, and Ghost. **Touch** (drag right away) is weak and precise: a large radius, a longer drag is stronger, a long green Ghost. **Power** (hold 1 s) is strong: a small radius, a shorter drag is stronger, a short red Ghost.
 _Avoid_: Mode, level, charge
 
 **Ghost**:
-The ball's predicted path, drawn from the ball while aiming a Shot in its Tier's colour, showing where it will go. Only this is the Ghost: the translucent ball-in-hand disc is the placement, and the translucent piece dragged in a build turn is the build piece.
+The ball's predicted path, drawn while aiming a Shot in its Tier's colour as drifting, fading dots from the Comet's tip, showing where it will go. Each Tier caps it at a number of bounces (off structures or boards, those under the Comet included) and a reach past the Comet's tip that grows with the shot's power: Touch shows up to 3 bounces and far, Power 1 bounce and a short stub. A goal ends it. Only this is the Ghost: the translucent ball-in-hand disc is the placement, and the translucent piece dragged in a build turn is the build piece.
 _Avoid_: Preview, arrow, trajectory; "ghost" for the ball-in-hand placement or the build piece
+
+**Gauge**:
+The control gauge drawn around the ball while aiming a Shot: a scale band in the Tier's colour from the inner cancel circle out to the Tier's limit (its control radius), with end labels saying where power is high and low, and a knob at the finger with a power readout. It shows only the current Tier's limit; reaching Power morphs it from the Touch size to the Power size. It replaced the faint control ring.
+_Avoid_: Control ring, power ring, dial
+
+**Comet**:
+The direction indicator while aiming a Shot: a glowing spear with an arrowhead from the ball's edge along the shot, in its Tier's colour, longer with more power, chevrons running along it. It shows only the direction and strength; the Ghost starts at its tip, its reach measured from there, and shows where the ball will go.
+_Avoid_: Trajectory, Ghost, arrow
 
 **Splash**:
 The burst every Power Shot sets off where the ball starts, damaging every structure in range, the shooter's own included and across the halfway line. It grows with power within the Tier; the shooter's own structures lose hit points only to its strongest part. It doesn't move the ball.
 _Avoid_: Blast, explosion, area damage
+
+**Tracer**:
+The glowing tail a fired Shot leaves behind the moving ball, in the colour of the Tier that fired, with the sparks it sheds and the flashes at its bounces. It shows where the ball has been; the Ghost shows where it will go. It loses its colour when the ball rests or possession changes.
+_Avoid_: Trail, streak, trajectory; "Ghost" for the path already travelled
 
 **On time out**:
 The match setting, shown in every mode, for what an expiring shot clock does with the shooter's turn: **Shoot** (the default) fires the aim they are holding, or burns the shot if they hold none (not yet dragged, or cancel-armed at the edge); **Burn** always burns the shot. In code, `expiry: 'shoot' | 'burn'`.

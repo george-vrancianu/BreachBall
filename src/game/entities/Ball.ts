@@ -8,43 +8,69 @@ import type { AimView } from '../input/InputController'
 import { tierColor } from './Aim'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
+import { Tracer } from './Tracer'
 
-/** Disc with a speed-scaled fading trail behind it and a dot that rolls with the distance travelled. */
+/** Disc with the Tracer behind it (its glowing tail, sparks and bounce flashes) and a dot that rolls with the distance travelled. */
 export class Ball extends Entity {
   state: BallState = { pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, rolled: 0 }
+  /** The shot's glowing tail, sparks and bounce flashes; the game sets its `pxPerUnit` each frame. */
+  readonly tracer = new Tracer()
   /** Ball-in-hand: where the ball would go, and whether that spot is legal. */
   placement?: { at: Point; legal: boolean; radius: number }
   /** The shooter whose ball gets the Breaker outline. */
   armed?: PlayerId
-  /** The aim in progress: its phase and tier, the hold's climb to the next tier, its control radius in screen px, and how many screen px a world unit spans. */
-  aim?: Pick<AimView, 'phase' | 'tier' | 'holdProgress' | 'radiusPx' | 'pxPerUnit'>
+  /** The aim in progress: its phase and tier, the hold's climb to the next tier, and how many screen px a world unit spans. The control gauge is `AimGauge`'s. */
+  aim?: Pick<AimView, 'phase' | 'tier' | 'holdProgress' | 'pxPerUnit'>
   /** The ball's charge, null when not Charged: it wears a glow and a badge in its zone's colour, which pop in when a shot brings it to rest in a ring. */
   charge: Charge | null = null
   /** The ball's radius in world units. */
   radius = defaultConfig.ballRadius
   /** Turns the badge upright for Player 2's view. */
   flipped = false
-  /** The clock when a Repulsor fired (the trail runs bright for `visual.ball.trailMs`), and the steal sink in progress. */
+  /** The clock when a Repulsor fired (the tracer's core runs bright for `visual.ball.tracer.brightMs`), and the steal sink in progress. */
   private pulsedAt?: number
   private sinking?: { from: Point; to: Point; age: number }
-  // The clock when the ball came to rest Charged, and whether the shot in flight launched Charged (its trail runs bright until the ball stops).
+  // The clock when the ball came to rest Charged, and whether the shot in flight launched Charged (the tracer's core runs bright until the ball stops).
   private poppedAt?: number
   private launched = false
   // The aim last seen, and the clock when the hold reached a higher tier.
   private lastAim?: Ball['aim']
   private reachedAt?: number
 
+  /** The ball's state this frame: the tracer's tail follows it while it moves, and loses its colour once it rests. */
   sync(state: BallState): void {
     this.state = state
+    if (state.vel.x || state.vel.y) this.tracer.follow(state.pos, this.clock)
+    else this.tracer.rest()
   }
 
-  /** A Repulsor fired: the trail brightens for `visual.ball.trailMs`. */
+  /** A shot fired from `from` in tier `tier`: the tracer takes the tier's colour and bursts sparks there. */
+  fire(tier: number, from: Point): void {
+    this.tracer.fire(tier, from, this.clock)
+  }
+
+  /** The ball bounced at `at` off a wall or a board: the tracer flashes and sprays sparks there. */
+  bounce(at: Point, wall: boolean): void {
+    this.tracer.bounce(at, wall, this.clock)
+  }
+
+  /** Possession changed: the tracer loses its colour and its tail. */
+  handOver(): void {
+    this.tracer.handOver()
+  }
+
+  /** A Repulsor fired: the tracer's core runs bright for `visual.ball.tracer.brightMs`. */
   pulse(): void {
     this.pulsedAt = this.clock
   }
 
   get bright(): boolean {
-    return this.pulsedAt !== undefined && this.clock - this.pulsedAt < visual.ball.trailMs
+    return this.pulsedAt !== undefined && this.clock - this.pulsedAt < visual.ball.tracer.brightMs
+  }
+
+  /** The tracer's white core runs wide: a Repulsor just fired, or a Charged shot is in flight. */
+  get brightCore(): boolean {
+    return this.bright || this.launched
   }
 
   /** A shot came to rest in a ring: the badge pops in over `visual.ball.charged.popMs`. */
@@ -52,7 +78,7 @@ export class Ball extends Entity {
     this.poppedAt = this.clock
   }
 
-  /** A Charged ball was shot: its trail runs bright until it comes to rest. */
+  /** A Charged ball was shot: the tracer's core runs bright until it comes to rest. */
   launch(): void {
     this.launched = true
   }
@@ -73,11 +99,6 @@ export class Ball extends Entity {
     return !!this.sinking && this.sinking.age < visual.ball.stealMs
   }
 
-  /** The faint ring around the ball showing how far the aim can drag, in world units. */
-  get controlRing(): { at: Point; radius: number } | undefined {
-    return this.aim && { at: this.state.pos, radius: this.aim.radiusPx / this.aim.pxPerUnit }
-  }
-
   /** While holding still on the ball: the ring filling towards the next tier, in the tier's colour, pulsing (`scale` > 1) just after reaching one. */
   get holdRing(): { at: Point; radius: number; progress: number; color: string; scale: number } | undefined {
     const { aim } = this
@@ -88,11 +109,12 @@ export class Ball extends Entity {
     return { at: this.state.pos, radius: radiusPx / aim.pxPerUnit, progress: aim.holdProgress, color: tierColor(aim.tier), scale }
   }
 
-  /** A new match: no pulse, no steal sink, no ghost, no aim. */
+  /** A new match: no pulse, no steal sink, no ghost, no aim, no tracer. */
   reset(): void {
     this.pulsedAt = this.sinking = this.placement = this.armed = this.aim = this.lastAim = this.reachedAt = this.poppedAt = undefined
     this.charge = null
     this.launched = false
+    this.tracer.clear()
   }
 
   override update(dt: number): void {
@@ -100,15 +122,18 @@ export class Ball extends Entity {
     this.lastAim = this.aim
     if (!this.state.vel.x && !this.state.vel.y) this.launched = false
     super.update(dt)
+    this.tracer.update(this.clock, dt)
     if (this.sinking) this.sinking.age += dt * 1000
   }
 
   protected override render(ctx: CanvasRenderingContext2D): void {
+    const { pos, vel } = this.state
+    this.tracer.draw(ctx, this.clock, pos, Math.hypot(vel.x, vel.y), this.radius, this.brightCore)
     if (this.sinking && this.stealing) {
       const { from, to, age } = this.sinking
       const k = Math.min(age / visual.ball.stealMs, 1)
-      this.drawDisc(ctx, { pos: { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k }, vel: { x: 0, y: 0 }, rolled: this.state.rolled }, false, 1 - k)
-    } else this.drawDisc(ctx, this.state, this.bright || this.launched, 1)
+      this.drawDisc(ctx, { pos: { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k }, vel: { x: 0, y: 0 }, rolled: this.state.rolled }, 1 - k)
+    } else this.drawDisc(ctx, this.state, 1)
     if (this.charge && !this.stealing) this.drawCharge(ctx, this.charge)
     if (this.armed) {
       const { radius, swing, periodMs, width } = visual.ball.armed
@@ -117,17 +142,6 @@ export class Ball extends Entity {
       ctx.strokeStyle = visual.player.colors[this.armed]
       ctx.lineWidth = width
       ctx.stroke()
-    }
-    const ring = this.controlRing
-    if (ring) {
-      const { color, alpha, width } = visual.ball.control
-      ctx.globalAlpha = alpha
-      ctx.beginPath()
-      ctx.arc(ring.at.x, ring.at.y, ring.radius, 0, Math.PI * 2)
-      ctx.strokeStyle = color
-      ctx.lineWidth = width
-      ctx.stroke()
-      ctx.globalAlpha = 1
     }
     const hold = this.holdRing
     if (hold) {
@@ -168,21 +182,7 @@ export class Ball extends Entity {
     drawLabel(ctx, boostLabel(factor), { x, y: y + (this.flipped ? badge.offset : -badge.offset) }, { size: badge.size, weight: badge.weight, color, flipped: this.flipped, scale: this.badgeScale })
   }
 
-  private drawDisc(ctx: CanvasRenderingContext2D, { pos, vel, rolled }: BallState, bright: boolean, scale: number): void {
-    const speed = Math.hypot(vel.x, vel.y)
-    if (speed > 0) {
-      const tail = { x: pos.x - vel.x * visual.ball.trailLength, y: pos.y - vel.y * visual.ball.trailLength }
-      const g = ctx.createLinearGradient(pos.x, pos.y, tail.x, tail.y)
-      g.addColorStop(0, bright ? visual.ball.trailBright : visual.ball.trail)
-      g.addColorStop(1, visual.ball.trailClear)
-      ctx.beginPath()
-      ctx.moveTo(pos.x, pos.y)
-      ctx.lineTo(tail.x, tail.y)
-      ctx.lineCap = 'round'
-      ctx.strokeStyle = g
-      ctx.lineWidth = this.launched ? visual.ball.charged.trailWidth : bright ? visual.ball.trailWidthBright : visual.ball.trailWidth
-      ctx.stroke()
-    }
+  private drawDisc(ctx: CanvasRenderingContext2D, { pos, rolled }: BallState, scale: number): void {
     ctx.beginPath()
     ctx.arc(pos.x, pos.y, this.radius * scale, 0, Math.PI * 2)
     ctx.fillStyle = visual.ball.fill

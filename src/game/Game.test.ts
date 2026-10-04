@@ -282,6 +282,11 @@ describe('Game', () => {
     expect(game.camera.children.slice(-3)).toEqual([game.ball, game.aim, game.structures.fx])
   })
 
+  it('draws the aim gauge under the ball', () => {
+    const game = make()
+    expect(game.camera.children.slice(-4, -2)).toEqual([game.gauge, game.ball])
+  })
+
   it('the reveal shows the whole pitch through the map camera with the fog lifted, then returns to the main camera', () => {
     const game = make()
     game.actions.start({ ...defaultSettings, mode: 'siege' })
