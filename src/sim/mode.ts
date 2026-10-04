@@ -133,7 +133,7 @@ export const siege: GameMode<SiegeMatch> = {
     const next = m.opening && builder === firstBuilder(m.seed, 1) ? opponent(builder) : null
     return { match: { ...m, builder: next, opening: m.opening && next !== null }, events: [] }
   },
-  // A builder with nothing owned has the full budget (a fresh piece demolished refunds in full), so affordability is judged from `credits`:
+  // A builder with nothing owned has the full budget (a fresh piece demolished refunds in full), so affordability is judged from `openingCredits`:
   // a 1-unit horizontal wall centred left-right just in front of their goal no-build zone if it is affordable, else a Repulsor (free, always in stock at the opening).
   // The spot mirrors across the halfway line and is legal for either seat: on their half, outside the zone and the Centre zone, and the builder owns
   // nothing yet, so nothing can cross it. Both pieces therefore always place (tested for each seat).
@@ -146,7 +146,7 @@ export const siege: GameMode<SiegeMatch> = {
     const wall: StructureSpec = { kind: 'wall', owner: builder, a: { x: x - half, y }, b: { x: x + half, y } }
     // The Repulsor's cell sits on the near side of the same line, so it stays clear of the zone too.
     const at = { gx: rules.gridCols / 2 - 1, gy: builder === 1 ? Math.floor(y / rules.cellSize) - 1 : Math.ceil(y / rules.cellSize) }
-    return structureCost(wall) <= c.credits ? wall : { kind: 'tower', owner: builder, at, power: 'repulsor' }
+    return structureCost(wall) <= c.openingCredits ? wall : { kind: 'tower', owner: builder, at, power: 'repulsor' }
   },
   mayEdit: (m) => m.opening,
   mayRefund: () => false,
@@ -157,7 +157,7 @@ export const siege: GameMode<SiegeMatch> = {
   mayPlayBuild: () => false,
   opening: (m) => m.opening && m.builder !== null,
   // A Rearrange turn has no wall points and every own structure counts as placed this turn, so all of them can be moved.
-  onBuildStart: (m, ctx, c) => (m.opening ? { credits: c.credits, built: [] } : { credits: 0, built: m.builder ? structuresOf(ctx.objects, m.builder).map((o) => o.id) : [] }),
+  onBuildStart: (m, ctx, c) => (m.opening ? { credits: c.openingCredits, built: [] } : { credits: 0, built: m.builder ? structuresOf(ctx.objects, m.builder).map((o) => o.id) : [] }),
   winner: (_m, ctx) => {
     const left = (p: PlayerId) => structuresOf(ctx.objects, p).length > 0
     if (left(1) && left(2)) return null

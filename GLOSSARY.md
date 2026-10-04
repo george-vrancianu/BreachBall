@@ -113,11 +113,11 @@ The single resource every Offence, Defence and Subterfuge item is bought with, e
 _Avoid_: Build points, power-up points, resources, energy (and Wall points in Rounds; see below)
 
 **Opening Credits**:
-The Credits each player's round-1 build turn holds in Rounds, instead of (not on top of) the Credits-per-round grant; nothing is banked before it. From round 2 on every build turn adds the grant to the bank. A setting alongside Credits per round (10 to 80, default 40), shown in the Side menu. Siege does not read it yet.
+The Credits each player's round-1 build turn holds in Rounds, instead of (not on top of) the Credits-per-round grant; nothing is banked before it. From round 2 on every build turn adds the grant to the bank. A setting alongside Credits per round (10 to 80, default 40), shown in the Side menu. Siege's opening build holds it too, as Wall points (default 30).
 _Avoid_: Start points, starting credits
 
 **Wall points**:
-Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). Siege has no Credits economy, so it never says Credits. It shares the Rounds wall price: 1 wall point per unit.
+Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). It comes from the Opening slider, labelled Wall points in Siege (default 30, so matches do not drag on), and Siege has no Credits-per-round slider. Siege has no Credits economy, so it never says Credits. It shares the Rounds wall price: 1 wall point per unit.
 _Avoid_: Credits (in Siege), build points
 
 **Refund**:

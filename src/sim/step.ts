@@ -205,9 +205,9 @@ export type SimConfig = {
   /** Which game mode decides the match. */
   mode: GameModeName
   rounds: number
-  /** Rounds: Credits granted at each build turn. Siege: wall points for the opening build. */
+  /** Rounds: Credits granted at each build turn after the first. Siege does not read it. */
   credits: number
-  /** Rounds: Credits held by each player's round-1 build turn, instead of the per-round grant. Siege does not read it yet. */
+  /** Credits held by each player's round-1 build turn, instead of the per-round grant (Rounds); Siege's opening build holds it as wall points. */
   openingCredits: number
   /** Shots in a round before it ends scoreless (not in sudden death). */
   shotCap: number

@@ -1,6 +1,7 @@
 import { rules } from '../config/rules'
 import { defaultConfig, initialState, step, type SimState } from './step'
 import type { RoundsMatch } from './match'
+import { sliderDefault } from './settings'
 import type { PlayerId, Point } from './pitch'
 import type { PowerUp } from './player'
 import type { StructureSpec } from './wall'
@@ -8,7 +9,7 @@ import type { StructureSpec } from './wall'
 /** A fresh state already in the play phase (build turns are skipped), both players holding one round's Credits. */
 export const playState = (seed = 1): SimState => {
   const s = initialState(seed)
-  return { ...s, match: { ...s.match, builder: null }, credits: { 1: defaultConfig.credits, 2: defaultConfig.credits } }
+  return { ...s, match: { ...s.match, builder: null }, credits: { 1: sliderDefault('siege', 'openingCredits'), 2: sliderDefault('siege', 'openingCredits') } }
 }
 
 /** A fresh state in `owner`'s build turn. */
@@ -27,7 +28,7 @@ export const place = (spec: StructureSpec, s = playState()) => {
 /** `s` with `player` holding exactly `n` Credits. */
 export const funded = (s: SimState, player: PlayerId, n: number): SimState => ({ ...s, credits: { ...s.credits, [player]: n } })
 
-/** A fresh Siege state in `owner`'s opening build turn, holding one round's wall points; towers there spend stock, not Credits. */
+/** A fresh Siege state in `owner`'s opening build turn, holding the Siege Opening amount as wall points; towers there spend stock, not Credits. */
 export const siegeBuild = (owner: PlayerId): SimState => {
   const s = initialState(1, { ...defaultConfig, mode: 'siege' })
   return { ...s, match: { ...s.match, builder: owner }, credits: { 1: defaultConfig.credits, 2: defaultConfig.credits } }

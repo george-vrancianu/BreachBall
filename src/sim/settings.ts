@@ -4,11 +4,11 @@ import { defaultConfig, type SimConfig } from './step'
 export type Settings = { mode: GameModeName; shots: number; rounds: number; credits: number; openingCredits: number; refundRate: number; expiry: SimConfig['expiry'] }
 type SliderKey = Exclude<keyof Settings, 'mode' | 'expiry'>
 
-export const SLIDERS: Record<SliderKey, { label: string; siegeLabel?: string; min: number; max: number; def: number }> = {
+export const SLIDERS: Record<SliderKey, { label: string; siegeLabel?: string; min: number; max: number; def: number; siegeDef?: number }> = {
   shots: { label: 'Shots per possession', min: 1, max: 10, def: 3 },
   rounds: { label: 'Rounds', min: 1, max: 15, def: 5 },
-  credits: { label: 'Credits per round', siegeLabel: 'Wall points', min: 1, max: 30, def: 10 },
-  openingCredits: { label: 'Opening Credits', min: 10, max: 80, def: 40 },
+  credits: { label: 'Credits per round', min: 1, max: 30, def: 10 },
+  openingCredits: { label: 'Opening Credits', siegeLabel: 'Wall points', min: 10, max: 80, def: 40, siegeDef: 30 },
   refundRate: { label: 'Refund rate', min: 1, max: 10, def: 2 },
 }
 
@@ -30,7 +30,7 @@ export const slidersFor = (mode: GameModeName): SliderKey[] => {
     case 'rounds':
       return ['shots', 'rounds', 'credits', 'openingCredits', 'refundRate']
     case 'siege':
-      return ['shots', 'credits']
+      return ['shots', 'openingCredits']
   }
 }
 
@@ -40,7 +40,7 @@ export const UNITS: Record<GameModeName, { short: string; long: string }> = {
   siege: { short: 'pts', long: 'wall points' },
 }
 
-/** A slider's label in `mode`: Siege keeps wall points for its one opening build, Rounds banks Credits (ADR-0004). */
+/** A slider's label in `mode`: Siege's Opening slider reads as Wall points for its one opening build, Rounds banks Credits (ADR-0004). */
 export const sliderLabel = (mode: GameModeName, key: SliderKey): string => {
   switch (mode) {
     case 'rounds':
@@ -50,8 +50,21 @@ export const sliderLabel = (mode: GameModeName, key: SliderKey): string => {
   }
 }
 
+/** A slider's default in `mode`: Siege's budget buys only walls, so its Opening slider starts lower than Rounds'. */
+export const sliderDefault = (mode: GameModeName, key: SliderKey): number => {
+  switch (mode) {
+    case 'rounds':
+      return SLIDERS[key].def
+    case 'siege':
+      return SLIDERS[key].siegeDef ?? SLIDERS[key].def
+  }
+}
+
+/** `s` switched to `mode`, with that mode's default Opening amount (the other sliders keep their values: they mean the same in both modes). */
+export const withMode = (s: Settings, mode: GameModeName): Settings => ({ ...s, mode, openingCredits: sliderDefault(mode, 'openingCredits') })
+
 /** What the settings screen starts with: Siege is the default mode. */
-export const defaultSettings: Settings = { mode: 'siege', shots: SLIDERS.shots.def, rounds: SLIDERS.rounds.def, credits: SLIDERS.credits.def, openingCredits: SLIDERS.openingCredits.def, refundRate: SLIDERS.refundRate.def, expiry: 'shoot' }
+export const defaultSettings: Settings = { mode: 'siege', shots: SLIDERS.shots.def, rounds: SLIDERS.rounds.def, credits: SLIDERS.credits.def, openingCredits: sliderDefault('siege', 'openingCredits'), refundRate: SLIDERS.refundRate.def, expiry: 'shoot' }
 
 const clamp = (k: SliderKey, v: number) => Math.min(SLIDERS[k].max, Math.max(SLIDERS[k].min, Math.round(v)))
 

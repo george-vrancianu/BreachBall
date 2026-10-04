@@ -3,6 +3,7 @@ import { defaultConfig as c, step, type SimState } from '../../sim/step'
 import { buildState, funded, hseg, siegeBuild } from '../../sim/testkit'
 import { kickoffSpot } from '../../sim/pitch'
 import { distToSegment, isLegal, wallSegments } from '../../sim/wall'
+import { sliderDefault } from '../../sim/settings'
 import { rules } from '../../config/rules'
 import { piecesFor, planStrategy, STRATEGIES, strategyCards } from './strategies'
 
@@ -37,6 +38,14 @@ describe('Strategies', () => {
       expect(core.cost).toBeLessThanOrEqual(c.credits)
       // Tapped whole in a poor round, the leading pieces still land.
       expect(planStrategy(poor, owner, st, c).placed).toBeGreaterThanOrEqual(st.core)
+    }
+  })
+
+  it.each(STRATEGIES.map((st) => [st.name, st] as const))('the core of %s fits the Siege Wall points and tower stock, for both players', (_, st) => {
+    for (const owner of [1, 2] as const) {
+      const core = planStrategy(siegeBuild(owner), owner, { ...st, pieces: st.pieces.slice(0, st.core) }, c)
+      expect(core.placed).toBe(st.core)
+      expect(core.cost).toBeLessThanOrEqual(sliderDefault('siege', 'openingCredits'))
     }
   })
 
