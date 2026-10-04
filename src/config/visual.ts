@@ -46,7 +46,7 @@ export const visual = {
   /** Text boxes for layout (no measuring): the average width of a glyph as a share of the font size (em), used to size the box of a label that must be kept clear of. */
   text: { glyphEm: 0.62 },
   /** The decimal point of a "x1.5" label, drawn as a disc so it reads at phone size: its radius, the gap on each side of it and how far below the text's middle it sits, as shares of the font size (em). */
-  decimalPoint: { radiusEm: 0.12, gapEm: 0.1, dropEm: 0.3 },
+  decimalPoint: { radiusEm: 0.12, gapEm: 0.1, dropEm: 0.2 },
   /** The pitch markings from the design handoff, authored in reference px (a 390 px wide pitch) and scaled to world units by `unit`, so everything follows the pane width. */
   pitch: {
     /** The pitch width the handoff is authored at, px. */
@@ -81,7 +81,7 @@ export const visual = {
       arrive: { ms: 700, grow: 0.6, widthPx: 3, flashAlpha: 0.4 },
       /** The Bullseye Credit: the zone flashes and a "+Credits" in the shooter's colour floats up `rise` world units, over `ms`. */
       credit: { ms: 900, flashAlpha: 0.6, rise: 5, px: 16, weight: 800 },
-      label: { px: 14, alpha: 0.7, weight: 800, ringAt: 0.75, bullseyeAt: 0.55 },
+      label: { px: 14, alpha: 0.7, weight: 700, ringAt: 0.75, bullseyeAt: 0.55 },
     },
     /** The build-zone edge on the halfway line, drawn during a build in the builder's colour. */
     buildEdge: { widthPx: 2, dashPx: [10, 8], alpha: 0.35 },
@@ -236,7 +236,7 @@ export const visual = {
     stealMs: 300,
     /** The ball-in-hand placement disc. */
     placementAlpha: 0.5,
-    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period), the "x1.5" / "x2" badge (size, height above the ball, weight; world units). It moves below the ball, then to its side (`sideOffset` from the ball's centre), where it would overlap the zone label or the Aim's chip; `margin` is the clearance kept round those. Then the badge's pop-in (`popMs`, growing from `popScale`). Its launch runs the tracer's core bright (`tracer.brightCore`). */
+    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period), the "x1.5" / "x2" badge (size, height above the ball, weight; world units). It sits above the ball on the screen, and tries below, then right, then left (`sideOffset` from the ball's centre, world units) for the first spot that keeps clear of the zone labels and the Gauge's end label (at most one); `margin` is the clearance kept round those, world units. Then the badge's pop-in (`popMs`, growing from `popScale`). Its launch runs the tracer's core bright (`tracer.brightCore`). */
     charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700, sideOffset: 4.4, margin: 0.3 }, popMs: 250, popScale: 0.5 },
     /** The Breaker outline. */
     armed: { radius: 1.5, swing: 0.25, periodMs: 120, width: 0.3 },

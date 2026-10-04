@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { overlaps, placeBadge, textRect, type Rect } from './layout'
+import { overlaps, placeClear, textRect, type Rect } from './layout'
 
 const rect = (x: number, y: number, w: number, h: number): Rect => ({ x, y, w, h })
 
@@ -17,7 +17,7 @@ describe('textRect', () => {
   })
 })
 
-describe('placeBadge', () => {
+describe('placeClear', () => {
   const badge = { w: 3, h: 1.6 }
   const ball = { x: 20, y: 50 }
   const spots = [
@@ -27,18 +27,18 @@ describe('placeBadge', () => {
   ]
 
   it('stays at the preferred spot when nothing is in the way', () => {
-    expect(placeBadge(ball, badge, spots, [])).toEqual({ x: 20, y: 47.4 })
+    expect(placeClear(ball, badge, spots, [])).toEqual({ x: 20, y: 47.4 })
   })
 
   it('moves to the next spot when the zone label sits where the badge would go', () => {
-    expect(placeBadge(ball, badge, spots, [rect(20, 47.4, 3, 1.6)])).toEqual({ x: 20, y: 52.6 })
+    expect(placeClear(ball, badge, spots, [rect(20, 47.4, 3, 1.6)])).toEqual({ x: 20, y: 52.6 })
   })
 
   it('skips every spot that overlaps any rectangle to avoid, such as the power chip', () => {
-    expect(placeBadge(ball, badge, spots, [rect(20, 47.4, 3, 1.6), rect(20, 52.6, 3, 1.6)])).toEqual({ x: 24, y: 50 })
+    expect(placeClear(ball, badge, spots, [rect(20, 47.4, 3, 1.6), rect(20, 52.6, 3, 1.6)])).toEqual({ x: 24, y: 50 })
   })
 
   it('falls back to the preferred spot when none is clear', () => {
-    expect(placeBadge(ball, badge, spots, [rect(20, 50, 40, 40)])).toEqual({ x: 20, y: 47.4 })
+    expect(placeClear(ball, badge, spots, [rect(20, 50, 40, 40)])).toEqual({ x: 20, y: 47.4 })
   })
 })

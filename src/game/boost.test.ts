@@ -23,10 +23,13 @@ describe('zoneLabels', () => {
     }
   })
 
-  it('has a box as tall as its font size, wide enough for its text', () => {
-    for (const { size, rect, text } of zoneLabels()) {
+  it('has a box centred on the label, as tall as its font size and as wide as its glyphs', () => {
+    for (const { size, rect, text, at } of labels) {
+      expect(size).toBeCloseTo(visual.pitch.boost.label.px * visual.pitch.unit)
+      expect(rect.x).toBe(at.x)
+      expect(rect.y).toBe(at.y)
       expect(rect.h).toBe(size)
-      expect(rect.w).toBeGreaterThan(size * visual.text.glyphEm * (text.length - 1))
+      expect(rect.w).toBeCloseTo(text.length * size * visual.text.glyphEm)
     }
   })
 })

@@ -3,7 +3,7 @@ import type { Ball as BallState } from '../../sim/ball'
 import type { Charge, PlayerId, Point } from '../../sim/pitch'
 import { defaultConfig } from '../../sim/step'
 import { boostColor, boostLabel, zoneLabels } from '../boost'
-import { placeBadge, textRect, type Rect } from '../layout'
+import { placeClear, textRect, type Rect } from '../layout'
 import { tierClimbed } from '../feedback'
 import type { AimView } from '../input/InputController'
 import { tierColor } from './Aim'
@@ -24,7 +24,7 @@ export class Ball extends Entity {
   aim?: Pick<AimView, 'phase' | 'tier' | 'holdProgress' | 'pxPerUnit'>
   /** The ball's charge, null when not Charged: it wears a glow and a badge in its zone's colour, which pop in when a shot brings it to rest in a ring. */
   charge: Charge | null = null
-  /** Boxes (world units) the badge keeps clear of besides the zone labels: the game sets the Aim's chips each frame. */
+  /** Boxes (world units) the badge keeps clear of besides the zone labels: the game sets the Gauge's end label (at most one) each frame. */
   avoid: Rect[] = []
   /** The ball's radius in world units. */
   radius = defaultConfig.ballRadius
@@ -103,7 +103,7 @@ export class Ball extends Entity {
       { dx: turn * badge.sideOffset, dy: 0 },
       { dx: -turn * badge.sideOffset, dy: 0 },
     ]
-    return placeBadge(this.state.pos, { w: box.w, h: box.h }, spots, avoid)
+    return placeClear(this.state.pos, { w: box.w, h: box.h }, spots, avoid)
   }
 
   /** The badge's scale: it grows from `popScale` to 1 as it pops in. */

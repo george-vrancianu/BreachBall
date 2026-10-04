@@ -9,12 +9,12 @@ export const overlaps = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) * 2 <
 /** The box of centred `text` at `at`: `glyphEm` (of the font size) wide per character, one `size` high. */
 export const textRect = (at: Point, text: string, size: number, glyphEm: number): Rect => ({ x: at.x, y: at.y, w: text.length * size * glyphEm, h: size })
 
-/** A badge's spot, as an offset from its ball. */
-export type Spot = { dx: number; dy: number }
+/** A candidate spot for a label, as an offset from its anchor. */
+export type Candidate = { dx: number; dy: number }
 
-/** Where the `badge` (its box size) goes by `ball`: the first of `spots` where it overlaps none of `avoid`, else the first spot. */
-export function placeBadge(ball: Point, badge: { w: number; h: number }, spots: Spot[], avoid: Rect[]): Point {
-  const at = ({ dx, dy }: Spot) => ({ x: ball.x + dx, y: ball.y + dy })
-  const clear = spots.find((s) => !avoid.some((r) => overlaps({ ...at(s), w: badge.w, h: badge.h }, r))) ?? spots[0]
+/** Where a label (`box`, its size) goes by `anchor`: the first of `spots` where it overlaps none of `avoid`, else the first spot. */
+export function placeClear(anchor: Point, box: { w: number; h: number }, spots: Candidate[], avoid: Rect[]): Point {
+  const at = ({ dx, dy }: Candidate) => ({ x: anchor.x + dx, y: anchor.y + dy })
+  const clear = spots.find((s) => !avoid.some((r) => overlaps({ ...at(s), w: box.w, h: box.h }, r))) ?? spots[0]
   return at(clear)
 }
