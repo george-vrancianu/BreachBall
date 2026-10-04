@@ -1,7 +1,7 @@
-import { rules } from '../../config/rules'
+import { rules, type Tier } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { Charge, Point } from '../../sim/pitch'
-import { predictPath } from '../../sim/predict'
+import { predictPath, type Path } from '../../sim/predict'
 import { splashOf } from '../../sim/splash'
 import type { SimConfig, SimState } from '../../sim/step'
 import type { GestureView } from '../input/gesture'
@@ -15,23 +15,15 @@ export type AimLine = Pick<GestureView, 'tier' | 'dir' | 'power' | 'ghost' | 'ca
 /** A tier's colour (Touch green, Power red), for its Ghost and hold ring. */
 export const tierColor = (tier: number): string => visual.aim.tierColors[rules.shot.tiers[tier].name]
 
-/** The first `scale` of a polyline's length. */
-function cut(points: Point[], scale: number): Point[] {
-  const lengths = points.slice(1).map((p, i) => Math.hypot(p.x - points[i].x, p.y - points[i].y))
-  let left = scale * lengths.reduce((a, b) => a + b, 0)
-  const out = [points[0]]
-  for (let i = 0; i < lengths.length; i++) {
-    const [a, b] = [points[i], points[i + 1]]
-    if (lengths[i] >= left) {
-      const t = lengths[i] ? left / lengths[i] : 0
-      out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
-      break
-    }
-    left -= lengths[i]
-    out.push(b)
-  }
-  return out
+/** How far a tier's Ghost reaches for `power`: its `reach` min at the bottom of the tier's power range, max at the top. */
+function reachOf(tier: number, power: number, { reach: [min, max] }: Tier['ghost']): number {
+  const [lo, hi] = rules.shot.tiers[tier].power
+  const t = hi > lo ? Math.min(1, Math.max(0, (power - lo) / (hi - lo))) : 1
+  return min + (max - min) * t
 }
+
+/** A dot of the drawn Ghost: where it sits, its radius (world units) and alpha. */
+export type GhostDot = { at: Point; radius: number; alpha: number }
 
 /** The aim's Ghost (the ball's predicted path) and the expanding Splash ring of a fired Power shot. */
 export class Aim extends Entity {
@@ -42,7 +34,7 @@ export class Aim extends Entity {
   private config?: SimConfig
   private rings: { origin: Point; radius: number; born: number }[] = []
   // The last prediction, redone only when the aim or what it depends on changes, not every frame.
-  private predicted?: { key: string; objects: SimState['objects']; points: Point[] }
+  private predicted?: { key: string; objects: SimState['objects']; path: Path }
 
   sync(state: SimState, config: SimConfig): void {
     this.state = state
@@ -66,18 +58,58 @@ export class Aim extends Entity {
     return this.rings.length
   }
 
-  /** The ball's predicted path from the ball, as the ghost config reaches and cut to its scale. None before the drag. */
-  get ghost(): Point[] | undefined {
+  /** The prediction for the aim in progress, as far as its tier's Ghost reaches; redone only when the aim or what it depends on changes. */
+  private get path(): Path | undefined {
     const { aim, state, config } = this
     if (!aim?.dir || aim.power === undefined || !state || !config) return undefined
     const { tier, dir, power, ghost } = aim
     const key = JSON.stringify([tier, dir, power, ghost, state.ball.pos, state.possession.shooter, state.charge])
     const p = this.predicted
-    if (p?.key === key && p.objects === state.objects) return p.points
-    const path = predictPath(state, { player: state.possession.shooter, tier, dir, power }, config, ghost.until)
-    const points = cut(path.points, ghost.scale)
-    this.predicted = { key, objects: state.objects, points }
-    return points
+    if (p?.key === key && p.objects === state.objects) return p.path
+    const limit = { maxBounces: ghost.maxBounces, maxLength: reachOf(tier, power, ghost) }
+    const path = predictPath(state, { player: state.possession.shooter, tier, dir, power }, config, limit)
+    this.predicted = { key, objects: state.objects, path }
+    return path
+  }
+
+  /** The Ghost: the ball's predicted path from the ball, up to its tier's bounce cap or reach for this power. None before the drag. */
+  get ghost(): Point[] | undefined {
+    return this.path?.points
+  }
+
+  /** Where the Ghost bounces off a structure or board, each marked with a ring. */
+  get ghostBounces(): Point[] {
+    return this.path?.contacts ?? []
+  }
+
+  /**
+   * The Ghost as drawn: dots `visual.aim.ghost.dots.gap` apart from the ball's edge to the path's end, shrinking and fading
+   * toward the end, drifting forward with the clock (faster with more power). Larger for a Charged ball.
+   */
+  get ghostDots(): GhostDot[] {
+    const { path, aim, config } = this
+    if (!path || aim?.power === undefined || !config) return []
+    const { dots, drift, chargedScale } = visual.aim.ghost
+    const { points } = path
+    const lengths = points.slice(1).map((p, i) => Math.hypot(p.x - points[i].x, p.y - points[i].y))
+    const total = lengths.reduce((a, b) => a + b, 0)
+    const scale = this.charge ? chargedScale : 1
+    const offset = ((this.clock / 1000) * (drift.speed + drift.perPower * aim.power)) % dots.gap
+    const out: GhostDot[] = []
+    // `from` is how far along the path segment `i` starts.
+    let [i, from] = [0, 0]
+    for (let d = config.ballRadius + offset; d < total; d += dots.gap) {
+      while (i < lengths.length - 1 && from + lengths[i] < d) from += lengths[i++]
+      const [a, b] = [points[i], points[i + 1]]
+      const t = lengths[i] ? (d - from) / lengths[i] : 0
+      const f = d / total
+      out.push({
+        at: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t },
+        radius: scale * (dots.radius[0] + (dots.radius[1] - dots.radius[0]) * f),
+        alpha: dots.alpha[0] + (dots.alpha[1] - dots.alpha[0]) * f,
+      })
+    }
+    return out
   }
 
   /** The ball's charge, null when not Charged: the Ghost is drawn wider and badged. */
@@ -113,14 +145,24 @@ export class Aim extends Entity {
   protected override render(ctx: CanvasRenderingContext2D): void {
     const { ghost, cancel, ghostColor } = this
     if (ghost && ghostColor) {
-      ctx.beginPath()
-      ghost.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
-      ctx.lineCap = ctx.lineJoin = 'round'
-      ctx.strokeStyle = ghostColor
-      const { charge } = this
-      ctx.lineWidth = charge ? visual.aim.ghost.chargedWidth : visual.aim.ghost.width
-      ctx.stroke()
+      ctx.fillStyle = ctx.strokeStyle = ghostColor
+      for (const { at, radius, alpha } of this.ghostDots) {
+        ctx.globalAlpha = alpha
+        ctx.beginPath()
+        ctx.arc(at.x, at.y, radius, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      const { radius, width, alpha } = visual.aim.ghost.bounce
+      ctx.globalAlpha = alpha
+      ctx.lineWidth = width
+      for (const at of this.ghostBounces) {
+        ctx.beginPath()
+        ctx.arc(at.x, at.y, radius, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      ctx.globalAlpha = 1
       // A Charged ball's Ghost carries its factor at the tip, past the last point along the path's end direction.
+      const { charge } = this
       if (charge && !cancel) this.drawBadge(ctx, ghost, charge)
     }
     if (cancel) {

@@ -15,10 +15,13 @@ function stepUntil(s: SimState, shot: SimInput['shot'], stop: (s: SimState, even
   return r
 }
 const contactOf = (events: SimEvent[]) => events.find((e) => e.type === 'ball-hit-wall' || e.type === 'ball-hit-board')
+/** No bounce cap and no length cap: the whole path to rest. */
+const unlimited = { maxBounces: Infinity, maxLength: Infinity }
+const lengthOf = (ps: Point[]) => ps.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - ps[i].x, p.y - ps[i].y), 0)
 
 describe('predictPath', () => {
-  it('stops at the first board contact for { contacts: 1 }', () => {
-    const p = predictPath(at({ x: 10, y: 20 }), up, c, { contacts: 1 })
+  it('stops at the first board bounce for maxBounces 1', () => {
+    const p = predictPath(at({ x: 10, y: 20 }), up, c, { maxBounces: 1, maxLength: Infinity })
     // Straight up the left of the pitch: the ball (radius 1) meets the end board at y = 0.
     const last = p.points.at(-1)!
     expect(last.x).toBeCloseTo(10)
@@ -30,16 +33,16 @@ describe('predictPath', () => {
     const walled = place({ kind: 'wall', owner: 2, ...hseg(3, 10) })
     expect(walled.events).toEqual([])
     const s = at({ x: 10, y: 40 }, walled.state)
-    const p = predictPath(s, up, c, { contacts: 1 })
+    const p = predictPath(s, up, c, { maxBounces: 1, maxLength: Infinity })
     const hit = contactOf(stepUntil(s, up, (_, ev) => !!contactOf(ev)).events)!
     expect(hit.type).toBe('ball-hit-wall')
     expect(p.points.at(-1)).toEqual(hit.at)
     expect(p.contacts).toEqual([hit.at])
   })
 
-  it('counts N contacts, bouncing off boards', () => {
+  it('counts maxBounces bounces off boards', () => {
     const s = at({ x: 10, y: 20 })
-    const p = predictPath(s, { ...up, dir: { x: -0.6, y: -0.8 }, tier: 1, power: 1 }, c, { contacts: 2 })
+    const p = predictPath(s, { ...up, dir: { x: -0.6, y: -0.8 }, tier: 1, power: 1 }, c, { maxBounces: 2, maxLength: Infinity })
     // Off the left board (x = 0), then the end board (y = 0), less the ball's radius.
     expect(p.contacts).toHaveLength(2)
     expect(p.contacts[0].x).toBeCloseTo(1)
@@ -47,23 +50,46 @@ describe('predictPath', () => {
     expect(p.points.at(-1)).toEqual(p.contacts[1])
   })
 
-  it('ends where the stepped ball comes to rest for "rest"', () => {
+  it('ends early where the stepped ball comes to rest', () => {
     const s = at({ x: 30, y: 60 })
-    const p = predictPath(s, { ...up, dir: { x: 0.6, y: -0.8 } }, c, 'rest')
+    const p = predictPath(s, { ...up, dir: { x: 0.6, y: -0.8 } }, c, unlimited)
     const rest = stepUntil(s, { ...up, dir: { x: 0.6, y: -0.8 } }, (st) => !st.possession.live).state.ball.pos
     expect(p.points.at(-1)).toEqual(rest)
     expect(p.contacts.length).toBeGreaterThan(0)
   })
 
+  it('stops at maxLength, cutting the last segment', () => {
+    const p = predictPath(at({ x: 10, y: 20 }), up, c, { maxBounces: 1, maxLength: 5 })
+    // 5 of the 19 units straight up to the end board.
+    expect(p.points.at(-1)!.x).toBeCloseTo(10)
+    expect(p.points.at(-1)!.y).toBeCloseTo(15)
+    expect(lengthOf(p.points)).toBeCloseTo(5)
+    expect(p.contacts).toEqual([])
+  })
+  it('stops at maxLength after a bounce, before the bounce cap', () => {
+    // Off the left board 15 units along, then 2 more units toward the end board.
+    const p = predictPath(at({ x: 10, y: 20 }), { ...up, dir: { x: -0.6, y: -0.8 }, tier: 1, power: 1 }, c, { maxBounces: 3, maxLength: 17 })
+    expect(p.contacts).toHaveLength(1)
+    expect(lengthOf(p.points)).toBeCloseTo(17)
+  })
+  it('ends at the goal, whatever the caps', () => {
+    const s = at({ x: 20, y: 10 })
+    const shot = { ...up, tier: 1, power: 1 }
+    const goal = stepUntil(s, shot, (_, ev) => ev.some((e) => e.type === 'goal')).events.find((e) => e.type === 'goal')!
+    const p = predictPath(s, shot, c, unlimited)
+    expect(p.points.at(-1)).toEqual(goal.at)
+    expect(p.contacts).toEqual([])
+  })
+
   it('leaves the input state unchanged', () => {
     const s = at({ x: 10, y: 20 })
     const before = structuredClone(s)
-    predictPath(s, up, c, 'rest')
+    predictPath(s, up, c, unlimited)
     expect(s).toEqual(before)
   })
 
   it('predicts no movement for a refused shot', () => {
-    const p = predictPath(at({ x: 10, y: 20 }), { ...up, player: 2 }, c, 'rest')
+    const p = predictPath(at({ x: 10, y: 20 }), { ...up, player: 2 }, c, unlimited)
     expect(p).toEqual({ points: [{ x: 10, y: 20 }], contacts: [] })
   })
 })
