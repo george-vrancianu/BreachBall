@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { WallSpec } from '../../sim/wall'
-import { crackLines, drawSegments, pieces } from './Fixture'
+import { cellRuns, crackLines, drawSegments } from './Fixture'
 
 const spec: WallSpec = { kind: 'wall', owner: 1, a: { x: 10, y: 80 }, b: { x: 26, y: 80 } }
 const diagonal: WallSpec = { kind: 'wall', owner: 2, a: { x: 10, y: 20 }, b: { x: 10 + 8 * Math.SQRT1_2, y: 20 + 8 * Math.SQRT1_2 } }
@@ -24,14 +24,14 @@ describe('crackLines', () => {
   })
 })
 
-describe('pieces', () => {
+describe('cellRuns', () => {
   it('cuts a wall into runs one cell long, a diagonal as many as a straight one', () => {
-    expect(pieces(spec)).toHaveLength(8)
-    expect(pieces(diagonal)).toHaveLength(4)
-    expect(pieces(spec)[0]).toEqual({ a: { x: 10, y: 80 }, b: { x: 12, y: 80 } })
+    expect(cellRuns(spec)).toHaveLength(8)
+    expect(cellRuns(diagonal)).toHaveLength(4)
+    expect(cellRuns(spec)[0]).toEqual({ a: { x: 10, y: 80 }, b: { x: 12, y: 80 } })
   })
   it('gives a tower its four edges', () => {
-    expect(pieces({ kind: 'tower', owner: 1, power: 'steal', at: { gx: 5, gy: 40 } })).toHaveLength(4)
+    expect(cellRuns({ kind: 'tower', owner: 1, power: 'steal', at: { gx: 5, gy: 40 } })).toHaveLength(4)
   })
 })
 

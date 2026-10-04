@@ -49,8 +49,8 @@ export function drawSegments(ctx: CanvasRenderingContext2D, segments: { a: Point
   ctx.stroke()
 }
 
-/** A structure's cell-sized pieces: a tower's four edges, a wall cut into runs one cell long (a diagonal run is as long as a straight one). Cracks land on one and a shatter flies as one each. */
-export function pieces(spec: StructureSpec): { a: Point; b: Point }[] {
+/** A structure's cell-sized runs: a tower's four edges, a wall cut into runs one cell long (a diagonal run is as long as a straight one). Cracks land on one and a shatter flies as one each. */
+export function cellRuns(spec: StructureSpec): { a: Point; b: Point }[] {
   if (spec.kind === 'tower') return wallSegments(spec)
   const { a, b } = spec
   const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / rules.cellSize))
@@ -59,7 +59,7 @@ export function pieces(spec: StructureSpec): { a: Point; b: Point }[] {
 
 /** One jagged crack per lost hit point, as world-space polylines. Deterministic in (id, hp) so peers draw the same cracks. */
 export function crackLines(spec: StructureSpec, id: number, hp: number): Point[][] {
-  const cells = pieces(spec)
+  const cells = cellRuns(spec)
   const max = maxHp(spec)
   const { spread, across, jitter } = visual.wall.crack
   return Array.from({ length: max - hp }, (_, k) => {
@@ -116,7 +116,7 @@ export abstract class Fixture<D extends FixtureData = FixtureData> extends Entit
 
   /** Breaks into one per cell-length run flying from `from`, after `delay` ms (the structure stays whole until then). */
   shatter(from: Point, delay = 0): void {
-    const fragments = pieces(this.data)
+    const fragments = cellRuns(this.data)
     this.shattering = { from, delay, age: 0, fragments }
   }
 
