@@ -73,11 +73,11 @@ The panel at the bottom of the screen holding the active viewer's controls, in t
 _Avoid_: Bottom menu, HUD bar, toolbar
 
 **In-play build**:
-Placing Defence pieces in play, in Rounds, by the shooter before the round's first shot, at a premium (`rules.playBuild`). The pieces are final: they can be neither moved nor demolished.
+Placing Defence pieces in play, in Rounds, by the shooter before the round's first shot, at a premium (`rules.playBuild`): a wall 2 per unit, a Repulsor 6 and a Steal 5. The pieces are final: they can be neither moved nor demolished.
 _Avoid_: Mid-game build, quick build
 
 **Strategy**:
-A ready-made defence layout offered in the build dock's tray, drawn as a card with a preview of the builder's half and its net cost. Tapping one clears this turn's own pieces (refunded in full) and places the layout a piece a tick through the normal placing rules; a piece that does not fit or cannot be paid for is skipped. Authored on Player 1's half and point-reflected for Player 2.
+A ready-made defence layout offered in the build dock's tray, drawn as a card with a preview of the builder's half and its net cost. Tapping one clears this turn's own pieces (refunded in full) and places the layout a piece a tick through the normal placing rules; a piece that does not fit or cannot be paid for is skipped. Each declares its **core**, the number of leading pieces that form its essential shape and fit one round's Credits per round, so a full-budget Strategy tapped in a later, poorer round still drops its core. Authored on Player 1's half and point-reflected for Player 2.
 _Avoid_: Preset, template, formation, plan (the tile's short label is Plans)
 
 **Map view**:
@@ -112,6 +112,10 @@ _Avoid_: Sabotage, debuff, special
 The single resource every Offence, Defence and Subterfuge item is bought with, each item at its own price. A player gets a grant each round and keeps unspent Credits for the rest of the match.
 _Avoid_: Build points, power-up points, resources, energy (and Wall points in Rounds; see below)
 
+**Opening Credits**:
+The Credits each player's round-1 build turn holds in Rounds, instead of (not on top of) the Credits-per-round grant; nothing is banked before it. From round 2 on every build turn adds the grant to the bank. A setting alongside Credits per round (10 to 80, default 40), shown in the Side menu. Siege does not read it yet.
+_Avoid_: Start points, starting credits
+
 **Wall points**:
 Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). Siege has no Credits economy, so it never says Credits.
 _Avoid_: Credits (in Siege), build points
@@ -125,7 +129,7 @@ The family of items that power up your own shot, bought with Credits during your
 _Avoid_: Attack, power-ups (as the family name)
 
 **Defence**:
-The family of items you build on your half (walls, towers), bought with Credits during your build turn: a wall by its units, a Repulsor 3 and a Steal 2. A tower placed this turn is refunded in full if demolished, as a wall is. Siege keeps its fixed tower stock instead.
+The family of items you build on your half (walls, towers), bought with Credits during your build turn: a wall by its units (1 each), a Repulsor 5 and a Steal 4. A tower placed this turn is refunded in full if demolished, as a wall is. Siege keeps its fixed tower stock instead.
 _Avoid_: Build menu, structures (as the family name)
 
 **Wall**:
@@ -133,7 +137,7 @@ The Defence item drawn on your half as one straight segment in a single drag: it
 _Avoid_: Straight wall, L wall, piece (for a placed wall; "build piece" and "fallback piece" stay), block, barrier
 
 **Unit**:
-The length a wall is measured in and priced by: every unit costs the same Credits at any angle. One unit is the old straight wall's length end to end.
+The length a wall is measured in and priced by: every unit costs the same Credits at any angle (1 in a build turn, 2 in an in-play build). One unit is the old straight wall's length end to end.
 _Avoid_: Segment, cell (for wall length), tile
 
 **Centre zone**:

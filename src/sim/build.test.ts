@@ -11,15 +11,17 @@ const run = (s: SimState, ...inputs: SimInput[]) => inputs.reduce((st, i) => ste
 const loser = opponent(coinFlip(1, 1))
 
 describe('build order', () => {
-  it('round 1 starts with the coin-flip loser, who has the configured points', () => {
+  it('round 1 starts with the coin-flip loser, who holds the Opening Credits, whatever Credits per round is', () => {
     const s = initialState()
     expect(s.match.builder).toBe(loser)
-    expect(s.credits[loser]).toBe(c.credits)
+    expect(s.credits[loser]).toBe(c.openingCredits)
+    const rich = { ...c, credits: 25 }
+    expect(initialState(1, rich).credits[loser]).toBe(c.openingCredits)
   })
   it('the second builder follows, then play begins', () => {
     let s = run(initialState(), { done: loser })
     expect(s.match.builder).toBe(opponent(loser))
-    expect(s.credits[opponent(loser)]).toBe(c.credits)
+    expect(s.credits[opponent(loser)]).toBe(c.openingCredits)
     s = run(s, { done: opponent(loser) })
     expect(s.match.builder).toBeNull()
   })
@@ -31,24 +33,24 @@ describe('build order', () => {
     expect(s.match.builder).toBe(opponent(loser))
     expect(s.credits[opponent(loser)]).toBe(c.credits)
   })
-  it('Rounds banks unspent Credits: each build turn adds the grant to what is left', () => {
-    // Round 1: the loser spends 2, the other spends nothing; a goal ends the round.
+  it('Rounds banks unspent Credits: round 1 holds the Opening Credits, every later build turn adds the grant to what is left', () => {
+    // Round 1: the loser spends 1, the other spends nothing; a goal ends the round.
     const played = run(initialState(), { placeWall: wall(loser) }, { done: loser }, { done: opponent(loser) })
     const goal = { ...played, ball: { pos: { x: 20, y: 0.5 }, vel: { x: 0, y: -60 }, rolled: 0 }, possession: { shooter: 1 as const, shots: 3, inHand: false, live: true } }
     const round2 = run(goal, {})
     expect(round2.match.builder).toBe(opponent(loser))
-    expect(round2.credits[opponent(loser)]).toBe(20)
+    expect(round2.credits[opponent(loser)]).toBe(c.openingCredits + c.credits)
     const second = run(round2, { done: opponent(loser) })
-    expect(second.credits[loser]).toBe(18)
+    expect(second.credits[loser]).toBe(c.openingCredits - 1 + c.credits)
   })
-  it('spending 6 of 10 in round 1 leaves 14 at the start of round 2', () => {
+  it('spending 3 of the opening 40 in round 1 leaves 47 at the start of round 2', () => {
     const at = (gx: number): WallSpec => ({ ...wall(loser), ...hseg(gx, loser === 1 ? 40 : 10) })
     const played = run(initialState(), { placeWall: at(4) }, { placeWall: at(10) }, { placeWall: at(16) }, { done: loser }, { done: opponent(loser) })
-    expect(played.credits[loser]).toBe(4)
+    expect(played.credits[loser]).toBe(c.openingCredits - 3)
     const goal = { ...played, ball: { pos: { x: 20, y: 0.5 }, vel: { x: 0, y: -60 }, rolled: 0 }, possession: { shooter: 1 as const, shots: 3, inHand: false, live: true } }
     const round2 = run(run(goal, {}), { done: opponent(loser) })
     expect(round2.match.builder).toBe(loser)
-    expect(round2.credits[loser]).toBe(14)
+    expect(round2.credits[loser]).toBe(c.openingCredits - 3 + c.credits)
   })
   it('a player holds no Credits before their first build turn', () => {
     expect(initialState().credits[opponent(loser)]).toBe(0)
@@ -66,11 +68,11 @@ describe('build actions', () => {
   })
   it('placement costs points; a shape that does not fit the budget is refused', () => {
     let s = run(initialState(), { placeWall: wall(loser, 2) })
-    expect(s.credits[loser]).toBe(c.credits - 4)
-    s = { ...initialState(), credits: { ...s.credits, [loser]: 1 } }
+    expect(s.credits[loser]).toBe(c.openingCredits - 2)
+    s = { ...initialState(), credits: { ...s.credits, [loser]: 0 } }
     const r = step(s, { placeWall: wall(loser) }, c)
     expect(r.events).toEqual([{ type: 'refused' }])
-    expect(r.state.credits[loser]).toBe(1)
+    expect(r.state.credits[loser]).toBe(0)
   })
   it('only the builder may place or demolish', () => {
     const other = opponent(loser)
@@ -129,21 +131,21 @@ describe('moving and refunding this turn\'s items', () => {
     const longer = { player: 1 as const, id: 1, ...hseg(10, 40, 2) }
     it('charges the difference for a longer wall, and demolishing then refunds everything paid', () => {
       const s = withCredits()
-      expect(s.credits[1]).toBe(8)
+      expect(s.credits[1]).toBe(9)
       const r = step(s, { moveStructure: longer }, c)
       expect(r.events).toEqual([])
-      expect(r.state.credits[1]).toBe(6)
+      expect(r.state.credits[1]).toBe(8)
       expect(step(r.state, { demolish: { player: 1, wall: 1 } }, c).state.credits[1]).toBe(10)
     })
     it('refuses a longer wall the builder cannot afford, changing nothing', () => {
-      const s = withCredits(1)
+      const s = withCredits(0)
       const r = step(s, { moveStructure: longer }, c)
       expect(r.events).toEqual([{ type: 'refused' }])
       expect(r.state.objects).toEqual(s.objects)
       expect(r.state.credits).toEqual(s.credits)
     })
     it('accepts a longer wall that costs exactly the Credits left', () => {
-      const s = withCredits(2)
+      const s = withCredits(1)
       const r = step(s, { moveStructure: longer }, c)
       expect(r.events).toEqual([])
       expect(r.state.credits[1]).toBe(0)
@@ -161,13 +163,13 @@ describe('moving and refunding this turn\'s items', () => {
       const s = step({ ...base, credits: { ...base.credits, [builder]: 10 } }, { placeWall: { ...wall(builder), ...hseg(10, builder === 1 ? 40 : 10) } }, siege).state
       const r = step(s, { moveStructure: { player: builder, id: s.objects[0].id, ...hseg(10, builder === 1 ? 40 : 10, 2) } }, siege)
       expect(r.events).toEqual([])
-      expect(r.state.credits[builder]).toBe(6)
+      expect(r.state.credits[builder]).toBe(8)
     })
     it('refunds the difference for a shorter wall', () => {
       let s = run({ ...buildState(1), credits: { 1: 10, 2: 10 } }, { placeWall: wall(1, 2) })
-      expect(s.credits[1]).toBe(6)
-      s = step(s, { moveStructure: { player: 1, id: 1, ...hseg(10, 40, 1) } }, c).state
       expect(s.credits[1]).toBe(8)
+      s = step(s, { moveStructure: { player: 1, id: 1, ...hseg(10, 40, 1) } }, c).state
+      expect(s.credits[1]).toBe(9)
     })
   })
   it('refuses moving an older item, another player\'s item, or to an illegal spot', () => {
@@ -184,7 +186,7 @@ describe('moving and refunding this turn\'s items', () => {
     const r = step(s, { demolish: { player: 1, wall: 1 } }, c)
     expect(r.events).toEqual([])
     expect(r.state.objects).toEqual([])
-    expect(r.state.credits[1]).toBe(4)
+    expect(r.state.credits[1]).toBe(2)
     expect(r.state.built).toEqual([])
   })
   it('demolishing a tower placed this turn refunds its price in full', () => {

@@ -314,20 +314,20 @@ describe('Siege build timeout', () => {
   })
 
   it('with too few wall points the fallback is a tower', () => {
-    const cfg = { ...timed, credits: 1 }
+    const cfg = { ...timed, credits: 0 }
     const { s } = idle(initialState(1, cfg), TICKS, cfg)
     expect(owned(s, first)).toMatchObject([{ kind: 'tower' }])
     expect(s.match.builder).toBe(opponent(first))
   })
 
   it('the fallback piece mirrors across the halfway line and always places, for either seat, wall or tower', () => {
-    for (const credits of [timed.credits, 1]) {
+    for (const credits of [timed.credits, 0]) {
       const cfg = { ...timed, credits }
       const second = opponent(first)
       const { s } = idle(initialState(1, cfg), 2 * TICKS, cfg)
       const [a, b] = [owned(s, first), owned(s, second)]
       expect([a.length, b.length]).toEqual([1, 1])
-      expect(a[0].kind).toBe(credits === 1 ? 'tower' : 'wall')
+      expect(a[0].kind).toBe(credits === 0 ? 'tower' : 'wall')
       const [p1, p2] = first === 1 ? [a[0], b[0]] : [b[0], a[0]]
       expect(isLegal(p1, [])).toBe(true)
       expect(isLegal(p2, [])).toBe(true)

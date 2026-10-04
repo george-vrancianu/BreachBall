@@ -101,8 +101,8 @@ export const rounds: GameMode<RoundsMatch> = {
   paysBreaker: () => true,
   mayPlayBuild: (m) => m.roundShots === 0,
   opening: () => false,
-  // Credits bank: each build turn adds the round's grant to what is left.
-  onBuildStart: (m, ctx, c) => ({ credits: (m.builder ? ctx.credits[m.builder] : 0) + c.credits, built: [] }),
+  // Credits bank: round 1's build turn holds the Opening Credits instead of the grant (nothing is banked yet); every later build turn adds the round's grant to what is left.
+  onBuildStart: (m, ctx, c) => ({ credits: m.round === 1 ? c.openingCredits : (m.builder ? ctx.credits[m.builder] : 0) + c.credits, built: [] }),
   // The last round is over and the score is not tied; a tie means sudden death.
   winner: (m, _ctx, c) => (m.round > c.rounds && m.score[1] !== m.score[2] ? (m.score[1] > m.score[2] ? 1 : 2) : null),
 }

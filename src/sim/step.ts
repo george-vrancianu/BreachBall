@@ -207,6 +207,8 @@ export type SimConfig = {
   rounds: number
   /** Rounds: Credits granted at each build turn. Siege: wall points for the opening build. */
   credits: number
+  /** Rounds: Credits held by each player's round-1 build turn, instead of the per-round grant. Siege does not read it yet. */
+  openingCredits: number
   /** Shots in a round before it ends scoreless (not in sudden death). */
   shotCap: number
   /** Seconds per shot. */
@@ -232,6 +234,7 @@ export const defaultConfig: SimConfig = {
   mode: 'rounds',
   rounds: 5,
   credits: 10,
+  openingCredits: 40,
   shotCap: 30,
   shotClock: 15,
   buildTime: 0,

@@ -20,7 +20,7 @@ describe('in-play build (Rounds)', () => {
     const after = run(s, { placeWall: wall(1, 2) })
     expect(after.objects).toHaveLength(1)
     expect(s.credits[1] - after.credits[1]).toBe(2 * rules.playBuild.wallUnitCost)
-    expect(playCost(wall(1, 2))).toBe(6)
+    expect(playCost(wall(1, 2))).toBe(4)
     expect(playCost({ kind: 'tower', owner: 1, power: 'repulsor', at: { gx: 9, gy: 40 } })).toBe(rules.playBuild.towerCost.repulsor)
   })
 

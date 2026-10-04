@@ -152,7 +152,7 @@ describe('Game', () => {
       expect(view().strategies).toBeUndefined()
       game.actions.strategies.toggle()
       step()
-      expect(view().strategies?.map((c) => c.id)).toEqual(['bulwark', 'chevron', 'turrets', 'zigzag'])
+      expect(view().strategies?.map((c) => c.id)).toEqual(['bulwark', 'chevron', 'turrets', 'zigzag', 'fortress'])
       game.actions.strategies.toggle()
       step()
       expect(view().strategies).toBeUndefined()

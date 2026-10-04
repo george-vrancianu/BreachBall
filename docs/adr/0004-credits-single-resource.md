@@ -14,3 +14,7 @@ Players used to have two unrelated stocks: wall points granted per build phase a
 - Banking changes the build rule that unspent points are lost, and towers stop being free pieces drawn from stock: they cost Credits like walls.
 - Credits and Refund are sim state and sim inputs, so they stay deterministic for lockstep.
 - Siege keeps its old rules (wall points, fixed inventory) for now and is not ported; it may be retired.
+
+## Amendment: the first build turn has its own grant
+
+Round 1's build turn now holds **Opening Credits** (default 40) instead of the per-round grant, so the kick-off is a bigger decision: Defence prices dropped for walls (1 per unit) and rose for towers (Repulsor 5, Steal 4), and a first full-budget Strategy shows it off. Nothing is banked before round 1; from round 2 on each build turn adds the per-round grant (default 10) to the bank as before. Siege is unchanged and keeps reading Credits per round as wall points.

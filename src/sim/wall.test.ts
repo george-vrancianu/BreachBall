@@ -15,8 +15,8 @@ const near = (got: Point | null, want: Point) => {
 }
 
 describe('rules', () => {
-  it('a unit is four cells, one or two units long, at 0/45/90/135 degrees, 2 Credits a unit', () => {
-    expect(rules.wall).toEqual({ unit: 8, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 2, shapeTol: 0.01 })
+  it('a unit is four cells, one or two units long, at 0/45/90/135 degrees, 1 Credit a unit', () => {
+    expect(rules.wall).toEqual({ unit: 8, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 1, shapeTol: 0.01 })
     expect(rules.centreZoneRadius).toBe(6)
     expect(rules.wallHp).toBe(3)
   })
@@ -24,11 +24,11 @@ describe('rules', () => {
 
 describe('cost', () => {
   it('is units times the per-unit price, at any angle', () => {
-    expect(wallCost(wall(1, p(0, 0), p(U, 0)))).toBe(2)
-    expect(wallCost(wall(1, p(0, 0), p(2 * U, 0)))).toBe(4)
-    expect(wallCost(wall(1, p(0, 0), p(D, D)))).toBe(2)
-    expect(wallCost(wall(1, p(0, 0), p(2 * D, -2 * D)))).toBe(4)
-    expect(structureCost(wall(1, p(0, 0), p(0, 2 * U)))).toBe(4)
+    expect(wallCost(wall(1, p(0, 0), p(U, 0)))).toBe(1)
+    expect(wallCost(wall(1, p(0, 0), p(2 * U, 0)))).toBe(2)
+    expect(wallCost(wall(1, p(0, 0), p(D, D)))).toBe(1)
+    expect(wallCost(wall(1, p(0, 0), p(2 * D, -2 * D)))).toBe(2)
+    expect(structureCost(wall(1, p(0, 0), p(0, 2 * U)))).toBe(2)
   })
   it('counts units from the length, rounded', () => {
     expect(wallUnits(wall(1, p(0, 0), p(D, D)))).toBe(1)
