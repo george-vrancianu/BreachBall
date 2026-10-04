@@ -126,12 +126,9 @@ export function StillHero() {
   )
 }
 
-/** Without a stated preference (no `matchMedia`) there is no animation, so tests and odd embeds get the still. */
-const prefersStill = () => typeof matchMedia !== 'function' || reducedMotion()
-
 /** The Attract loop (see GLOSSARY.md), or the still under reduced motion. Runs on requestAnimationFrame while mounted and the tab is visible; the seed is the clock. */
 export function AttractHero() {
-  const [still] = useState(prefersStill)
+  const [still] = useState(reducedMotion)
   const loop = useRef<Attract>(null)
   const [scene, setScene] = useState<Attract | null>(null)
   useEffect(() => {

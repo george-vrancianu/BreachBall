@@ -85,7 +85,7 @@ describe('QueuedIcons', () => {
   })
   it('sits under the targeted half of the Defence bar, below the Resource bar row, on the far edge', () => {
     const { bar, queued } = visual.hud
-    const offset = `${bar.heightPx + queued.reservedPx + queued.edgePx}px`
+    const offset = `${bar.heightPx + bar.resourceRowPx + queued.edgePx}px`
     const { container, rerender } = render(<QueuedIcons queued={[{ item: 'jam', by: 1, against: 2 }]} flipped={false} />)
     const root = container.firstChild as HTMLElement
     expect(root.style.top).toBe(offset)

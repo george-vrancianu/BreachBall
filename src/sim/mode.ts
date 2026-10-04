@@ -50,6 +50,8 @@ export type GameMode<M extends Match = Match> = {
   mayEdit(m: M): boolean
   /** Whether the shooter may refund Move points for Credits; Siege has no Credits economy (ADR-0004). */
   mayRefund(m: M): boolean
+  /** Whether the mode has a Credits economy (ADR-0004); the Resource bar shows only where it does. Siege has none. */
+  hasCredits(m: M): boolean
   /** Whether a player may buy Subterfuge items with Credits; Siege has no Credits economy (ADR-0004). */
   maySubterfuge(m: M): boolean
   /** Whether the Breaker is bought with Credits (`rules.breakerCost`) rather than drawn from the 3-each stock; Siege has no Credits economy, so it keeps the stock. */
@@ -91,6 +93,7 @@ export const rounds: GameMode<RoundsMatch> = {
   onBuildTimeout: () => null,
   mayEdit: () => true,
   mayRefund: () => true,
+  hasCredits: () => true,
   maySubterfuge: () => true,
   paysBreaker: () => true,
   opening: () => false,
@@ -143,6 +146,7 @@ export const siege: GameMode<SiegeMatch> = {
   },
   mayEdit: (m) => m.opening,
   mayRefund: () => false,
+  hasCredits: () => false,
   maySubterfuge: () => false,
   paysBreaker: () => false,
   opening: (m) => m.opening && m.builder !== null,

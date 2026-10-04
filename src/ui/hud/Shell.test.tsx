@@ -12,6 +12,7 @@ afterEach(cleanup)
 const hud = (over: Partial<HudModel> = {}): HudModel => ({
   players: { 1: { digit: '3', inventory: { breaker: 1, repulsor: 0, steal: 2 } }, 2: { digit: '?', inventory: { breaker: 4, repulsor: 4, steal: 4 } } },
   defenceBar: { 1: { count: '3', segments: [true, true, true] }, 2: { count: '?', segments: [] } },
+  resourceBar: null,
   active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, score: null, phase: 'Play', ...over,
 })
 const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
