@@ -160,6 +160,38 @@ describe('Defence circle', () => {
   })
 })
 
+describe('Defence circle balance', () => {
+  const siegeOpening = (): SimState => {
+    const base = initialState(1, { ...c, mode: 'siege' })
+    return { ...base, match: { ...base.match, builder: 1 }, credits: { 1: 14, 2: 9 } }
+  }
+  const inRounds = (credits: number): SimState => ({ ...buildState(1), credits: { 1: credits, 2: 99 } })
+  it('Rounds: the builder\'s own Credits, never the opponent\'s', () => {
+    expect(menuOf(inRounds(14), 1, {}, actions).balance).toEqual({ amount: 14, unit: 'Credits' })
+  })
+  it('Siege: the builder\'s wall points', () => {
+    expect(menuOf(siegeOpening(), 1, {}, actions).balance).toEqual({ amount: 14, unit: 'wall points' })
+  })
+  it('follows the state: placing spends, demolishing refunds', () => {
+    const s = inRounds(14)
+    const after = step(s, { placeWall: wall }, c).state
+    const spent = menuOf(after, 1, {}, actions).balance!.amount
+    expect(spent).toBeLessThan(14)
+    const back = step(after, { demolish: { player: 1, wall: after.objects[0]!.id } }, c).state
+    expect(menuOf(back, 1, {}, actions).balance!.amount).toBe(14)
+  })
+  it('is absent for the viewer who is not building, so a blind build reveals nothing', () => {
+    expect(menuOf(inRounds(14), 2, {}, actions).balance).toBeUndefined()
+    expect(menuOf(siegeOpening(), 2, {}, actions).balance).toBeUndefined()
+  })
+  it('is absent when this device does not play the builder, and on a Rearrange turn', () => {
+    expect(menuOf(inRounds(14), 1, { mine: (p) => p === 2 }, actions).balance).toBeUndefined()
+    const base = initialState(1, { ...c, mode: 'siege' })
+    const rearrange = { ...base, match: { ...base.match, builder: 1, opening: false } } as SimState
+    expect(menuOf(rearrange, 1, {}, actions).balance).toBeUndefined()
+  })
+})
+
 describe('placingOf', () => {
   it('names the item of a piece the sim does not hold yet, and nothing for a placed one', () => {
     expect(placingOf({ spec: wall, movable: true })).toBe('wall')
