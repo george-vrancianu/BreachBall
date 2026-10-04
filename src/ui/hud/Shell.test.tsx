@@ -289,6 +289,14 @@ describe('Shell', () => {
       { item: 'cannon', label: 'Cannon', disabled: true, pressed: false, soon: true },
     ]
     const model = (over: Partial<DefenceCircle> = {}): DefenceCircle => ({ building: false, items: items(), available: true, ...over })
+    it('shows the builder\'s balance on the circle, and nothing when the model has none', () => {
+      const r = render(<Shell {...props()} defence={model({ balance: { amount: 14, unit: 'Credits' } })} />)
+      expect(screen.getByRole('status', { name: '14 Credits' }).textContent).toBe('14')
+      r.rerender(<Shell {...props()} defence={model({ balance: { amount: 6, unit: 'wall points' } })} />)
+      expect(screen.getByRole('status', { name: '6 wall points' }).textContent).toBe('6')
+      r.rerender(<Shell {...props()} defence={model()} />)
+      expect(screen.queryByRole('status')).toBeNull()
+    })
     const circle = () => screen.getByRole('button', { name: /^(Build|Leave building)$/ })
     const setup = (m: DefenceCircle = model()) => {
       vi.useFakeTimers()

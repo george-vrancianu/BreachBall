@@ -7,7 +7,7 @@ import { Button, FONT } from '../ButtonRow'
 import { GREY, ItemButton, NO_CALLOUT, noMenu, useColumn } from './ItemButton'
 
 const { ink, panel, shadow } = visual.hud
-const { circlePx, borderPx, itemPx, gap, pulseMs, pulseScale, columnZ, circleFontPx } = visual.hud.defence
+const { circlePx, borderPx, itemPx, gap, pulseMs, pulseScale, columnZ, circleFontPx, balance: badge } = visual.hud.defence
 const ROUND: CSSProperties = { ...FONT, width: 52, height: 52, borderRadius: '50%', border: `2px solid ${ink}`, color: ink, background: panel, fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, boxShadow: `0 2px 8px ${shadow}` }
 
 const svg = (size: number, d: ReactNode) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">{d}</svg>
@@ -34,7 +34,7 @@ type Press = { x: number; y: number; slid: boolean; opened: boolean; pulsed: boo
  * Beside it, the controls of the selected structure.
  */
 export function DefenceCircle({ defence, color, flipped = false, onToggle, onArm, onOpen, className, style, children }: { defence: DefenceCircleView; color: string; flipped?: boolean; onToggle(): void; onArm(item: Item): void; /** The piece column opened (true) or closed (false), unmounting included. */ onOpen?(open: boolean): void; className?: string; style?: CSSProperties; children?: ReactNode }) {
-  const { building, available, items, selection } = defence
+  const { building, available, items, selection, balance } = defence
   const [open, setOpen] = useState(false)
   const hold = useRef<ReturnType<typeof setTimeout>>(undefined)
   const circle = useRef<HTMLButtonElement>(null)
@@ -127,6 +127,9 @@ export function DefenceCircle({ defence, color, flipped = false, onToggle, onArm
         >
           {building ? '✕' : WALL}
         </button>
+        {balance && (
+          <span role="status" aria-label={`${balance.amount} ${balance.unit}`} style={{ ...FONT, position: 'absolute', top: badge.offsetPx, right: badge.offsetPx, minWidth: badge.minPx, borderRadius: badge.minPx / 2, background: color, color: visual.hud.dark, fontSize: badge.fontPx, textAlign: 'center', pointerEvents: 'none' }}>{balance.amount}</span>
+        )}
       </div>
       {children}
     </div>
