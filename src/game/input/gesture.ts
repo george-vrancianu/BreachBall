@@ -60,15 +60,18 @@ export function cancelArmed(g: AimGesture): boolean {
 }
 
 /**
- * What the gesture shows: its phase and tier, the tier's control radius in screen px and Ghost config, and the aim once there is one.
+ * What the gesture shows: its phase and tier, the tier's control radius in screen px and Ghost config, and the aim once there is one,
+ * with `pullPx`, the finger's distance from the ball's centre in screen px (not clamped to the control radius).
  * `cancel` while cancel-armed: the aim is still shown (greyed) though none is held.
  */
-export type GestureView = { phase: 'holding' | 'aiming'; tier: number; holdProgress: number; radiusPx: number; ghost: Tier['ghost']; dir?: Point; power?: number; cancel?: true }
+export type GestureView = { phase: 'holding' | 'aiming'; tier: number; holdProgress: number; radiusPx: number; ghost: Tier['ghost']; dir?: Point; power?: number; pullPx?: number; cancel?: true }
 
 export function aimViewOf(g: AimGesture): GestureView | undefined {
   if (g.phase === 'pan') return undefined
   const { radiusPx, ghost } = tierOf(g.tier)
-  return { phase: g.phase, tier: g.tier, holdProgress: holdProgress(g.tier, g.held), radiusPx, ghost, ...dragAim(g), ...(cancelArmed(g) && { cancel: true }) }
+  const aim = dragAim(g)
+  const pull = aim && { pullPx: Math.hypot(g.at.x - g.centre.x, g.at.y - g.centre.y) }
+  return { phase: g.phase, tier: g.tier, holdProgress: holdProgress(g.tier, g.held), radiusPx, ghost, ...aim, ...pull, ...(cancelArmed(g) && { cancel: true }) }
 }
 
 /** What a release does: a pan ends, a release with no aim (within the slop or the edge zone) cancels, anything else fires. */

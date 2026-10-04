@@ -130,6 +130,11 @@ describe('aim gesture view', () => {
     expect(v).toMatchObject({ phase: 'aiming', tier: 0, radiusPx: 150, dir: { x: 0, y: -1 } })
     expect(v?.power).toBeCloseTo(0.45)
   })
+  it('shows how far the finger is from the ball\'s centre, past the control radius too', () => {
+    expect(aimViewOf(aimMove(press(p(120, 290)), p(130, 340), 100))?.pullPx).toBe(50)
+    expect(aimViewOf(dragTo(100, 600))?.pullPx).toBe(300)
+    expect(aimViewOf(press())?.pullPx).toBeUndefined()
+  })
 })
 
 // Edge cancel: within 24 px of any canvas edge.
