@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
+import { reducedMotion } from '../../game/feedback'
 import type { BuildMenu as BuildMenuView, Item, ItemSpec } from '../../game/view/buildMenu'
 import type { ButtonSpec } from '../../game/view/hudModel'
 import { Button, FONT } from '../ButtonRow'
 
 const { ink, panel, shadow } = visual.hud
-const { circlePx, borderPx, itemPx, pillPx, gap, pulseMs, columnZ } = visual.hud.defence
+const { circlePx, borderPx, itemPx, pillPx, gap, pulseMs, pulseScale, columnZ, circleFontPx, itemFontPx, pillFontPx, pillOffsetPx, pillPadPx, pillBorderPx } = visual.hud.defence
+// A long press on touch would otherwise open the context menu, select text or show the callout.
+const NO_CALLOUT: CSSProperties = { userSelect: 'none', WebkitTouchCallout: 'none' }
+const noMenu = (e: { preventDefault(): void }) => e.preventDefault()
 const GREY = visual.tokens.ghostBorder
 const ROUND: CSSProperties = { ...FONT, width: 52, height: 52, borderRadius: '50%', border: `2px solid ${ink}`, color: ink, background: panel, fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, boxShadow: `0 2px 8px ${shadow}` }
 
@@ -35,10 +39,11 @@ function ItemButton({ spec, color, onPick }: { spec: ItemSpec; color: string; on
       aria-pressed={spec.pressed}
       aria-disabled={off}
       onClick={() => !off && spec.item !== 'cannon' && onPick(spec.item)}
-      style={{ ...FONT, position: 'relative', width: itemPx, height: itemPx, padding: 0, borderRadius: '50%', border: `2px solid ${edge}`, color: off ? GREY : ink, background: spec.pressed ? visual.hud.pressed : panel, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 2px 8px ${shadow}`, touchAction: 'none' }}
+      onContextMenu={noMenu}
+      style={{ ...FONT, position: 'relative', width: itemPx, height: itemPx, padding: 0, borderRadius: '50%', border: `2px solid ${edge}`, color: off ? GREY : ink, background: spec.pressed ? visual.hud.pressed : panel, fontSize: itemFontPx, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 2px 8px ${shadow}`, touchAction: 'none', ...NO_CALLOUT }}
     >
       {ITEM_ICON[spec.item]}
-      <span style={{ position: 'absolute', left: itemPx + 8, height: pillPx, lineHeight: `${pillPx - 4}px`, padding: '0 12px', boxSizing: 'border-box', borderRadius: pillPx / 2, border: `2px solid ${GREY}`, background: panel, color: off ? GREY : spec.pressed ? color : ink, whiteSpace: 'nowrap', fontSize: 13 }}>{spec.soon ? `${spec.label} · soon` : spec.label}</span>
+      <span style={{ position: 'absolute', left: itemPx + pillOffsetPx, height: pillPx, lineHeight: `${pillPx - 2 * pillBorderPx}px`, padding: `0 ${pillPadPx}px`, boxSizing: 'border-box', borderRadius: pillPx / 2, border: `${pillBorderPx}px solid ${GREY}`, background: panel, color: off ? GREY : spec.pressed ? color : ink, whiteSpace: 'nowrap', fontSize: pillFontPx }}>{spec.soon ? `${spec.label} · soon` : spec.label}</span>
     </button>
   )
 }
@@ -51,9 +56,7 @@ function ItemButton({ spec, color, onPick }: { spec: ItemSpec; color: string; on
 export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, className, style, children }: { menu: BuildMenuView; color: string; flipped?: boolean; onToggle(): void; onArm(item: Item): void; className?: string; style?: CSSProperties; children?: ReactNode }) {
   const { building, available, items, selection } = menu
   const [open, setOpen] = useState(false)
-  const [pulse, setPulse] = useState(false)
   const hold = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const pulseTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const circle = useRef<HTMLButtonElement>(null)
   // The press in progress: where it began, and what the hold did.
   const press = useRef<Press>(undefined)
@@ -62,7 +65,7 @@ export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, class
   availableRef.current = available
   const column = useRef<HTMLDivElement>(null)
   const clearHold = () => clearTimeout(hold.current)
-  useEffect(() => () => (clearTimeout(hold.current), clearTimeout(pulseTimer.current)), [])
+  useEffect(() => () => clearTimeout(hold.current), [])
   useEffect(() => { if (!available) setOpen(false) }, [available])
   // A press anywhere outside the circle and its column closes the column.
   useEffect(() => {
@@ -75,10 +78,11 @@ export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, class
     return () => document.removeEventListener('pointerdown', outside, true)
   }, [open])
 
+  // A refused hold swells the circle once; a second hold restarts it.
   const nudge = () => {
-    clearTimeout(pulseTimer.current)
-    setPulse(true)
-    pulseTimer.current = setTimeout(() => setPulse(false), pulseMs)
+    if (reducedMotion()) return
+    circle.current?.getAnimations?.().forEach((a) => a.cancel())
+    circle.current?.animate?.([{ transform: 'scale(1)' }, { transform: `scale(${pulseScale})`, offset: 0.4 }, { transform: 'scale(1)' }], { duration: pulseMs, easing: 'ease-out' })
   }
   const down = (e: PointerEvent) => {
     clearHold()
@@ -94,8 +98,15 @@ export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, class
     const p = press.current
     if (p && !p.opened && !p.slid && Math.hypot(e.clientX - p.x, e.clientY - p.y) > visual.input.tapSlopPx) (p.slid = true), clearHold()
   }
+  const close = () => (setOpen(false), circle.current?.focus())
+  const arm = (item: Item) => (close(), onArm(item))
+  // The keyboard opens the column towards the pitch (Escape closes it); the pieces are buttons to Tab to.
+  const key = (e: KeyboardEvent) => {
+    if (e.key === (flipped ? 'ArrowDown' : 'ArrowUp') && available) (e.preventDefault(), setOpen(true))
+    else if (e.key === 'Escape' && open) (e.stopPropagation(), close())
+  }
   const tap = () => {
-    if (open) setOpen(false)
+    if (open) close()
     else if (available) onToggle()
   }
   const up = (e: PointerEvent) => {
@@ -106,7 +117,7 @@ export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, class
     if (p.opened) {
       const hit = document.elementFromPoint?.(e.clientX, e.clientY)
       const spec = items.find((i) => i.item === hit?.closest('[data-item]')?.getAttribute('data-item'))
-      if (spec) (setOpen(false), !spec.disabled && spec.item !== 'cannon' && onArm(spec.item))
+      if (spec) (close(), !spec.disabled && spec.item !== 'cannon' && onArm(spec.item))
       else if (!(hit && circle.current?.contains(hit))) setOpen(false)
     } else if (!p.slid && !p.pulsed) tap()
   }
@@ -125,21 +136,23 @@ export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, class
       <div style={{ position: 'relative' }}>
         {open && (
           <div ref={column} style={{ position: 'absolute', [flipped ? 'top' : 'bottom']: circlePx + gap, left: (circlePx - itemPx) / 2, display: 'flex', flexDirection: flipped ? 'column' : 'column-reverse', gap, zIndex: columnZ }}>
-            {items.map((s) => <ItemButton key={s.item} spec={s} color={color} onPick={(item) => (setOpen(false), onArm(item))} />)}
+            {items.map((s) => <ItemButton key={s.item} spec={s} color={color} onPick={arm} />)}
           </div>
         )}
         <button
           ref={circle}
-          className={pulse ? 'defence-pulse' : undefined}
           aria-label={building ? 'Leave building' : 'Build'}
+          aria-haspopup="menu"
           aria-expanded={open}
           aria-disabled={!available}
           onPointerDown={down}
           onPointerMove={move}
           onPointerUp={up}
           onPointerCancel={cancel}
+          onContextMenu={noMenu}
+          onKeyDown={key}
           onClick={(e) => e.detail === 0 && tap()}
-          style={{ ...FONT, width: circlePx, height: circlePx, borderRadius: '50%', border: `${borderPx}px solid ${edge}`, color: filled ? visual.hud.dark : available ? ink : GREY, background: filled ? color : available ? panel : 'transparent', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, boxShadow: visual.titleScreen.halo, touchAction: 'none', animation: pulse ? `defence-pulse ${pulseMs}ms ease-out` : undefined }}
+          style={{ ...FONT, width: circlePx, height: circlePx, borderRadius: '50%', border: `${borderPx}px solid ${edge}`, color: filled ? visual.hud.dark : available ? ink : GREY, background: filled ? color : available ? panel : 'transparent', fontSize: circleFontPx, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, boxShadow: visual.tokens.halo, touchAction: 'none', ...NO_CALLOUT }}
         >
           {building ? '✕' : WALL}
         </button>

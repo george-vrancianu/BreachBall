@@ -4,7 +4,7 @@ import type { Point } from '../../sim/pitch'
 import { maxHp, wallSegments, type StructureSpec, type TowerSpec, type WallSpec } from '../../sim/wall'
 import { Entity } from './Entity'
 
-/** A structure as drawn: the sim's `Structure`, or a bare spec (a ghost) with no hp, id or spent flag yet. */
+/** A structure as drawn: the sim's `Structure`, or a bare spec (a build piece) with no hp, id or spent flag yet. */
 type Placed = { id?: number; hp?: number; spent?: boolean }
 export type WallData = WallSpec & Placed
 export type TowerData = TowerSpec & Placed
@@ -88,11 +88,11 @@ export abstract class Fixture<D extends FixtureData = FixtureData> extends Entit
   movable = false
   /** The builder's selection: an outline that breathes. */
   selected = false
-  /** Drawn by the ghost or landing piece instead. */
+  /** Drawn by the build piece or landing piece instead. */
   hidden = false
   /** Overrides the owner colour (splash preview). */
   tint?: string
-  /** Drawn half-transparent: ghosts. */
+  /** Drawn half-transparent: build pieces. */
   alpha = 1
   private flash?: { dim: boolean; age: number }
   private shattering?: { from: Point; delay: number; age: number; fragments: Fragment[] }
@@ -156,7 +156,7 @@ export abstract class Fixture<D extends FixtureData = FixtureData> extends Entit
     for (const { a, b } of this.footprint()) ctx.rect(Math.min(a.x, b.x) - pad, Math.min(a.y, b.y) - pad, Math.abs(b.x - a.x) + 2 * pad, Math.abs(b.y - a.y) + 2 * pad)
   }
 
-  /** One crack per lost hit point, once the structure has an id and hp (a ghost has neither). */
+  /** One crack per lost hit point, once the structure has an id and hp (a build piece has neither). */
   protected drawCracks(ctx: CanvasRenderingContext2D): void {
     const { id, hp } = this.data
     if (id === undefined || hp === undefined) return

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BuildMenu, ItemSpec } from '../../game/view/buildMenu'
 import type { HudModel } from '../../game/view/hudModel'
 import { visual } from '../../config/visual'
@@ -138,7 +138,8 @@ describe('Shell', () => {
   })
 
   describe('Defence circle', () => {
-    afterEach(() => { vi.useRealTimers(); delete (document as { elementFromPoint?: unknown }).elementFromPoint })
+    beforeEach(() => vi.stubGlobal('matchMedia', () => ({ matches: false })))
+    afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); delete (Element.prototype as { animate?: unknown }).animate; delete (document as { elementFromPoint?: unknown }).elementFromPoint })
     const items = (over: Record<string, Partial<ItemSpec>> = {}): ItemSpec[] => [
       { item: 'wall', label: 'Wall · 2', disabled: false, pressed: true, ...over.wall },
       { item: 'repulsor', label: 'Repulsor', disabled: false, pressed: false, ...over.repulsor },
@@ -237,17 +238,63 @@ describe('Shell', () => {
     })
 
     it('when the viewer cannot build, a hold pulses the circle once instead of opening, and a tap does nothing', () => {
+      const animate = vi.fn()
+      Element.prototype.animate = animate
       const { p } = setup(model({ available: false }))
       expect(circle().getAttribute('aria-disabled')).toBe('true')
       tapCircle()
       expect(p.onBuildToggle).not.toHaveBeenCalled()
       hold()
       expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-      expect(circle().className).toContain('defence-pulse')
+      expect(animate).toHaveBeenCalledTimes(1)
+      expect(animate.mock.calls[0]![0].map((f: { transform: string }) => f.transform)).toEqual(['scale(1)', `scale(${visual.hud.defence.pulseScale})`, 'scale(1)'])
+      expect(animate.mock.calls[0]![1]).toMatchObject({ duration: visual.hud.defence.pulseMs })
       fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
       expect(p.onBuildToggle).not.toHaveBeenCalled()
-      act(() => { vi.advanceTimersByTime(visual.hud.defence.pulseMs + 1) })
-      expect(circle().className).not.toContain('defence-pulse')
+      hold()
+      expect(animate).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not pulse under reduced motion', () => {
+      const animate = vi.fn()
+      Element.prototype.animate = animate
+      vi.stubGlobal('matchMedia', () => ({ matches: true }))
+      setup(model({ available: false }))
+      hold()
+      expect(animate).not.toHaveBeenCalled()
+    })
+
+    it('a long press does not open the context menu', () => {
+      setup()
+      expect(fireEvent.contextMenu(circle())).toBe(false)
+      hold()
+      expect(fireEvent.contextMenu(screen.getByRole('button', { name: 'Steal' }))).toBe(false)
+    })
+
+    it('a keyboard click toggles; a pointer click does not (the pointer path already did)', () => {
+      const { p } = setup()
+      fireEvent.click(circle(), { detail: 1 })
+      expect(p.onBuildToggle).not.toHaveBeenCalled()
+      fireEvent.click(circle(), { detail: 0 })
+      expect(p.onBuildToggle).toHaveBeenCalledTimes(1)
+    })
+
+    it('ArrowUp opens the column (ArrowDown when flipped); picking returns focus to the circle', () => {
+      const { p, r } = setup()
+      expect(circle().getAttribute('aria-haspopup')).toBe('menu')
+      fireEvent.keyDown(circle(), { key: 'ArrowDown' })
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+      fireEvent.keyDown(circle(), { key: 'ArrowUp' })
+      screen.getByRole('button', { name: 'Steal' }).focus()
+      fireEvent.click(screen.getByRole('button', { name: 'Steal' }))
+      expect(p.onBuildArm).toHaveBeenCalledWith('steal')
+      expect(document.activeElement).toBe(circle())
+      r.rerender(<Shell {...p} flipped menu={model()} />)
+      fireEvent.keyDown(circle(), { key: 'ArrowDown' })
+      expect(screen.getByRole('button', { name: 'Steal' })).toBeTruthy()
+      fireEvent.keyDown(circle(), { key: 'Escape' })
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+      expect(document.activeElement).toBe(circle())
     })
 
     it('stays beside the selected structure\'s buttons, and still opens on a hold', () => {

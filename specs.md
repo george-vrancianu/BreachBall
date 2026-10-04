@@ -228,7 +228,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 ### Placement previews and buttons
 
 - The build piece and the ball-in-hand placement are half-transparent in the owner's colour, red when illegal. They are not the Ghost, which is the aim's predicted path.
-- One button-row component serves both phases. Build: the Defence circle (tap to enter or leave building with the Wall selected, hold to open the Defence items with their prices, tap again to close that menu), and for a selected wall Demolish, Rotate and Cancel; Done. Ball-in-hand: Confirm. Rearrange has no palette, and the defence choice is a two-button row (Repair, Rearrange).
+- One button-row component serves both phases. Build: the Defence circle (tap to enter or leave building with the Wall selected, hold to open the Defence items with their prices, tap again to close that menu), and for a selected wall Demolish, Rotate and Cancel; Done. Ball-in-hand: Confirm. In Rearrange the circle is greyed (no placing, no demolish), and the defence choice is a two-button row (Repair, Rearrange).
 
 ### Transitions
 
@@ -263,7 +263,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 ## P2P (milestone 3)
 
 - WebRTC between two browsers. Signaling via a tiny server or a pasted connection string, to be decided then.
-- Each peer runs the same deterministic sim and exchanges one input per shot or placement. Inputs are small integers thanks to the grid; a shot is a direction, a tier and a power. The aim a shooter is holding travels too (each peer keeps the latest per player until it is replaced, cleared or fired), so a shot clock that fires it does so identically on both peers.
+- Each peer runs the same deterministic sim and exchanges one input per shot or placement. Wall inputs are float endpoints and every peer receives identical numbers; a shot is a direction, a tier and a power. The aim a shooter is holding travels too (each peer keeps the latest per player until it is replaced, cleared or fired), so a shot clock that fires it does so identically on both peers.
 - Each player sees the pitch with themselves at the bottom.
 - Add a build-phase timer for P2P. Siege's blind build hides the layout in the renderer and HUD only: a modified client could read the peer's layout from its own sim state. True hidden information (commit-and-reveal of the layout) is a later idea.
 
