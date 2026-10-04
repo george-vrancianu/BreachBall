@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { rules } from '../config/rules'
 import { defaultConfig, step, type SimState } from './step'
-import { buildState, emptied, place } from './testkit'
+import { buildState, funded, place } from './testkit'
 import type { TowerSpec } from './wall'
 
 const repulsor = (owner: 1 | 2 = 1): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx: 10, gy: owner === 1 ? 40 : 14 } })
@@ -17,13 +18,12 @@ const run = (s: SimState, ticks: number) => {
 }
 
 describe('repulsor placement', () => {
-  it('costs no points, consumes one from inventory and refuses at zero', () => {
+  it('spends its price in Credits and is refused when unaffordable', () => {
     const b = buildState(1)
     const r = step(b, { placeWall: repulsor() }, defaultConfig)
     expect(r.state.objects).toHaveLength(1)
-    expect(r.state.credits[1]).toBe(b.credits[1])
-    expect(r.state.players[1].inventory.repulsor).toBe(2)
-    const x = step(emptied(b, 1, 'repulsor'), { placeWall: repulsor() }, defaultConfig)
+    expect(r.state.credits[1]).toBe(b.credits[1] - rules.towerCost.repulsor)
+    const x = step(funded(b, 1, rules.towerCost.repulsor - 1), { placeWall: repulsor() }, defaultConfig)
     expect(x.state.objects).toHaveLength(0)
     expect(x.events).toEqual([{ type: 'refused' }])
   })

@@ -103,6 +103,14 @@ describe('Shell', () => {
     expect(screen.getByText('?')).toBeTruthy()
   })
 
+  it('shows the tower stock badges in Siege and none in Rounds (towers cost Credits there)', () => {
+    const { unmount } = render(<Shell {...props()} />)
+    expect(screen.getByRole('img', { name: 'S2' })).toBeTruthy()
+    unmount()
+    render(<Shell {...props()} hud={hud({ players: { 1: { digit: '3', inventory: null }, 2: { digit: '?', inventory: null } } })} />)
+    expect(screen.queryByRole('img', { name: /^[RS]\d/ })).toBeNull()
+  })
+
   describe('shared row', () => {
     it('reads the round and score over the phase label, and the score digit shows once', () => {
       render(<Shell {...props()} hud={hud({ round: 3, rounds: 7, score: '2–1', phase: 'Build phase', players: { 1: { digit: '2', inventory: { breaker: 5, repulsor: 6, steal: 7 } }, 2: { digit: '1', inventory: { breaker: 5, repulsor: 6, steal: 7 } } } })} />)

@@ -13,8 +13,8 @@ const base = {
   towerHp: 3,
   /** A Steal tower is fragile. */
   stealHp: 1,
-  /** Credits a tower costs; it spends inventory instead. */
-  towerCost: 0,
+  /** Credits each tower costs in Rounds (Siege draws them from its stock instead). */
+  towerCost: { repulsor: 3, steal: 2 },
   /**
    * Walls are drawn segments. `unit` is one unit's length in world units, end to end at any angle (4 cells);
    * `units` are the allowed lengths in units; `angles` the allowed directions in degrees (direction is modulo 180);

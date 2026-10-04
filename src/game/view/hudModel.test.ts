@@ -135,21 +135,21 @@ describe('hudModel', () => {
       expect(s.players[first].inventory.steal).toBe(2)
       const m = hudModel(s, c, { ...view, viewer: second })
       expect(m.players[first].inventory).toEqual({ breaker: 3, repulsor: 3, steal: 3 })
-      expect(hudModel(s, c, { ...view, viewer: first }).players[first].inventory.steal).toBe(2)
-      expect(hudModel(afterSecond(), c, { ...view, viewer: second }).players[first].inventory.steal).toBe(2)
+      expect(hudModel(s, c, { ...view, viewer: first }).players[first].inventory!.steal).toBe(2)
+      expect(hudModel(afterSecond(), c, { ...view, viewer: second }).players[first].inventory!.steal).toBe(2)
     })
     it('reads Build phase for both viewers, so the label gives nothing of a blind build away', () => {
       const s = build(afterFirst(), piece(second))
       expect(hudModel(s, c, { ...view, viewer: second }).phase).toBe('Build phase')
       expect(hudModel(s, c, { ...view, viewer: first }).phase).toBe('Build phase')
     })
-    it('Rounds build phases keep the score, the badges and the Credits', () => {
+    it('Rounds build phases keep the score and the Credits, and show no tower stock badges', () => {
       let s = initialState(1)
       const b = s.match.builder!
       s = step(s, { placeWall: { kind: 'tower', owner: b, power: 'steal', at: { gx: 4, gy: b === 1 ? 40 : 10 } } }, defaultConfig).state
       const m = hudModel(s, defaultConfig, { ...view, viewer: opponent(b) })
       expect([m.players[1].digit, m.players[2].digit]).toEqual(['0', '0'])
-      expect(m.players[b].inventory.steal).toBe(2)
+      expect(m.players[b].inventory).toBeNull()
       expect(m.phase).toBe('Build phase')
     })
     it('reads Placing … while the builder draws or holds an unplaced piece, else Build phase', () => {

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { coinFlip, firstBuilder } from './match'
 import { opponent } from './possession'
 import type { PlayerId } from './pitch'
-import { isLegal, type Structure, type WallSpec } from './wall'
+import { isLegal, type Structure, type TowerSpec, type WallSpec } from './wall'
 import { canFinishBuild, defaultConfig, initialState, step, type SimConfig, type SimEvent, type SimState } from './step'
-import { hseg } from './testkit'
+import { emptied, funded, hseg, siegeBuild } from './testkit'
 
 const siege: SimConfig = { ...defaultConfig, mode: 'siege' }
 const wall = (id: number, owner: PlayerId, hp = 3, gy = owner === 1 ? 40 : 26): Structure => ({ id, kind: 'wall', owner, ...hseg(5, gy), hp })
@@ -48,6 +48,22 @@ describe('Siege', () => {
     expect(s.credits[opponent(first)]).toBe(siege.credits)
     s = step(step(s, { placeWall: piece(opponent(first)) }, siege).state, { done: opponent(first) }, siege).state
     expect(s.match.builder).toBeNull()
+  })
+
+  it('towers keep the fixed stock: no Credits spent, one drawn, a same-turn demolish returns it, none left refuses', () => {
+    const spec: TowerSpec = { kind: 'tower', owner: 1, power: 'steal', at: { gx: 10, gy: 40 } }
+    const b = siegeBuild(1)
+    const r = step(b, { placeWall: spec }, siege).state
+    expect(r.objects).toHaveLength(1)
+    expect(r.credits[1]).toBe(b.credits[1])
+    expect(r.players[1].inventory.steal).toBe(b.players[1].inventory.steal - 1)
+    const back = step(r, { demolish: { player: 1, wall: 1 } }, siege).state
+    expect(back.players[1].inventory.steal).toBe(b.players[1].inventory.steal)
+    expect(back.credits[1]).toBe(b.credits[1])
+    // No Credits do not matter, an empty stock does.
+    expect(step(funded(b, 1, 0), { placeWall: spec }, siege).state.objects).toHaveLength(1)
+    const empty = emptied(b, 1, 'steal')
+    expect(step(empty, { placeWall: spec }, siege).events).toEqual([{ type: 'refused' }])
   })
 
   it('Done with no own structure is refused and the build turn continues', () => {

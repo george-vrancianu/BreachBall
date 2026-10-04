@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { coinFlip } from './match'
 import { opponent } from './possession'
 import { defaultConfig as c, initialState, step, type SimInput, type SimState } from './step'
+import { rules } from '../config/rules'
 import { buildState, roundsMatch, hseg } from './testkit'
 import type { TowerSpec, WallSpec } from './wall'
 
@@ -186,12 +187,26 @@ describe('moving and refunding this turn\'s items', () => {
     expect(r.state.credits[1]).toBe(4)
     expect(r.state.built).toEqual([])
   })
-  it('demolishing a tower placed this turn returns its charge', () => {
+  it('demolishing a tower placed this turn refunds its price in full', () => {
     const tower: TowerSpec = { kind: 'tower', owner: 1, power: 'repulsor', at: { gx: 10, gy: 40 } }
+    const before = buildState(1).credits[1]
     const s = run(buildState(1), { placeWall: tower })
-    const before = buildState(1).players[1].inventory.repulsor
-    expect(s.players[1].inventory.repulsor).toBe(before - 1)
-    expect(run(s, { demolish: { player: 1, wall: 1 } }).players[1].inventory.repulsor).toBe(before)
+    expect(s.credits[1]).toBe(before - rules.towerCost.repulsor)
+    expect(run(s, { demolish: { player: 1, wall: 1 } }).credits[1]).toBe(before)
+  })
+  it('demolishing an older tower costs rules.demolishCost, as for a wall', () => {
+    const tower: TowerSpec = { kind: 'tower', owner: 1, power: 'steal', at: { gx: 10, gy: 40 } }
+    const s = { ...run(buildState(1), { placeWall: tower }), built: [] }
+    expect(run(s, { demolish: { player: 1, wall: 1 } }).credits[1]).toBe(s.credits[1] - rules.demolishCost)
+  })
+  it('demolishing an older tower is refused when Credits are below rules.demolishCost', () => {
+    const tower: TowerSpec = { kind: 'tower', owner: 1, power: 'steal', at: { gx: 10, gy: 40 } }
+    const placed = { ...run(buildState(1), { placeWall: tower }), built: [] }
+    const s = { ...placed, credits: { ...placed.credits, 1: rules.demolishCost - 1 } }
+    const r = step(s, { demolish: { player: 1, wall: 1 } }, c)
+    expect(r.events).toEqual([{ type: 'refused' }])
+    expect(r.state.objects).toHaveLength(1)
+    expect(r.state.credits[1]).toBe(s.credits[1])
   })
   it('demolishing an older item still costs 1 point', () => {
     const s = { ...run(buildState(1), { placeWall: wall(1) }), built: [] }
@@ -201,13 +216,6 @@ describe('moving and refunding this turn\'s items', () => {
     const s = run(buildState(1), { placeWall: wall(1), done: 1 })
     expect(s.objects).toHaveLength(1)
     expect(s.built).toEqual([])
-  })
-  it('demolishing a tower placed this turn leaves the points alone and returns the charge', () => {
-    const tower: TowerSpec = { kind: 'tower', owner: 1, power: 'steal', at: { gx: 10, gy: 40 } }
-    const s = run(buildState(1), { placeWall: tower })
-    const r = run(s, { demolish: { player: 1, wall: 1 } })
-    expect(r.credits[1]).toBe(s.credits[1])
-    expect(r.players[1].inventory.steal).toBe(buildState(1).players[1].inventory.steal)
   })
   it('moving a tower keeps its power, id and hp', () => {
     const tower: TowerSpec = { kind: 'tower', owner: 1, power: 'repulsor', at: { gx: 10, gy: 40 } }

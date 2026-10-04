@@ -101,7 +101,7 @@ The single resource every Offence, Defence and Subterfuge item is bought with, e
 _Avoid_: Build points, power-up points, resources, energy (and Wall points in Rounds; see below)
 
 **Wall points**:
-Siege's build balance: what its one opening build is paid in, spent on walls and towers as Credits are in Rounds. Siege has no Credits economy, so it never says Credits.
+Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). Siege has no Credits economy, so it never says Credits.
 _Avoid_: Credits (in Siege), build points
 
 **Refund**:
@@ -113,7 +113,7 @@ The family of items that power up your own shot, bought with Credits during your
 _Avoid_: Attack, power-ups (as the family name)
 
 **Defence**:
-The family of items you build on your half (walls, towers), bought with Credits during your build turn.
+The family of items you build on your half (walls, towers), bought with Credits during your build turn: a wall by its units, a Repulsor 3 and a Steal 2. A tower placed this turn is refunded in full if demolished, as a wall is. Siege keeps its fixed tower stock instead.
 _Avoid_: Build menu, structures (as the family name)
 
 **Wall**:
