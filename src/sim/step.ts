@@ -20,6 +20,14 @@ export function canFinishBuild(s: SimState, config: SimConfig): boolean {
 export const canRefund = (s: Pick<SimState, 'match' | 'possession'>, p: PlayerId): boolean =>
   modeFor(s.match).mayRefund(s.match) && !s.match.builder && !s.match.choosing && s.possession.shooter === p && !s.possession.inHand && !s.possession.live && s.possession.shots > 0
 
+/** Whether `p` can pay for a Breaker shot: `rules.breakerCost` Credits in Rounds, one of the stock in Siege. */
+export const canAffordBreaker = (s: Pick<SimState, 'match' | 'credits' | 'players'>, p: PlayerId): boolean =>
+  modeFor(s.match).paysBreaker(s.match) ? s.credits[p] >= rules.breakerCost : s.players[p].inventory.breaker > 0
+
+/** Whether `p` may arm the Breaker now: the shooter in their own play phase, before the shot, able to pay. Nothing is charged until the shot fires. */
+export const canArm = (s: SimState, p: PlayerId): boolean =>
+  !s.match.builder && s.possession.shooter === p && !s.possession.inHand && !s.possession.live && canAffordBreaker(s, p)
+
 /** Whether the current build turn may place and demolish (false in a Rearrange turn, which only moves pieces). */
 export const canEdit = (s: Pick<SimState, 'match'>): boolean => modeFor(s.match).mayEdit(s.match)
 
@@ -279,8 +287,12 @@ export function step(
   if (shot) {
     const tier = rules.shot.tiers[shot.tier]
     const inRange = !!tier && shot.power >= tier.power[0] && shot.power <= tier.power[1]
-    if (!building && !waiting && shot.player === possession.shooter && !possession.inHand && !possession.live && inRange && (!shot.breaker || players[shot.player].inventory.breaker > 0)) {
-      if (shot.breaker) players = spend(players, shot.player, 'breaker')
+    if (!building && !waiting && shot.player === possession.shooter && !possession.inHand && !possession.live && inRange && (!shot.breaker || canAffordBreaker({ match, credits, players }, shot.player))) {
+      // The Breaker is paid for as the shot fires, never for arming or a cancelled aim.
+      if (shot.breaker) {
+        if (mode.paysBreaker(match)) credits = { ...credits, [shot.player]: credits[shot.player] - rules.breakerCost }
+        else players = spend(players, shot.player, 'breaker')
+      }
       events.push({ type: 'shot-fired', ...shot, from: ball.pos })
       possession = { ...possession, live: true }
       match = mode.onShotFired(match)

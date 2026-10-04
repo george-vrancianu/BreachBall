@@ -59,6 +59,6 @@ describe('goal, Rearrange, Done as the shell drives them', () => {
     const g = play()
     g.tick()
     g.tick({ defence: { player: 1, choice: 'rearrange' } })
-    expect(hudModel(g.state(), siege, { active: 1, viewer: 1, armed: false, tappable: false }).phase).toBe('Rearrange')
+    expect(hudModel(g.state(), siege, { active: 1, viewer: 1 }).phase).toBe('Rearrange')
   })
 })

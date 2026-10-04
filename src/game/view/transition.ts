@@ -2,6 +2,7 @@ import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
 import type { Match } from '../../sim/match'
 import type { SimEvent } from '../../sim/step'
+import { isFirstRound } from './hudModel'
 
 /** `holds` = the handover waits for this overlay and the sim is paused while it is up (the REPAIRED sweep; the goal, turn and reveal kinds always hold). */
 type Overlay = { kind: 'turn' | 'goal' | 'sweep' | 'reveal'; at: number; player: PlayerId; text: string; hint?: string; ms: number; net?: Point; holds?: true }
@@ -35,7 +36,7 @@ export function advance(t: Transition, f: Frame): Transition {
     const ms = f.reduced ? 0 : visual.transition.flipMs
     if (ms) flip = { at: f.now, ms, from: shown, to: f.active }
     else shown = f.active
-    const hint = f.round === 1 ? (f.phase === 'Build' ? 'Tap the Defence circle, drag on your half to draw a wall, then Done' : f.inHand ? 'Tap to place the ball, then Confirm' : 'Drag back from the ball to shoot; hold first for Power') : undefined
+    const hint = isFirstRound(f.round) ? (f.phase === 'Build' ? 'Tap the Defence circle, drag on your half to draw a wall, then Done' : f.inHand ? 'Tap to place the ball, then Confirm' : 'Drag back from the ball to shoot; hold first for Power') : undefined
     overlay = { kind: 'turn', at: f.now, player: f.active, text: `Player ${f.active}'s turn`, hint, ms }
     due = false
   }
