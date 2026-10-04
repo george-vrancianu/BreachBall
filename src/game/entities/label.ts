@@ -17,7 +17,7 @@ export function decimalLayout(text: string, width: (run: string) => number, r: n
   return { left: { text: left, x: x0 }, dot: { x: x0 + lw + gap + r, r }, right: { text: right, x: x0 + lw + gap + 2 * r + gap } }
 }
 
-/** Centred text at `at` in world units, turned half a revolution with the canvas when `style.flipped` so it reads upright for Player 2. */
+/** Centred text at `at` in world units, turned half a revolution on its own (the canvas layer itself may not turn, in Tabletop mode) when `style.flipped` so it reads upright for Player 2. */
 export function drawLabel(ctx: CanvasRenderingContext2D, text: string, at: { x: number; y: number }, style: LabelStyle): void {
   ctx.save()
   ctx.translate(at.x, at.y)

@@ -14,8 +14,9 @@ const PRECISION = 1000
 const snap = (n: number): number => Math.round(n * PRECISION) / PRECISION
 const round = (b: Band): Band => ({ top: snap(b.top), height: snap(b.height) })
 
-/** The thumbnail of the whole pitch (the map's extent, nets included): the view of a camera at `y` showing `visibleHeight` world units, and the fogged half for a `blind` seat. */
-export function minimapOf(y: number, visibleHeight: number, blind?: PlayerId): MinimapView {
+/** The thumbnail of the whole pitch (the map's extent, nets included): the view of a camera at `y` showing `visibleHeight` world units, and the fogged half for a `blind` seat. `across` (Tabletop mode, seat 2): the thumbnail sits in the turned HUD layer while the canvas layer does not, so its bands are mirrored to keep each end of the pitch where the viewer sees it. */
+export function minimapOf(y: number, visibleHeight: number, blind?: PlayerId, across = false): MinimapView {
   const fog = blind && fogOf(blind)
-  return { frame: round(band(y - visibleHeight / 2, y + visibleHeight / 2)), fog: fog ? round(band(fog.top, fog.bottom)) : undefined }
+  const seen = (b: Band): Band => round(across ? { top: 1 - b.top - b.height, height: b.height } : b)
+  return { frame: seen(band(y - visibleHeight / 2, y + visibleHeight / 2)), fog: fog ? seen(band(fog.top, fog.bottom)) : undefined }
 }

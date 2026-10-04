@@ -252,10 +252,10 @@ export class Game implements Sink {
   private pitchStaysPut = () => !hotSeat() || this.tabletop
 
   /** The seat the stage is laid out for: the HUD's in hot-seat, always the bottom seat online (the pitch never turns there, and neither does the HUD). */
-  private facing = () => facing(this.transition, hotSeat())
+  private seatFacing = () => facing(this.transition, hotSeat())
 
   /** The viewer is Player 2, whose end the stage is turned to or, in Tabletop mode, who sits across the table: the pitch's text, gauge and lighting are drawn turned for them. */
-  private viewerTurned = () => this.facing() === 2
+  private viewerTurned = () => this.seatFacing() === 2
 
   /** Whoever builds, else whoever has the device: online it would be the peer's own seat. */
   private viewer = (): PlayerId => this.state.match.builder ?? this.transition.hudSeat
@@ -323,9 +323,9 @@ export class Game implements Sink {
     canvas.height = canvas.clientHeight * this.dpr
   }
 
-  /** Keeps the HUD band clear on the edge the HUD sits at (the top of the canvas for seat 2, whether the stage turned for it or only the HUD did) and takes the height the canvas shows. */
+  /** Keeps the HUD band clear on the edge the HUD sits at (the top of the canvas layer for seat 2, whether the stage turned for it or only the HUD did) and takes the height the canvas layer shows. */
   private fitCamera(): void {
-    this.camera.reserve = hudReserve(this.facing(), visual.camera.hudReservePx * this.dpr)
+    this.camera.reserve = hudReserve(this.seatFacing(), visual.camera.hudReservePx * this.dpr)
     this.camera.fit(this.canvas)
     this.mapCam.reserve = this.camera.reserve
   }
@@ -369,8 +369,8 @@ export class Game implements Sink {
     const { state, transition, camera } = this
     this.fitCamera()
     const flipping = !!transition.flip && now - transition.flip.at >= transition.flip.ms / 2
-    // The ball is held a set way down the HUD seat's screen, so across the table (Tabletop mode, seat 2) it sits near the top of the unturned canvas.
-    const target = anchorY(state.ball.pos.y, this.facing(), camera.visibleHeight)
+    // The ball is held a set way down the HUD seat's screen, so across the table (Tabletop mode, seat 2) it sits near the top of the unturned canvas layer.
+    const target = anchorY(state.ball.pos.y, this.seatFacing(), camera.visibleHeight)
     // Mid-flip the camera snaps to where the incoming HUD seat frames the ball, so the flip ends already framed; so does a mid-match change of Tabletop mode.
     const f = transition.flip
     const dest = f ? anchorY(state.ball.pos.y, hotSeat() ? f.hudSeat : f.to, camera.visibleHeight) : target
@@ -422,7 +422,7 @@ export class Game implements Sink {
     // The Charged badge keeps clear of the gauge's near-ball chip.
     this.ball.avoid = this.gauge.chipRects
     // The view's edge on the HUD's side (the viewer's bottom): the dock band starts there.
-    this.gauge.dockEdge = this.camera.y + (screenDown(this.facing()) * this.camera.visibleHeight) / 2
+    this.gauge.dockEdge = this.camera.y + (screenDown(this.seatFacing()) * this.camera.visibleHeight) / 2
     this.ball.placement = input.placement && { at: input.placement, legal: canPlaceBall(shooter, input.placement, state.objects, this.config), radius: this.config.ballRadius }
     this.ball.armed = input.armed || state.breaker ? shooter : undefined
   }
@@ -469,7 +469,7 @@ export class Game implements Sink {
       confirm: inHand && !builder && !state.match.choosing && !blocked,
       mapOpen: this.mapOpen,
       menu: { open: this.menuOpen, hotSeat: hotSeat(), settings: settingRows(this.config) },
-      minimap: minimapOf(this.camera.y, this.camera.visibleHeight, this.camera.blind),
+      minimap: minimapOf(this.camera.y, this.camera.visibleHeight, this.camera.blind, hotSeat() && acrossTable(transition)),
       winner: state.match.winner ?? undefined,
       result: state.match.winner ? resultOf(state.match, state.match.winner, state.objects) : '',
     }

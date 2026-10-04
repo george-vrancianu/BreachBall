@@ -51,7 +51,7 @@ export function layout({ width, height }: Size, reserve: Reserve = NONE) {
 /** The world y direction that points down a screen with `seat`'s end at the bottom: +1 for seat 1, -1 for seat 2. A drag of the canvas goes by the seat the canvas is turned to (`shown`); the HUD band and the anchor by the HUD's seat. */
 export const screenDown = (seat: PlayerId): 1 | -1 => (seat === 1 ? 1 : -1)
 
-/** The HUD band of `px` canvas px, kept clear on the HUD seat's edge: the bottom of the canvas for seat 1, its top for seat 2 (the stage turned for it, or in Tabletop mode the HUD alone, across the table). */
+/** The HUD band of `px` canvas px, kept clear on the HUD seat's edge: the bottom of the canvas layer for seat 1, its top for seat 2 (the stage turned for it, or in Tabletop mode the HUD alone, across the table). */
 export const hudReserve = (seat: PlayerId, px: number): Reserve => (screenDown(seat) > 0 ? { top: 0, bottom: px } : { top: px, bottom: 0 })
 
 /** The camera centre that holds the ball `visual.camera.anchor` of the way down the screen of the HUD's `seat`, leaving the pitch ahead of the ball in view (up the screen for seat 1; for seat 2 the pitch ahead is the other way, so the view sits on the other side of the ball). */

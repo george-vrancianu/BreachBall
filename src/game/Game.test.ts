@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { minimapOf } from './view/minimap'
 import { rules } from '../config/rules'
 import { visual } from '../config/visual'
 import { defaultSettings, withMode } from '../sim/settings'
@@ -287,7 +288,8 @@ describe('Game', () => {
     game.camera.pan(10)
     frame(t + 5032)
     const after = onView.mock.lastCall![0].minimap.frame
-    expect(after.top).toBeGreaterThan(before.top)
+    // Which way it moves depends on whether the HUD is across the table (mirrored); the pan is 10 of the map's units.
+    expect(Math.abs(after.top - before.top)).toBeCloseTo(10 / rules.mapHeight, 2)
     expect(after.height).toBe(before.height)
   })
 
@@ -450,6 +452,14 @@ describe('Game', () => {
       expect(view().hud.active).toBe(2)
       expect(view().overlay).toBeUndefined()
     })
+    it('the minimap thumbnail is mirrored for player 2 across the table, and not when the stage turns with it', () => {
+      const on = opened(2)
+      const { camera } = on.game
+      expect(on.view().minimap.frame).toEqual(minimapOf(camera.y, camera.visibleHeight, camera.blind, true).frame)
+      store.set('breachball.tabletop', 'false')
+      const off = opened(2)
+      expect(off.view().minimap.frame).toEqual(minimapOf(off.game.camera.y, off.game.camera.visibleHeight, off.game.camera.blind).frame)
+    })
     it('turned off (an old Flip on turn "true" migrates to it), player 2 turns the whole stage to the bottom', () => {
       store.set('breachball.flipOnTurn', 'true')
       const { view } = opened(2)
@@ -554,6 +564,8 @@ describe('Game', () => {
     })
 
     it('an edge swipe on the canvas opens it', () => {
+      // Tabletop mode off, so whoever kicks off the viewer's left is the canvas's left (with it on, Player 2's is the right).
+      vi.stubGlobal('localStorage', { getItem: (k: string) => (k === 'breachball.tabletop' ? 'false' : null), setItem: () => {}, removeItem: () => {} })
       const canvas = new FakeCanvas()
       const onView = vi.fn()
       new Game(canvas as unknown as HTMLCanvasElement, (sink) => new LocalDriver(sink), onView)

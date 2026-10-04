@@ -19,7 +19,7 @@ export const acrossTable = (t: Transition) => t.hudSeat !== t.shown
 
 const rot = (p: PlayerId) => (p === 1 ? 0 : 180)
 
-/** Degrees the HUD layer turns to face the HUD's seat: what Tabletop mode applies to the HUD layer alone (the pitch layer stays at `angle`, 0 there). */
+/** Degrees the HUD layer turns to face the HUD's seat: what Tabletop mode applies to the HUD layer alone (the canvas layer stays at `angle`, 0 there). */
 export const seatAngle = (t: Transition): number => rot(t.hudSeat)
 
 /** The seat whose frame the stage is laid out in (camera reserve and anchor, the lighting, the Dock's edge). Hot-seat: the HUD's seat. Online (`handover` false) each player sits at the bottom, so always the bottom seat, whoever has the turn. */
