@@ -19,6 +19,18 @@ describe('hudModel', () => {
     const m = hudModel(initialState(1, c), c, view)
     expect(m.round).toBeNull()
   })
+  describe('Defence bar', () => {
+    const w = (owner: 1 | 2): WallSpec => ({ kind: 'wall', owner, ...hseg(10, owner === 1 ? 40 : 10) })
+    it('counts structures in Rounds as well as Siege, not the score', () => {
+      const s = { ...initialState(1), objects: [{ ...w(1), id: 1, hp: 3 }, { ...w(1), id: 2, hp: 1 }, { ...w(2), id: 3, hp: 3 }] }
+      const bar = hudModel(s, defaultConfig, view).defenceBar
+      expect([bar[1].count, bar[2].count]).toEqual(['2', '1'])
+    })
+    it('keeps an empty segment for a structure that is gone', () => {
+      const bar = hudModel(initialState(1), defaultConfig, { ...view, slots: { 1: 2, 2: 0 } }).defenceBar
+      expect(bar[1]).toEqual({ count: '0', segments: [false, false] })
+    })
+  })
   describe('Move point dots', () => {
     const placed = (): SimState => {
       const s = playState()
@@ -64,6 +76,13 @@ describe('hudModel', () => {
     })
     it('is decided by the viewer, not by whose strip is shown', () => {
       expect(digits(afterFirst(), first, second)).toEqual(first === 1 ? ['2', '?'] : ['?', '2'])
+    })
+    it('puts "?" on the Defence bar for the opponent too, until play starts', () => {
+      const s = afterFirst()
+      const bar = hudModel(s, c, { ...view, viewer: second, slots: { 1: 5, 2: 5 } }).defenceBar
+      expect(bar[first]).toEqual({ count: '?', segments: [] })
+      expect(bar[second].count).toBe('0')
+      expect(hudModel(afterSecond(), c, { ...view, viewer: second }).defenceBar[first].count).toBe('2')
     })
     it('shows the number once the second Done starts play', () => {
       const s = afterSecond()

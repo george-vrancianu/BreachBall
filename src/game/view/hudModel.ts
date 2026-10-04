@@ -7,6 +7,7 @@ import { canRefund, type SimConfig, type SimState } from '../../sim/step'
 import { UNITS } from '../../sim/settings'
 import { structuresOf, type Structure } from '../../sim/wall'
 import type { Item } from './defenceCircle'
+import { defenceBar, type DefenceBar } from './defenceBar'
 
 /**
  * One button. `onClick` runs whenever the button is clicked, and the HUD keeps a row alive while its `[label, disabled, pressed]` are unchanged,
@@ -16,6 +17,8 @@ export type ButtonSpec = { label: string; onClick(): void; disabled?: boolean; p
 
 export type HudModel = {
   players: Record<PlayerId, { /** What the big digit shows (Rounds: the score; Siege: remaining structures); null hides it. */ digit: string | null; inventory: Record<PowerUp, number> }>
+  /** The Defence bar at the far edge: structure counts for both modes, `?` for the blind opponent. */
+  defenceBar: DefenceBar
   /** Whose turn it is; their controls go to the bottom. */
   active: PlayerId
   /** Null in modes without rounds. */
@@ -36,7 +39,7 @@ export type HudModel = {
 }
 
 /** What the game knows that the sim state does not. `viewer` is the local player (online: the peer's own seat; hot-seat: whoever holds the device), not necessarily the seat shown at the bottom. */
-export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; armed: boolean; tappable: boolean; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item }
+export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; armed: boolean; tappable: boolean; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item; /** The most structures each player has stood this match (see `growSlots`); defaults to what stands now, so no destroyed structure shows as an empty segment. */ slots?: Record<PlayerId, number> }
 
 const PLACING: Record<Item, string> = { wall: 'Placing wall', repulsor: 'Placing Repulsor', steal: 'Placing Steal' }
 
@@ -75,6 +78,7 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
   const timed = b || s.match.choosing ? c.buildTime : c.shotClock
   return {
     players: { 1: { digit: digitOf(1), inventory: inventoryOf(1) }, 2: { digit: digitOf(2), inventory: inventoryOf(2) } },
+    defenceBar: defenceBar(s.objects, v.slots ?? { 1: 0, 2: 0 }, hidden),
     active: v.active,
     round: roundOf(s.match),
     rounds: c.rounds,

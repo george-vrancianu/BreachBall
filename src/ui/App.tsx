@@ -3,6 +3,7 @@ import { LocalDriver } from '../game/driver'
 import { Game, type HudView } from '../game/Game'
 import { showConnectScreen } from '../net/connectScreen'
 import { defaultSettings, type Settings } from '../game/view/settings'
+import { DefenceBar } from './hud/DefenceBar'
 import { Shell } from './hud/Shell'
 import { Overlay } from './overlays/Overlay'
 import { HelpScreen, MatchEndScreen, SettingsScreen, TitleScreen } from './screens/Screens'
@@ -40,6 +41,7 @@ export function App() {
         {view && (
           <>
             <Overlay view={view.overlay} onTap={() => actions().dismiss()} />
+            <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} />
             <Shell
               hud={view.hud}
               defence={view.defence}
