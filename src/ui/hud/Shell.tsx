@@ -20,12 +20,28 @@ function Digit({ value, color }: { value: string | null; color: string }) {
   return <div ref={ref} style={{ display: value === null ? 'none' : undefined, fontFamily: visual.hud.display, fontSize: 40, lineHeight: 1, color }}>{value}</div>
 }
 
+/** The clock ring: a conic drain around a dark disc holding the seconds; at the urgent seconds it turns red with a halo and pulses. */
 function Clock({ clock }: { clock: HudModel['clock'] }) {
+  const { ringPx, discPx, haloPx, haloColor } = visual.hud.sharedRow
   const urgent = !!clock && clock.seconds <= visual.hud.urgentSeconds
   return (
-    <div style={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: visual.hud.dark, position: 'relative', background: ring(clock?.fraction ?? 0, urgent ? visual.hud.urgent : undefined), transform: urgent ? `scale(${1 + visual.hud.urgentPulse * Math.abs(Math.sin(Math.PI * clock.seconds))})` : undefined }}>
-      {clock ? Math.ceil(clock.seconds) : '-'}
+    <div style={{ flex: 'none', width: ringPx, height: ringPx, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: ring(clock?.fraction ?? 0, urgent ? visual.hud.urgent : undefined), boxShadow: urgent ? `0 0 0 ${haloPx}px ${haloColor}` : undefined, transform: urgent ? `scale(${1 + visual.hud.urgentPulse * Math.abs(Math.sin(Math.PI * clock.seconds))})` : undefined }}>
+      <div style={{ width: discPx, height: discPx, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: visual.tokens.bg, color: urgent ? visual.hud.urgent : visual.hud.ink }}>{clock ? Math.ceil(clock.seconds) : '-'}</div>
     </div>
+  )
+}
+
+/** The ghost circle that sends the camera back to the ball: a crosshair. */
+function Recenter({ onClick }: { onClick(): void }) {
+  const { recenterPx } = visual.hud.sharedRow
+  const { ghostBorder, ghostGlyph } = visual.tokens
+  return (
+    <button aria-label="Recenter" onClick={onClick} style={{ flex: 'none', width: recenterPx, height: recenterPx, padding: 0, borderRadius: '50%', border: `2px solid ${ghostBorder}`, background: 'none', color: ghostGlyph, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+        <circle cx="10" cy="10" r="3.5" />
+        <path d="M10 1v4M10 15v4M1 10h4M15 10h4" />
+      </svg>
+    </button>
   )
 }
 
@@ -103,6 +119,7 @@ export type ShellProps = {
 export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRecenter, onPowerUp, onConfirm, onMapStretch, onMapClose, onDefenceToggle, onDefenceArm, onRefund, className, style, children }: ShellProps) {
   const color = visual.player.colors[m.active]
   const live = m.breaker.tappable
+  const { sharedRow } = visual.hud
   // The power-ups dim to outlines while the Defence circle's column is open over the pitch.
   const [columnOpen, setColumnOpen] = useState(false)
   const dim = visual.tokens.dimOutline
@@ -113,16 +130,20 @@ export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRec
       {defence && <DefenceCircle defence={defence} color={color} flipped={flipped} onToggle={onDefenceToggle} onArm={onDefenceArm} onOpen={setColumnOpen} style={auto} />}
       {confirm && <ButtonRow specs={[{ label: 'Confirm', onClick: onConfirm }]} style={auto} />}
       {mapOpen && <ButtonRow specs={[{ label: 'Stretch', onClick: onMapStretch }, { label: 'Close', onClick: onMapClose }]} style={auto} />}
-      {m.buttons?.length ? <ButtonRow specs={m.buttons} style={auto} /> : null}
-      <div style={row}>
-        {m.round !== null && <div>{`Round ${m.round} / ${m.rounds}`}</div>}
+      <div style={{ ...row, justifyContent: 'flex-start', flexWrap: 'nowrap', alignSelf: 'stretch', minHeight: sharedRow.heightPx, paddingRight: sharedRow.chipPadPx }}>
+        <div style={{ textAlign: 'left' }}>
+          {m.round !== null && <div style={{ fontSize: sharedRow.roundPx, letterSpacing: '0.08em' }}>{`Round ${m.round}/${m.rounds}${m.score ? ` · ${m.score}` : ''}`}</div>}
+          <div style={{ fontSize: sharedRow.labelPx, letterSpacing: `${sharedRow.labelSpacingEm}em`, color: visual.tokens.muted }}>{m.phase}</div>
+        </div>
         <Clock clock={m.clock} />
         <MoveDots left={m.shotsLeft} max={m.shotsMax} refundable={m.refundable} onRefund={onRefund} />
-        <div>{m.phase}</div>
-        <ButtonRow specs={[{ label: 'Map', onClick: onMap }, { label: 'Recenter', onClick: onRecenter }]} />
+        <div style={{ flex: 1 }} />
+        <Recenter onClick={onRecenter} />
+        {/* The minimap chip (#87) takes the Map button's place. */}
+        <ButtonRow specs={[{ label: 'Map', onClick: onMap }, ...(m.buttons ?? [])]} />
       </div>
       <div style={{ ...row, gap: 16, color }}>
-        {([1, 2] as PlayerId[]).map((id) => <Digit key={id} value={m.players[id].digit} color={visual.player.colors[id]} />)}
+        {([1, 2] as PlayerId[]).filter((id) => m.score === null || id === m.active).map((id) => <Digit key={id} value={m.players[id].digit} color={visual.player.colors[id]} />)}
         {(Object.keys(ICONS) as PowerUp[]).map((p) => {
           const n = m.players[m.active].inventory[p]
           const armed = p === 'breaker' && m.breaker.armed

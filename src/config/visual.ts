@@ -143,6 +143,8 @@ export const visual = {
     /** The Defence circle and its piece column (px): the primary circle and its border, the piece circles, their label pills and the gap between them; how long the circle pulses when a hold has nothing to offer, how far it swells (scale), the piece column's z-index (above the HUD rows it may open across), the font sizes of circle, piece and pill (px), and the pill's offset from its piece, side padding and border (px). */
     defence: { circlePx: 60, borderPx: 3, itemPx: 56, pillPx: 32, gap: 10, pulseMs: 300, pulseScale: 1.18, columnZ: 10, circleFontPx: 24, itemFontPx: 20, pillFontPx: 13, pillOffsetPx: 8, pillPadPx: 12, pillBorderPx: 2, itemBorderPx: 2, shadowPx: { y: 2, blur: 8 } },
     /** Move point dots: size and ring in px; a refund buzzes `vibration` ms, a refund that cannot happen buzzes `denied`. */
+    /** The near band's shared row: its height, the clock ring and the disc inside it, the urgent halo's width and colour, the round line's and phase label's font sizes and the phase label's letter spacing (px, em), the Recenter circle's size, and the right padding left for the minimap chip. */
+    sharedRow: { heightPx: 36, ringPx: 36, discPx: 28, haloPx: 3, haloColor: '#7f1d1d', roundPx: 14, labelPx: 10, labelSpacingEm: 0.16, recenterPx: 36, chipPadPx: 44 },
     refund: { dotPx: 12, ringPx: 2, gap: 4, vibration: 20, denied: [15, 40, 15] }, shadow: '#0008', gap: 8 },
   /** The Title screen: the dot grid's cell and dot (px), the Play and Online pills' heights, the ghost circles' size, and the widest the pills grow. */
   titleScreen: { gridPx: 26, dotPx: 1.3, playPx: 64, onlinePx: 56, ghostPx: 48, pillMaxPx: 300, halo: tokens.halo },
