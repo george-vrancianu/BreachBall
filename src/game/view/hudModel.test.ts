@@ -185,4 +185,32 @@ describe('hudModel', () => {
     for (let i = 0; i < 30; i++) s = step(s, {}, c).state
     expect(hudModel(s, c, view).players[1].digit).toBe('0')
   })
+  describe('dock', () => {
+    const siege = { ...defaultConfig, mode: 'siege' as const }
+    it('is the build dock in a build turn that places pieces, and play once the build is done', () => {
+      expect(hudModel(initialState(1), defaultConfig, view).dock).toBe('build')
+      expect(hudModel(playState(), defaultConfig, view).dock).toBe('play')
+    })
+    it('is the rearrange dock in a Siege Rearrange turn, and the choice dock while a defence choice is owed', () => {
+      const s = initialState(1, siege)
+      const rearrange = { ...s, match: { mode: 'siege' as const, seed: 1, winner: null, builder: 1 as const, choosing: null, opening: false } }
+      const choosing = { ...s, match: { mode: 'siege' as const, seed: 1, winner: null, builder: null, choosing: 1 as const, opening: false } }
+      expect(hudModel(rearrange, siege, view).dock).toBe('rearrange')
+      expect(hudModel(choosing, siege, view).dock).toBe('choice')
+    })
+    it('shows the active player\'s Credits in Rounds, wall points in a Siege opening build, and no balance in Siege play', () => {
+      const s = { ...playState(), credits: { 1: 7, 2: 4 } }
+      expect(hudModel(s, defaultConfig, view).balance).toEqual({ amount: 7, unit: 'CR' })
+      expect(hudModel(s, defaultConfig, { ...view, active: 2 }).balance).toEqual({ amount: 4, unit: 'CR' })
+      const opening = initialState(1, siege)
+      expect(hudModel(opening, siege, { ...view, active: opening.match.builder! }).balance).toMatchObject({ unit: 'PTS' })
+      const play = { ...opening, match: { mode: 'siege' as const, seed: 1, winner: null, builder: null, choosing: null, opening: false } }
+      expect(hudModel(play, siege, view).balance).toBeNull()
+    })
+    it('gives the refund rate where refunds exist, none in Siege', () => {
+      expect(hudModel(playState(), { ...defaultConfig, refundRate: 4 }, view).refundRate).toBe(4)
+      const s = initialState(1, siege)
+      expect(hudModel({ ...s, match: { mode: 'siege' as const, seed: 1, winner: null, builder: null, choosing: null, opening: false } }, siege, view).refundRate).toBeNull()
+    })
+  })
 })

@@ -114,7 +114,7 @@ export function landedAs(s: SimState, sel: Selection): Selection | undefined {
 }
 
 /** One Defence piece in the piece column: `disabled` greys it (no Credits, or no stock in Siege; Cannon is not built yet, `soon`), `pressed` marks the armed one. */
-export type ItemSpec = { item: Item | 'cannon'; label: string; disabled: boolean; pressed: boolean; soon?: boolean }
+export type ItemSpec = { item: Item | 'cannon'; label: string; /** The short name on its dock tile. */ name: string; /** The tile's corner badge: the price in Credits (a wall's per unit), or what is left of a Siege tower's stock. */ badge?: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
 /** The builder's own balance, shown beside the priced items: Credits in Rounds, wall points in Siege. */
 export type Balance = { amount: number; unit: string }
@@ -142,15 +142,17 @@ export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed 
   const spending = builds && edit
   const sel = builds && !v.blocked ? v.selection : undefined
   // The price on the item is one unit's; a longer wall is drawn and costed live.
-  const piece = (item: Item, label: string): ItemSpec => ({ item, label, disabled: itemDisabled(s, viewer, item), pressed: v.item === item })
+  const piece = (item: Item, label: string, name: string, badge: string): ItemSpec => ({ item, label, name, badge, disabled: itemDisabled(s, viewer, item), pressed: v.item === item })
+  const pays = modeFor(s.match).paysTowers(s.match)
+  const towerBadge = (power: TowerPower) => (pays ? String(rules.towerCost[power]) : `×${s.players[viewer].inventory[power]}`)
   return {
     ...(spending && { balance: { amount: s.credits[viewer], unit: UNITS[s.match.mode].long } }),
     building: v.item !== undefined,
     ...(v.item && { item: v.item }),
     items: [
-      piece('wall', `Wall · ${rules.wall.unitCost}/unit`),
-      ...(Object.keys(POWER_NAME) as TowerPower[]).map((power) => piece(power, towerLabel(s, power))),
-      { item: 'cannon', label: 'Cannon', disabled: true, pressed: false, soon: true },
+      piece('wall', `Wall · ${rules.wall.unitCost}/unit`, 'Wall', String(rules.wall.unitCost)),
+      ...(Object.keys(POWER_NAME) as TowerPower[]).map((power) => piece(power, towerLabel(s, power), POWER_NAME[power], towerBadge(power))),
+      { item: 'cannon', label: 'Cannon', name: 'Cannon', disabled: true, pressed: false, soon: true },
     ],
     available: spending && !v.blocked,
     ...(sel && {

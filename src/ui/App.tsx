@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { visual } from '../config/visual'
 import { LocalDriver } from '../game/driver'
 import { Game, type HudView } from '../game/Game'
 import { showConnectScreen } from '../net/connectScreen'
@@ -6,6 +7,7 @@ import { defaultSettings, type Settings } from '../game/view/settings'
 import { DefenceBar } from './hud/DefenceBar'
 import { ResourceBar } from './hud/ResourceBar'
 import { Shell } from './hud/Shell'
+import { Minimap } from './hud/Minimap'
 import { SideMenu, SideMenuButton } from './hud/SideMenu'
 import { QueuedIcons } from './hud/SubterfugeCircle'
 import { Overlay } from './overlays/Overlay'
@@ -53,11 +55,10 @@ export function App() {
               offence={view.offence}
               defence={view.defence}
               subterfuge={view.subterfuge}
+              strategies={view.strategies}
               confirm={view.confirm}
               mapOpen={view.mapOpen}
-              minimap={view.minimap}
               flipped={view.flipped}
-              onMap={() => actions().map()}
               onRecenter={() => actions().recenter()}
               onOffenceArm={(item) => actions().offence.arm(item)}
               onRefund={(n) => actions().refund(n)}
@@ -65,7 +66,11 @@ export function App() {
               onDefenceToggle={() => actions().build.toggle()}
               onDefenceArm={(item) => actions().build.arm(item)}
               onSubterfuge={(item) => actions().subterfuge(item)}
+              onStrategies={() => actions().strategies.toggle()}
+              onStrategy={(id) => actions().strategies.apply(id)}
             />
+            {/* The minimap chip and ☰ sit together at the top-left, under the far-edge bars. */}
+            {!screen && <Minimap minimap={view.minimap} open={view.mapOpen} color={visual.player.colors[view.hud.active]} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onToggle={() => actions().map()} />}
             {/* Both sit in the stage, so they turn with the flip and open from the viewer's left. */}
             {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onOpen={() => actions().menu(true)} />}
             {!screen && <SideMenu menu={view.menu} onResume={() => actions().menu(false)} onHelp={() => setScreen('help')} onRestart={() => actions().restart()} onQuit={() => (actions().quit(), setScreen('title'))}>

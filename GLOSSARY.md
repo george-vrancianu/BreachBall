@@ -65,8 +65,16 @@ The renderer's cover over the opponent's half (up to the halfway line, boards an
 _Avoid_: Mask, blackout
 
 **Minimap chip**:
-The small chip at the near band's bottom-right showing a thumbnail of the whole pitch with the main camera's frame on it (and the Fog over the opponent's half in a blind build). Tapping it opens the Map view; while open it is a filled ✕ that closes it.
+The small chip at the top-left, just under the far-edge bars and beside the ☰ button, showing a thumbnail of the whole pitch with the main camera's frame on it (and the Fog over the opponent's half in a blind build). Tapping it opens the Map view; while open it is a filled ✕ that closes it.
 _Avoid_: Radar, overview button
+
+**Dock**:
+The panel at the bottom of the screen holding the active viewer's controls, in two rows: the status row (balance chip, round and phase, clock, Recenter, and OK in a build turn) and the action row. The action row depends on the turn: the build dock has Build (a chess rook) on the left, the Defence pieces beside it and Strategies on the right; the play dock has the shots, Refund, Powerup (a bolt) and Subterfuge (a theatre mask); a Rearrange turn shows a prompt and a defence choice shows Repair and Rearrange.
+_Avoid_: Bottom menu, HUD bar, toolbar
+
+**Strategy**:
+A ready-made defence layout offered in the build dock's tray, drawn as a card with a preview of the builder's half and its net cost. Tapping one clears this turn's own pieces (refunded in full) and places the layout a piece a tick through the normal placing rules; a piece that does not fit or cannot be paid for is skipped. Authored on Player 1's half and point-reflected for Player 2.
+_Avoid_: Preset, template, formation, plan (the tile's short label is Plans)
 
 **Map view**:
 The whole pitch fitted above the HUD band, opened from the Minimap chip. The main camera's frame is drawn on it, dashed with solid corner brackets, and tapping the pitch jumps the main camera there. The Reveal holds the same camera.

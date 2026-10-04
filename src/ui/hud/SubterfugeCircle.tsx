@@ -4,23 +4,24 @@ import { reducedMotion } from '../../game/feedback'
 import type { SubterfugeCircle as SubterfugeCircleView, SubterfugeSpec } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
 import { FONT } from '../ButtonRow'
-import { GREY, ItemButton, NO_CALLOUT, noMenu, useColumn, type ColumnItemSpec } from './ItemButton'
+import { ItemButton, noMenu, useColumn, type ColumnItemSpec } from './ItemButton'
+import { JAM, LOCK, MASK } from './icons'
+import { columnLift, tileLabel, tileStyle } from './tile'
+import { menuLeft } from './Minimap'
 
-const { ink, panel, shadow } = visual.hud
-const { circlePx, borderPx, gap, pulseMs, pulseScale, columnZ, itemPx, itemBorderPx, shadowPx } = visual.hud.defence
+const { panel } = visual.hud
+const { gap, pulseMs, pulseScale, columnZ, itemPx, itemBorderPx } = visual.hud.defence
 
-const svg = (size: number, d: ReactNode) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">{d}</svg>
-// Drawn rather than an emoji, which some fonts lack: a dagger, and a spiked hub for the Jam.
-const DAGGER = svg(26, <path d="M20 4l-1 5-9 9-4-4 9-9zM6 14l4 4M4 20l3-3" />)
-const JAM = (size: number) => svg(size, <><circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3" /></>)
+const { iconPx } = visual.hud.dock
+/** The Subterfuge tile is wider than a piece tile, to fit its label. */
+export const SUBTERFUGE_TILE_W = 74
 /** How each item is drawn and named, in the column and in the queued icons. */
 const ITEMS: Record<SubterfugeItem, { icon(size: number): ReactNode; name: string }> = { jam: { icon: JAM, name: 'Jam' } }
-const SOON_ICON = '🧪'
 
 type Press = { x: number; y: number; slid: boolean; opened: boolean; pulsed: boolean }
 
 /**
- * The Subterfuge circle. Tap, or hold still for `holdMs`: the item column opens (a tap with it open closes it); slide onto an item and lift to buy it.
+ * The Subterfuge circle, drawn as the dock's Subterfuge tile (a theatre mask). Tap, or hold still for `holdMs`: the item column opens (a tap with it open closes it); slide onto an item and lift to buy it.
  * Outside the viewer's turn (or once this turn's Subterfuge is bought) the circle is greyed and a tap or hold pulses it instead.
  */
 export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, onOpen, className, style }: { subterfuge: SubterfugeCircleView; color: string; flipped?: boolean; onBuy(item: SubterfugeItem): void; /** The column opened (true) or closed (false), unmounting included. */ onOpen?(open: boolean): void; className?: string; style?: CSSProperties }) {
@@ -97,12 +98,11 @@ export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, on
     press.current = undefined
   }
 
-  const edge = available ? color : GREY
   return (
     <div className={className} style={{ position: 'relative', ...style }}>
       {open && (
-        <div ref={column} style={{ position: 'absolute', [flipped ? 'top' : 'bottom']: circlePx + gap, left: (circlePx - itemPx) / 2, display: 'flex', flexDirection: flipped ? 'column' : 'column-reverse', gap, zIndex: columnZ }}>
-          {items.map((i) => <ItemButton key={i.item} spec={colSpec(i)} icon={i.soon ? SOON_ICON : ITEMS[i.item].icon(26)} color={color} onPick={pick} />)}
+        <div ref={column} style={{ position: 'absolute', [flipped ? 'top' : 'bottom']: columnLift, right: (SUBTERFUGE_TILE_W - itemPx) / 2, display: 'flex', flexDirection: flipped ? 'column' : 'column-reverse', gap, zIndex: columnZ }}>
+          {items.map((i) => <ItemButton key={i.item} spec={colSpec(i)} icon={i.soon ? LOCK(22) : ITEMS[i.item].icon(26)} color={color} onPick={pick} pillSide="left" />)}
         </div>
       )}
       <button
@@ -118,9 +118,10 @@ export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, on
         onContextMenu={noMenu}
         onKeyDown={key}
         onClick={(e) => e.detail === 0 && tap()}
-        style={{ ...FONT, width: circlePx, height: circlePx, borderRadius: '50%', border: `${borderPx}px solid ${edge}`, color: available ? ink : GREY, background: available ? panel : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, boxShadow: `0 ${shadowPx.y}px ${shadowPx.blur}px ${shadow}`, touchAction: 'none', ...NO_CALLOUT }}
+        style={tileStyle({ color, available, width: SUBTERFUGE_TILE_W })}
       >
-        {DAGGER}
+        {MASK(iconPx)}
+        <span style={tileLabel}>Subterfuge</span>
       </button>
     </div>
   )
@@ -128,7 +129,7 @@ export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, on
 
 /**
  * What is queued, for both players: a small icon per item in its caster's colour, near the far edge, until the item takes effect.
- * Mount inside the rotating stage; `flipped` puts it on the stage's bottom, which is the far edge once the stage is turned. It sits just under the targeted player's half of the Defence bar, clear of the Resource bar's row; Player 1's icon is also kept clear of the ☰ button at the stage's left.
+ * Mount inside the rotating stage; `flipped` puts it on the stage's bottom, which is the far edge once the stage is turned. It sits just under the targeted player's half of the Defence bar, clear of the Resource bar's row; Player 1's icon is also kept clear of the minimap chip and ☰ button at the stage's left.
  */
 export function QueuedIcons({ queued, flipped }: { queued: SubterfugeCircleView['queued']; flipped: boolean }) {
   if (!queued.length) return null
@@ -139,7 +140,7 @@ export function QueuedIcons({ queued, flipped }: { queued: SubterfugeCircleView[
       {([1, 2] as const).map((id) => (
         <div key={id} style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', gap: gapPx }}>
           {queued.filter((q) => q.against === id).map((q) => (
-            <div key={q.against} role="img" aria-label={`${ITEMS[q.item].name} queued against Player ${q.against}`} style={{ display: 'flex', alignItems: 'center', gap: 4, height: px, marginLeft: q.against === 1 ? visual.sideMenu.buttonPx : 0, padding: `0 ${gapPx}px`, borderRadius: px / 2, border: `${itemBorderPx}px solid ${visual.player.colors[q.by]}`, background: panel, color: visual.player.colors[q.by], fontSize: fontPx }}>
+            <div key={q.against} role="img" aria-label={`${ITEMS[q.item].name} queued against Player ${q.against}`} style={{ display: 'flex', alignItems: 'center', gap: 4, height: px, marginLeft: q.against === 1 ? menuLeft() + visual.sideMenu.buttonPx : 0, padding: `0 ${gapPx}px`, borderRadius: px / 2, border: `${itemBorderPx}px solid ${visual.player.colors[q.by]}`, background: panel, color: visual.player.colors[q.by], fontSize: fontPx }}>
               {ITEMS[q.item].icon(px - 10)}
               <span>{`${ITEMS[q.item].name} · P${q.against}`}</span>
             </div>

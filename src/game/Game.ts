@@ -5,7 +5,7 @@ import type { PowerUp } from '../sim/player'
 import { blindSeat, buildPhase, openingBuild } from '../sim/mode'
 import { canPlaceBall, whoActs } from '../sim/possession'
 import { configFrom, type Settings } from '../sim/settings'
-import { defaultConfig, type SimConfig, type SimEvent, type SimState, type SubterfugeItem } from '../sim/step'
+import { canEdit, defaultConfig, type SimConfig, type SimEvent, type SimInput, type SimState, type SubterfugeItem } from '../sim/step'
 import { structuresOf } from '../sim/wall'
 import type { Driver, DriverFactory, Sink } from './driver'
 import { Aim } from './entities/Aim'
@@ -27,6 +27,7 @@ import { phaseButtons } from './view/phaseButtons'
 import { pausesSim, settingRows, type SideMenuView } from './view/sideMenu'
 import { loadFlipOnTurn, saveFlipOnTurn } from './deviceSettings'
 import { subterfugeCircle, type SubterfugeCircle } from './view/subterfugeCircle'
+import { planStrategy, STRATEGIES, strategyCards, type StrategyCard } from './view/strategies'
 import { acrossTable, advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
 
 export type { PlayerId, PowerUp, SubterfugeItem }
@@ -38,6 +39,8 @@ export type HudView = {
   defence?: DefenceCircle
   /** The Subterfuge circle's model and what is queued (absent in Siege, which has no Credits). */
   subterfuge?: SubterfugeCircle
+  /** The Strategies tray's cards: present only while the builder has the tray open in a build turn that places pieces. */
+  strategies?: StrategyCard[]
   /** The Offence circle's model, for the whole match (greyed outside the viewer's possession). */
   offence: OffenceCircle
   overlay?: OverlayView
@@ -82,6 +85,8 @@ export type GameActions = {
   /** Flip on turn: a device setting, saved on this device. Takes effect at the next handover. */
   flipOnTurn(on: boolean): void
   build: BuildActions
+  /** The build dock's Strategies: open or close the tray, and drop a layout in (this turn's own pieces are cleared and refunded first). */
+  strategies: { toggle(open?: boolean): void; apply(id: string): void }
 }
 
 /** Hot-seat: every seat is local, so no one is ever waited on. The online wave swaps this one predicate. */
@@ -134,6 +139,9 @@ export class Game implements Sink {
   private dpr = 1
   private dead = false
   private lastView = ''
+  private strategiesOpen = false
+  /** A Strategy being placed: the sim takes one build input per tick, so its inputs go one tick at a time while the same builder holds the turn. */
+  private strategyQueue?: { builder: PlayerId; inputs: SimInput[] }
   /** The most structures each player has stood this match: the Defence bar keeps a segment for each that falls. */
   private destroyed: Destroyed = { 1: 0, 2: 0 }
 
@@ -188,6 +196,23 @@ export class Game implements Sink {
       flipOnTurn: (on) => ((this.flipOnTurn = on), saveFlipOnTurn(on)),
       dismiss: () => (this.transition = dismiss(this.transition, performance.now())),
       build: this.input.build,
+      strategies: {
+        toggle: (open = !this.strategiesOpen) => {
+          const { builder } = this.state.match
+          this.strategiesOpen = open && !!builder && mine(builder) && canEdit(this.state)
+        },
+        apply: (id) => {
+          const { builder } = this.state.match
+          const strategy = STRATEGIES.find((st) => st.id === id)
+          if (!strategy || !builder || !mine(builder) || this.inputBlocked() || this.strategyQueue) return
+          const { inputs, placed } = planStrategy(this.state, builder, strategy, this.config)
+          if (!placed) return
+          this.input.build.cancel()
+          this.strategiesOpen = false
+          this.strategyQueue = { builder, inputs: inputs.slice(1) }
+          this.driver.send(inputs[0])
+        },
+      },
     }
     this.newMatch()
     this.raf = requestAnimationFrame(this.frame)
@@ -231,6 +256,9 @@ export class Game implements Sink {
     if (state.match.builder !== this.lastBuilder) {
       this.lastBuilder = state.match.builder
       input.resetBuild()
+      this.strategiesOpen = false
+      this.strategyQueue = undefined
+      if (this.lastBuilder && mine(this.lastBuilder)) input.enterBuild()
       if (this.lastBuilder) camera.pan(rules.halfCentre[this.lastBuilder] - camera.y)
       else camera.recenter()
     }
@@ -238,6 +266,9 @@ export class Game implements Sink {
     this.aim.sync(state, this.config)
     routeEvents(events, { camera, structures: this.structures, ball: this.ball, aim: this.aim, pitch: this.pitch, vibrate: (p) => navigator.vibrate?.(p) }, state.objects, reducedMotion())
     this.structures.sync(state.objects)
+    const queue = this.strategyQueue
+    if (queue && (state.match.builder !== queue.builder || !queue.inputs.length)) this.strategyQueue = undefined
+    else if (queue) this.driver.send(queue.inputs.shift()!)
   }
 
   // The seed varies per match; only the sim stays deterministic.
@@ -247,6 +278,8 @@ export class Game implements Sink {
     for (const e of [this.camera, this.structures, this.ball, this.aim, this.pitch]) e.reset()
     this.input.resetBuild()
     this.menuOpen = false
+    this.strategiesOpen = false
+    this.strategyQueue = undefined
     this.transition = newTransition(s.possession.shooter, this.flips())
     this.camera.recenter()
     this.camera.y = s.ball.pos.y
@@ -386,6 +419,7 @@ export class Game implements Sink {
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),
+      strategies: this.strategiesOpen && builder && !blocked ? strategyCards(state, builder, this.config) : undefined,
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),
       flipped: transition.shown === 2,

@@ -3,7 +3,7 @@ import { blindSeat, buildPhase, modeFor } from '../../sim/mode'
 import type { PlayerId } from '../../sim/pitch'
 import { STARTING_INVENTORY, type PowerUp } from '../../sim/player'
 import { opponent } from '../../sim/possession'
-import { canRefund, type SimConfig, type SimState } from '../../sim/step'
+import { canEdit, canRefund, type SimConfig, type SimState } from '../../sim/step'
 import { structuresOf, type Structure } from '../../sim/wall'
 import type { Item } from './defenceCircle'
 import { resourceBar, type ResourceBar } from './resourceBar'
@@ -14,6 +14,9 @@ import { defenceBar, type DefenceBar, type Destroyed } from './defenceBar'
  * so a handler must read live state at click time and never close over what was true when it was built. `pressed` marks a toggle that is on (aria-pressed and a filled look).
  */
 export type ButtonSpec = { label: string; onClick(): void; disabled?: boolean; pressed?: boolean }
+
+/** The dock variants (see `HudModel.dock`). */
+export type Dock = 'build' | 'rearrange' | 'choice' | 'play'
 
 export type HudModel = {
   players: Record<PlayerId, { /** What the big digit shows (Rounds: the score; Siege: remaining structures); null hides it. */ digit: string | null; /** The tower stock badges; null in Rounds, where towers are bought with Credits. */ inventory: Record<PowerUp, number> | null }>
@@ -37,12 +40,21 @@ export type HudModel = {
   score: string | null
   /** The phase label: Build phase, Play phase, Rearrange or Placing …, and `· Drag to aim` while the first-play hint would show. */
   phase: string
+  /** Which dock the viewer gets: `build` (a build turn that places and demolishes), `rearrange` (a build turn that only moves pieces), `choice` (a defence choice is owed), `play`. */
+  dock: Dock
+  /** The active player's balance for the dock's chip: Credits in Rounds, wall points in a Siege opening build; null where there is none to spend (Siege play). */
+  balance: { amount: number; unit: string } | null
+  /** Credits one refunded Move point returns; null in modes without refunds (Siege). */
+  refundRate: number | null
   /** Phase buttons (Done in a build turn; Repair and Rearrange on a defence choice) shown above the HUD row. The row is rebuilt only when a label or `disabled` flag changes, so handlers must read live state at click time (see `ButtonSpec`). */
   buttons?: ButtonSpec[]
 }
 
 /** What the game knows that the sim state does not. `viewer` is the local player (online: the peer's own seat; hot-seat: whoever holds the device), not necessarily the seat shown at the bottom. */
 export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item; /** Structures each player has lost in play this match (see `countDestroyed`); defaults to none, so no empty segments. */ destroyed?: Destroyed }
+
+/** The balance chip's short unit: Credits in Rounds, wall points in Siege. */
+const BALANCE_UNIT: Record<Match['mode'], string> = { rounds: 'CR', siege: 'PTS' }
 
 const PLACING: Record<Item, string> = { wall: 'Placing wall', repulsor: 'Placing Repulsor', steal: 'Placing Steal' }
 
@@ -98,6 +110,9 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
     refundable: canRefund(s, v.active),
     score: s.match.mode === 'rounds' ? `${s.match.score[v.active]}–${s.match.score[opponent(v.active)]}` : null,
     phase: buildPhase(s.match) === 'Rearrange' ? 'Rearrange' : v.placing ? PLACING[v.placing] : b ? 'Build phase' : aimHint(s, c) ? 'Play phase · Drag to aim' : 'Play phase',
+    dock: b ? (canEdit(s) ? 'build' : 'rearrange') : s.match.choosing ? 'choice' : 'play',
+    balance: modeFor(s.match).hasCredits(s.match) || (b && canEdit(s)) ? { amount: s.credits[v.active], unit: BALANCE_UNIT[s.match.mode] } : null,
+    refundRate: modeFor(s.match).mayRefund(s.match) ? c.refundRate : null,
     buttons: v.buttons,
   }
 }

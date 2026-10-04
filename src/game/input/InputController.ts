@@ -271,6 +271,11 @@ export class InputController {
     this.dropAim()
   }
 
+  /** A build turn that places pieces opened for this device: it starts in build mode with the Wall armed, so the first drag draws. */
+  enterBuild(): void {
+    if (!this.watching && canEdit(this.host.state())) this.item = 'wall'
+  }
+
   /** The build turn changed hands or ended: a new piece is gone, a moved one never left its spot in the sim. */
   resetBuild(): void {
     this.selection = this.landing = this.press = this.item = this.deferredOrigin = undefined

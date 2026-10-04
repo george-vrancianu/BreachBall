@@ -13,7 +13,7 @@ export const GREY = visual.tokens.ghostBorder
 export type ColumnItemSpec<I extends string> = { item: I; label: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
 /** One item of a circle's column: a circle with its label pill beside it. Greyed when disabled, but still there to look at (and hit-testable for a slide). */
-export function ItemButton<I extends string>({ spec, icon, color, onPick }: { spec: ColumnItemSpec<I>; icon: ReactNode; color: string; onPick(item: I): void }) {
+export function ItemButton<I extends string>({ spec, icon, color, onPick, pillSide = 'right' }: { spec: ColumnItemSpec<I>; icon: ReactNode; color: string; onPick(item: I): void; /** Which side of the item its label pill sits: left for a column opened from the screen's right edge. */ pillSide?: 'left' | 'right' }) {
   const off = spec.disabled
   const edge = off ? GREY : spec.pressed ? visual.hud.pressedBorder : ink
   return (
@@ -27,7 +27,7 @@ export function ItemButton<I extends string>({ spec, icon, color, onPick }: { sp
       style={{ ...FONT, position: 'relative', width: itemPx, height: itemPx, padding: 0, borderRadius: '50%', border: `${itemBorderPx}px solid ${edge}`, color: off ? GREY : ink, background: spec.pressed ? visual.hud.pressed : panel, fontSize: itemFontPx, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 ${shadowPx.y}px ${shadowPx.blur}px ${shadow}`, touchAction: 'none', ...NO_CALLOUT }}
     >
       {icon}
-      <span style={{ position: 'absolute', left: itemPx + pillOffsetPx, height: pillPx, lineHeight: `${pillPx - 2 * pillBorderPx}px`, padding: `0 ${pillPadPx}px`, boxSizing: 'border-box', borderRadius: pillPx / 2, border: `${pillBorderPx}px solid ${GREY}`, background: panel, color: off ? GREY : spec.pressed ? color : ink, whiteSpace: 'nowrap', fontSize: pillFontPx }}>{spec.soon ? `${spec.label} · soon` : spec.label}</span>
+      <span style={{ position: 'absolute', [pillSide === 'left' ? 'right' : 'left']: itemPx + pillOffsetPx, height: pillPx, lineHeight: `${pillPx - 2 * pillBorderPx}px`, padding: `0 ${pillPadPx}px`, boxSizing: 'border-box', borderRadius: pillPx / 2, border: `${pillBorderPx}px solid ${GREY}`, background: panel, color: off ? GREY : spec.pressed ? color : ink, whiteSpace: 'nowrap', fontSize: pillFontPx }}>{spec.soon ? `${spec.label} · soon` : spec.label}</span>
     </button>
   )
 }
