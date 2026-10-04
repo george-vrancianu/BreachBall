@@ -38,21 +38,40 @@ describe('routeEvents', () => {
     expect(w.pitch.creditCount).toBe(1)
   })
 
-  it('a Charged shot brightens the ball trail until the ball stops', () => {
+  it('a Charged shot brightens the tracer core until the ball stops', () => {
     const w = setup([])
-    const trailWidth = (b: Ball) => {
-      const widths: number[] = []
-      const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: (_t, k, v) => (k === 'lineWidth' && widths.push(v), true) }) as unknown as CanvasRenderingContext2D
-      b.draw(ctx)
-      return widths[0]
-    }
     w.ball.sync({ pos: at, vel: { x: 0, y: -30 }, rolled: 0 })
     w.route([{ type: 'shot-fired', player: 1, from: at, dir: { x: 0, y: -1 }, power: 0.5, tier: 0, charge: 1.5 }], [])
-    expect(trailWidth(w.ball)).toBe(visual.ball.charged.trailWidth)
+    expect(w.ball.brightCore).toBe(true)
     w.ball.sync({ pos: at, vel: { x: 0, y: 0 }, rolled: 0 })
     w.ball.update(0.016)
     w.ball.sync({ pos: at, vel: { x: 0, y: -30 }, rolled: 0 })
-    expect(trailWidth(w.ball)).toBe(visual.ball.trailWidth)
+    expect(w.ball.brightCore).toBe(false)
+  })
+
+  it('a shot sets the tracer to the colour of the tier that fired, and a possession change clears it', () => {
+    const w = setup([])
+    w.route([{ type: 'shot-fired', player: 1, from: at, dir: { x: 0, y: -1 }, power: 1, tier: 1 }], [])
+    expect(w.ball.tracer.color).toBe(visual.aim.tierColors.Power)
+    w.route([{ type: 'possession-changed', shooter: 2, inHand: false }], [])
+    expect(w.ball.tracer.color).toBeUndefined()
+  })
+
+  it('a bounce off a wall or a board flashes the tracer there and sprays sparks', () => {
+    const w = setup([])
+    w.route([{ type: 'ball-hit-wall', wall: 1, speed: 20, at }, { type: 'ball-hit-board', speed: 20, at }], [])
+    expect(w.ball.tracer.flashes).toBe(2)
+    expect(w.ball.tracer.sparks).toBeGreaterThan(0)
+  })
+
+  it('a shot in flight draws its tail, sparks, flashes and glow without error', () => {
+    const w = setup([])
+    const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true }) as unknown as CanvasRenderingContext2D
+    w.route([{ type: 'shot-fired', player: 1, from: at, dir: { x: 0, y: -1 }, power: 1, tier: 1 }], [])
+    w.ball.sync({ pos: { x: at.x, y: at.y - 5 }, vel: { x: 0, y: -30 }, rolled: 0 })
+    w.route([{ type: 'ball-hit-board', speed: 20, at }], [])
+    w.ball.update(0.016)
+    expect(() => w.ball.draw(ctx)).not.toThrow()
   })
 
   it('a destroyed wall shatters: it leaves the sim but its child stays for the shatter', () => {
@@ -69,7 +88,7 @@ describe('routeEvents', () => {
     w.route([{ type: 'repulsor-fired', tower: 2, at }], [tower])
     const t = w.structures.get(2) as Tower
     expect([t.glowing, w.ball.bright]).toEqual([true, true])
-    const [shorter, longer] = [Math.min(visual.tower.glowMs, visual.ball.trailMs), Math.max(visual.tower.glowMs, visual.ball.trailMs)]
+    const [shorter, longer] = [Math.min(visual.tower.glowMs, visual.ball.tracer.brightMs), Math.max(visual.tower.glowMs, visual.ball.tracer.brightMs)]
     const wait = (ms: number) => (w.structures.update(ms / 1000), w.ball.update(ms / 1000))
     wait(shorter + 1)
     expect(t.glowing || w.ball.bright).toBe(true)

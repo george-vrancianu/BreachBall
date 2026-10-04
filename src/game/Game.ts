@@ -385,6 +385,7 @@ export class Game implements Sink {
     this.pitch.builder = builder ?? (input.item ? builderNow(state) ?? undefined : undefined)
     this.pitch.charge = this.ball.charge = state.charge
     this.ball.radius = this.config.ballRadius
+    this.ball.tracer.pxPerUnit = this.camera.view(this.canvas).sy / this.dpr
     this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.gauge.flipped = this.transition.shown === 2
     // During the goal hold the ball rests in the net (the sim has already reset it).
     const inNet = goalBall(this.transition)

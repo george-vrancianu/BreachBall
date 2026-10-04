@@ -246,10 +246,15 @@ The third family of actions (see `GLOSSARY.md`): items that cripple the opponent
 
 ### Ball
 
-- A short trail of fading discs at previous positions, length proportional to speed, gone at rest.
+- The Tracer: a shot leaves a glowing tail in the colour of the tier that fired (Touch green, Power red). The tail is the ball's positions over the last 520 ms, with points added every 5 px between frames so fast shots stay smooth, drawn additively as a ribbon in three passes: a wide glow and a narrower band in the tier's colour, then a thin white core. Width and alpha shrink with age and towards the back of the tail; a Power tail is 20 px wide at the ball, a Touch tail 14 px. The colour clears when the ball rests or possession changes, and the last points fade out.
+- Sparks: small particles with drag that fade over 250 to 600 ms, shed along the path, with a burst at launch (8 for Touch, 18 faster ones for Power). At most 120 live at once.
+- Bounces: each bounce off a wall or board flashes there (a radial white glow and a ring in the tier's colour that snaps out over 360 ms) and sprays sparks, white off a wall, in the tier's colour off a board (more for Power).
+- A soft halo in the tier's colour around the moving ball, stronger with speed.
 - A single darker dot on the disc that orbits with distance travelled so the ball appears to roll. No squash.
 
-A Charged ball wears a pulsing glow ring and a "×1.5" / "×2" badge that pops in on arrival, and its launch trail runs bright and wide until it stops. While aiming, the Ghost's dots are drawn larger with the badge at its tip. (`visual.ball.charged`, `visual.aim.ghost`).
+All Tracer sizes are screen px, converted with the camera's px per world unit (`visual.ball.tracer`).
+
+A Charged ball wears a pulsing glow ring and a "×1.5" / "×2" badge that pops in on arrival, and its launch runs the Tracer's white core wide until it stops. While aiming, the Ghost's dots are drawn larger with the badge at its tip. (`visual.ball.charged`, `visual.aim.ghost`).
 
 ### Aim and Shot
 
@@ -271,7 +276,7 @@ A Charged ball wears a pulsing glow ring and a "×1.5" / "×2" badge that pops i
 - Damaging hit: wall flashes white for 100 ms with a few particles in its colour at the contact point. Non-damaging hit: dimmer, shorter flash, no particles.
 - One jagged crack line per lost HP, deterministic from wall id and HP so P2P peers draw the same cracks.
 - Destruction: the wall splits into cell-sized fragments that fly from the impact point, spin and fade over 400 ms.
-- Repulsor: square with two concentric rings. On fire the rings burst outward, the tower glows for 300 ms and the ball's trail brightens for 0.5 s. Drawn dimmed once spent for the shot.
+- Repulsor: square with two concentric rings. On fire the rings burst outward, the tower glows for 300 ms and the Tracer's white core runs wide for 0.5 s. Drawn dimmed once spent for the shot.
 - Steal: square with a vortex glyph. On trigger the ball shrinks into the tower center over 300 ms and vanishes, then the tower collapses like a destroyed wall.
 - Breaker armed: the Offence circle fills with the shooter's colour, and a pulsing outline on the ball in the shooter's colour. On break, double particles, no speed loss.
 
