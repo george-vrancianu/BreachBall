@@ -1,9 +1,10 @@
 import { visual } from '../../config/visual'
 import { rules } from '../../config/rules'
+import { modeFor } from '../../sim/mode'
 import { nearestOnWall } from '../../sim/near'
 import { type PlayerId, type Point } from '../../sim/pitch'
 import { UNITS } from '../../sim/settings'
-import { canEdit, canMove, canPlace, type SimInput, type SimState } from '../../sim/step'
+import { canAffordTower, canEdit, canMove, canPlace, type SimInput, type SimState } from '../../sim/step'
 import { rotatedWall, translatedWall, vertexToWorld, wallCost, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
 import type { ButtonSpec } from './hudModel'
 
@@ -112,7 +113,7 @@ export function landedAs(s: SimState, sel: Selection): Selection | undefined {
   return o && { spec: sel.spec, id: o.id, movable: true }
 }
 
-/** One Defence piece in the piece column: `disabled` greys it (no Credits or stock; Cannon is not built yet, `soon`), `pressed` marks the armed one. */
+/** One Defence piece in the piece column: `disabled` greys it (no Credits, or no stock in Siege; Cannon is not built yet, `soon`), `pressed` marks the armed one. */
 export type ItemSpec = { item: Item | 'cannon'; label: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
 /** The builder's own balance, shown beside the priced items: Credits in Rounds, wall points in Siege. */
@@ -123,12 +124,15 @@ export type DefenceCircle = { balance?: Balance; building: boolean; item?: Item;
 
 export type BuildActions = { toggle(): void; arm(item: Item): void; cancel(): void; rotate(): void; remove(): void }
 
-/** Whether the menu item for `item` is greyed out: no Credits for a unit of wall, no stock of the tower. */
-export const itemDisabled = (s: SimState, b: PlayerId, item: Item): boolean => (item === 'wall' ? s.credits[b] < oneUnitCost() : s.players[b].inventory[item] < 1)
+/** Whether the menu item for `item` is greyed out: no Credits for a unit of wall or for the tower's price (Siege: no stock of the tower). */
+export const itemDisabled = (s: SimState, b: PlayerId, item: Item): boolean => (item === 'wall' ? s.credits[b] < oneUnitCost() : !canAffordTower(s, b, item))
 
 const oneUnitCost = () => wallCost({ a: { x: 0, y: 0 }, b: { x: rules.wall.unit * Math.min(...rules.wall.units), y: 0 } })
 
-const POWER_LABEL: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: 'Steal' }
+const POWER_NAME: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: 'Steal' }
+
+/** A tower's pill: `Repulsor · 3` with its price in Rounds, the bare name in Siege (stock, no price). */
+const towerLabel = (s: SimState, power: TowerPower): string => (modeFor(s.match).paysTowers(s.match) ? `${POWER_NAME[power]} · ${rules.towerCost[power]}` : POWER_NAME[power])
 
 export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection; /** A blocking hold or the map is up. */ blocked?: boolean; /** Whether this device plays a seat (hot-seat: every seat). */ mine(p: PlayerId): boolean }, a: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'>): DefenceCircle | undefined {
   if (!s.match.builder) return undefined
@@ -145,7 +149,7 @@ export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed 
     ...(v.item && { item: v.item }),
     items: [
       piece('wall', `Wall · ${rules.wall.unitCost}/unit`),
-      ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => piece(power, POWER_LABEL[power])),
+      ...(Object.keys(POWER_NAME) as TowerPower[]).map((power) => piece(power, towerLabel(s, power))),
       { item: 'cannon', label: 'Cannon', disabled: true, pressed: false, soon: true },
     ],
     available: spending && !v.blocked,

@@ -18,8 +18,8 @@ describe('tower shape', () => {
       { a: { x: 10, y: 82 }, b: { x: 10, y: 80 } },
     ])
   })
-  it('costs 0 wall points and has configurable hp', () => {
-    expect(rules.towerCost).toBe(0)
+  it('has a Credit price per power and configurable hp', () => {
+    expect(rules.towerCost).toEqual({ repulsor: 3, steal: 2 })
     expect(rules.towerHp).toBe(3)
   })
 })
@@ -37,10 +37,10 @@ describe('tower placement', () => {
   it('refuses the own no-build zone', () => {
     expect(isLegal(tower(10, 52))).toBe(false)
   })
-  it('places through step with rules.towerHp and no point cost, refuses illegal ones', () => {
+  it('places through step with rules.towerHp and its Credit price, refuses illegal ones', () => {
     const r = run(buildState(1), { placeWall: tower(5, 40) })
     expect(r.state.objects).toMatchObject([{ kind: 'tower', id: 1, hp: rules.towerHp }])
-    expect(r.state.credits).toEqual(playState().credits)
+    expect(r.state.credits[1]).toBe(playState().credits[1] - rules.towerCost.repulsor)
     expect(run(buildState(1), { placeWall: tower(5, 10) }).events).toEqual([{ type: 'refused' }])
   })
 })

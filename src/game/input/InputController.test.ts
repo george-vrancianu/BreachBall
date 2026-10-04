@@ -3,7 +3,7 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
 import { defaultConfig as c, initialState, step, type SimInput, type SimState } from '../../sim/step'
-import { buildState, emptied, hseg, playState } from '../../sim/testkit'
+import { buildState, funded, hseg, playState } from '../../sim/testkit'
 import type { Structure } from '../../sim/wall'
 import { Camera } from '../entities/Camera'
 import { InputController } from './InputController'
@@ -322,7 +322,7 @@ describe('arm from not building', () => {
     expect(ctl.item).toBe('repulsor')
   })
   it('ignores a disabled item', () => {
-    make(emptied(buildState(1), 1, 'steal'))
+    make(funded(buildState(1), 1, rules.towerCost.steal - 1))
     ctl.build.arm('steal')
     expect(ctl.item).toBeUndefined()
   })
@@ -442,17 +442,16 @@ describe('drawing details', () => {
   })
 })
 
-describe('tower stock', () => {
-  it('arm ignores a tower with no stock', () => {
-    make(emptied(buildState(1), 1, 'steal'))
+describe('tower Credits', () => {
+  it('arm ignores a tower the builder cannot afford', () => {
+    make(funded(buildState(1), 1, rules.towerCost.steal - 1))
     ctl.build.toggle()
     ctl.build.arm('steal')
     expect(ctl.item).toBe('wall')
   })
 
-  it('placing the last one re-arms the wall on settle', () => {
-    const s = buildState(1)
-    make({ ...s, players: { ...s.players, 1: { ...s.players[1], inventory: { ...s.players[1].inventory, steal: 1 } } } })
+  it('placing the last one affordable re-arms the wall on settle', () => {
+    make(funded(buildState(1), 1, rules.towerCost.steal))
     ctl.build.toggle()
     ctl.build.arm('steal')
     expect(ctl.item).toBe('steal')

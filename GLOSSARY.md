@@ -113,7 +113,7 @@ The family of items that power up your own shot, bought with Credits during your
 _Avoid_: Attack, power-ups (as the family name)
 
 **Defence**:
-The family of items you build on your half (walls, towers), bought with Credits during your build turn.
+The family of items you build on your half (walls, towers), bought with Credits during your build turn: a wall by its units, a Repulsor 3 and a Steal 2. A tower placed this turn is refunded in full if demolished, as a wall is. Siege keeps its fixed tower stock instead.
 _Avoid_: Build menu, structures (as the family name)
 
 **Wall**:

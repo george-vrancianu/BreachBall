@@ -6,7 +6,7 @@ import { initialPlayers, type Player, type PowerUp } from './player'
 import { rollBall, type Ball } from './ball'
 import { canPlaceBall, handOver, opponent, resolveRest, type Possession } from './possession'
 import { splashDamage, splashOf } from './splash'
-import { damageWall, isLegal, maxHp, structureCost, wallCost, type Structure, type Tower, type StructureSpec, type Vertex } from './wall'
+import { damageWall, isLegal, maxHp, structureCost, wallCost, type Structure, type Tower, type TowerPower, type StructureSpec, type Vertex } from './wall'
 
 const ctxOf = (objects: readonly Structure[], possession: Possession, shooter: PlayerId, credits: Record<PlayerId, number>): ModeContext => ({ objects, possession, shooter, credits })
 
@@ -54,13 +54,24 @@ type Ledger = Pick<SimState, 'objects' | 'credits' | 'players' | 'match'>
 /** Credits moving `was` to `now` costs (negative: refunded); a wall's price follows its units alone. */
 const moveDiff = (was: Structure, now: StructureSpec): number => (was.kind === 'wall' && now.kind === 'wall' ? wallCost(now) - wallCost(was) : 0)
 
+/** Credits placing `spec` spends: its price, except a Siege tower, which spends stock and no Credits. */
+const chargeOf = (match: SimState['match'], spec: StructureSpec): number => (spec.kind === 'tower' && !modeFor(match).paysTowers(match) ? 0 : structureCost(spec))
+
+/** `players` after `spec` is placed (`by` 1) or a fresh one demolished (`by` -1): a Siege tower moves one from the stock, anything else leaves it. */
+const restocked = (match: SimState['match'], players: SimState['players'], spec: StructureSpec, by: 1 | -1): SimState['players'] =>
+  spec.kind === 'tower' && !modeFor(match).paysTowers(match) ? spend(players, spec.owner, spec.power, by) : players
+
+/** Whether `p` can pay for a `power` tower: its price in Credits in Rounds, one of the stock in Siege. */
+export const canAffordTower = (s: Pick<SimState, 'match' | 'credits' | 'players'>, p: PlayerId, power: TowerPower): boolean =>
+  modeFor(s.match).paysTowers(s.match) ? s.credits[p] >= rules.towerCost[power] : s.players[p].inventory[power] > 0
+
 /**
- * Whether `spec` may be placed as it stands: stock for a tower, Credits for the price, and a legal spot against the objects.
+ * Whether `spec` may be placed as it stands: payable (Credits for the price, or stock for a Siege tower) and a legal spot against the objects.
  * Who is building, and whether this turn may edit, are the caller's: the sim's `placeWall` and the build preview share this.
  */
 export function canPlace(s: Ledger, spec: StructureSpec): boolean {
-  const stocked = spec.kind === 'wall' || s.players[spec.owner].inventory[spec.power] > 0
-  return stocked && s.credits[spec.owner] >= structureCost(spec) && isLegal(spec, s.objects)
+  const payable = spec.kind === 'wall' ? s.credits[spec.owner] >= wallCost(spec) : canAffordTower(s, spec.owner, spec.power)
+  return payable && isLegal(spec, s.objects)
 }
 
 /**
@@ -235,13 +246,13 @@ export function step(
   const { placeWall, demolish, moveStructure: move } = input
   // A Rearrange turn moves pieces only: placing and demolishing are refused.
   const edit = mode.mayEdit(match)
-  /** Places a piece for the builder if cost, stock and position allow. */
+  /** Places a piece for the builder if cost (or Siege stock) and position allow. */
   const place = (spec: StructureSpec): boolean => {
     if (spec.owner !== match.builder || !canPlace({ objects, credits, players, match }, spec)) return false
-    if (spec.kind === 'tower') players = spend(players, spec.owner, spec.power)
+    players = restocked(match, players, spec, 1)
     built = [...built, nextId]
     objects = [...objects, { ...spec, id: nextId++, hp: maxHp(spec) }]
-    credits = { ...credits, [spec.owner]: credits[spec.owner] - structureCost(spec) }
+    credits = { ...credits, [spec.owner]: credits[spec.owner] - chargeOf(match, spec) }
     return true
   }
   if (placeWall && !(edit && place(placeWall))) events.push({ type: 'refused' })
@@ -260,8 +271,8 @@ export function step(
     if (edit && it && demolish.player === match.builder && it.owner === demolish.player && (fresh || credits[demolish.player] >= rules.demolishCost)) {
       objects = objects.filter((w) => w.id !== demolish.wall)
       // This turn's items come back in full; older ones cost `rules.demolishCost`.
-      credits = { ...credits, [demolish.player]: credits[demolish.player] + (fresh ? structureCost(it) : -rules.demolishCost) }
-      if (fresh && it.kind === 'tower') players = spend(players, it.owner, it.power, -1)
+      credits = { ...credits, [demolish.player]: credits[demolish.player] + (fresh ? chargeOf(match, it) : -rules.demolishCost) }
+      if (fresh) players = restocked(match, players, it, -1)
       built = built.filter((id) => id !== demolish.wall)
     } else events.push({ type: 'refused' })
   }

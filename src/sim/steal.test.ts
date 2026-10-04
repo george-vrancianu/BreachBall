@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { rules } from '../config/rules'
 import { defaultConfig, step, type SimEvent, type SimState } from './step'
-import { buildState, emptied, place, roundsMatch } from './testkit'
+import { buildState, funded, place, roundsMatch } from './testkit'
 import type { PlayerId } from './pitch'
 import type { TowerSpec } from './wall'
 
@@ -23,13 +24,12 @@ const run = (s: SimState, ticks: number) => {
 const types = (e: SimEvent[]) => e.map((x) => x.type)
 
 describe('steal placement', () => {
-  it('costs no points, consumes one from inventory and refuses at zero', () => {
+  it('spends its price in Credits and is refused when unaffordable', () => {
     const b = buildState(1)
     const r = step(b, { placeWall: steal() }, defaultConfig)
     expect(r.state.objects).toHaveLength(1)
-    expect(r.state.credits[1]).toBe(b.credits[1])
-    expect(r.state.players[1].inventory.steal).toBe(2)
-    const x = step(emptied(b, 1, 'steal'), { placeWall: steal() }, defaultConfig)
+    expect(r.state.credits[1]).toBe(b.credits[1] - rules.towerCost.steal)
+    const x = step(funded(b, 1, rules.towerCost.steal - 1), { placeWall: steal() }, defaultConfig)
     expect(x.state.objects).toHaveLength(0)
     expect(x.events).toEqual([{ type: 'refused' }])
   })

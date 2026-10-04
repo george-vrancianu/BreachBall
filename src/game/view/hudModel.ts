@@ -1,5 +1,5 @@
 import type { Match } from '../../sim/match'
-import { blindSeat, buildPhase } from '../../sim/mode'
+import { blindSeat, buildPhase, modeFor } from '../../sim/mode'
 import type { PlayerId } from '../../sim/pitch'
 import { STARTING_INVENTORY, type PowerUp } from '../../sim/player'
 import { opponent } from '../../sim/possession'
@@ -16,7 +16,7 @@ import { defenceBar, type DefenceBar, type Destroyed } from './defenceBar'
 export type ButtonSpec = { label: string; onClick(): void; disabled?: boolean; pressed?: boolean }
 
 export type HudModel = {
-  players: Record<PlayerId, { /** What the big digit shows (Rounds: the score; Siege: remaining structures); null hides it. */ digit: string | null; inventory: Record<PowerUp, number> }>
+  players: Record<PlayerId, { /** What the big digit shows (Rounds: the score; Siege: remaining structures); null hides it. */ digit: string | null; /** The tower stock badges; null in Rounds, where towers are bought with Credits. */ inventory: Record<PowerUp, number> | null }>
   /** The Defence bar at the far edge: structure counts for both modes, `?` for the blind opponent. */
   defenceBar: DefenceBar
   /** The Resource bar under it: each player's share of the banked Credits; null in Siege, which has none. */
@@ -82,7 +82,7 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
   const digit = digitsOf(s.match, s.objects)
   // Blind opening build: the viewer's opponent's count is a guess, not information.
   const hidden = blindSeat(s.match, v.viewer) ? opponent(v.viewer) : null
-  const inventoryOf = (p: PlayerId) => (p === hidden ? STARTING_INVENTORY : s.players[p].inventory)
+  const inventoryOf = (p: PlayerId) => (modeFor(s.match).paysTowers(s.match) ? null : p === hidden ? STARTING_INVENTORY : s.players[p].inventory)
   const digitOf = (p: PlayerId) => (p === hidden ? '?' : digit?.[p] ?? null)
   const timed = b || s.match.choosing ? c.buildTime : c.shotClock
   return {
