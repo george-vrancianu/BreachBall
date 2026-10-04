@@ -92,9 +92,12 @@ export const visual = {
     hatchStripe: '#7c2d12',
     /** Player 2's diagonal-stripe tile: size px, stripe px, scale into world units. */
     hatch: { tile: 8, stripe: 2, scale: 0.25 },
+    /** The dark under-stroke of a tower's shatter fragments, world units (a wall segment's outline is `look.outlineWidth`). */
     outlineWidth: 1,
     crackWidth: 0.12,
-    /** One crack's shape: how far along its cell it may sit (fraction of a cell), where its four points lie across the wall, and the jitter on each (world units). */
+    /** Whether a damaged wall segment shows its health pips (never on an undamaged one). */
+    showPips: true,
+    /** A tower's crack shape (a wall segment's cracks are `look.crack`): how far along its cell it may sit: how far along its cell it may sit (fraction of a cell), where its four points lie across the wall, and the jitter on each (world units). */
     crack: { spread: 0.6, across: [-0.4, -0.13, 0.13, 0.4], jitter: 0.5 },
     shatterMs: 400,
     shatterFly: 6,
@@ -111,7 +114,58 @@ export const visual = {
     /** The dashed outline on this turn's pieces and the breathing one on a selection. */
     mark: { pad: 0.6, width: 0.15, movableDash: [0.4, 0.4] },
     selected: { periodMs: 150, alpha: 0.6, alphaSwing: 0.4, pad: 0.8, padSwing: 0.15 },
-    particles: { ms: 400, minSpeed: 4, speedRange: 8, crack: 4, destroy: 12, breaker: 24, size: 0.3 },
+    /** Hit sparks (square, in the owner's colour) from a crack not caused by a ball hit (a Splash): life ms, speed range in world units per second, count per crack, side in world units. `cap`: the most particles of every kind (sparks, chunks, dust, rings) alive in the one reused pool. */
+    particles: { ms: 400, minSpeed: 4, speedRange: 8, crack: 4, size: 0.3, cap: 150 },
+    /**
+     * A wall segment breaking (the pool's particles):
+     * `chunks`: spinning pieces of the segment (count; side range in world units; speed range in world units per second; life range in ms; spin in radians per second; `drag` is the fraction of speed left after one second);
+     * `sparks`: white sparks (count; speed in world units per second; life range in ms; radius in world units);
+     * `dust`: the puff (life ms; its radius grows from `from` to `to` world units; peak alpha; `color` the rgb prefix);
+     * `ring`: the ellipse along the wall (life ms; x and y radii grow from the first to the second value, world units; line width in world units; peak alpha);
+     * `shake`: the camera shake in px, and the Breaker's; `breakerScale`: the Breaker multiplies the chunks and sparks by this.
+     */
+    break: {
+      chunks: { count: 14, size: [0.3, 0.8], speed: [6, 22], lifeMs: [600, 1100], spin: 14, drag: 0.08 },
+      sparks: { count: 16, speed: 22, lifeMs: [200, 500], radius: 0.25 },
+      dust: { ms: 700, from: 2, to: 7, alpha: 0.35, color: 'rgba(200,210,230' },
+      ring: { ms: 700, rx: [1, 7], ry: [0.6, 3.6], width: 0.2, alpha: 0.8 },
+      shake: 3,
+      breakerShake: 5,
+      breakerScale: 1.5,
+    },
+    /**
+     * The wall segment look (world units unless named; the prototype's px / 10, as a 390 px phone shows about 10 px per world unit):
+     * `thickness` is the drawn thickness (collision stays `rules.wallHalf`); `outlineWidth` the dark outline; `jointWidth` and `boltRadius` the dark joint between two standing segments and its bolt; `capSteps` the points of a rounded cap's half circle.
+     * `shadow`: the drop shadow's offset on screen (down-right) and alpha. `bevel`: the body gradient's colour shifts (-1 darker to 1 lighter) at the lit edge, at `midAt` (0-1 across) and at the dark edge, and how far each shifts per fraction of health lost.
+     * `highlight`: the lit edge's bright line (width, alpha, alpha lost per fraction of health lost). `stripes`: Player 2's stripes (spacing, width, alpha, alpha gained per fraction of health lost).
+     * `shine`: the sheen along a wall (speed in world units per second, rest between sweeps in world units, half width, alpha, and each wall id's start offset in world units).
+     * `ladder`: the damage ladder by remaining health: how many cracks and how long they run. `crack`: a crack's shape (steps; start margin from a segment's ends; length range added to the ladder's; drift jitter; bend; heading spread in radians; line, edge width and edge offset; dark and edge colours; the glow of a health-1 crack: width, alpha base, alpha swing, period ms, colour lightening).
+     * `chip`: bites out of an edge (width range; depth by remaining health; the far edge's chip: width range, depth, how far it may sit from the first). `pit`: dark pits and the scorch at health 1 (count, margin, radius range, alpha, scorch radius and alpha). `jag`: a jagged end (reach, notch, points).
+     * `pips`: the health marks (pitch, width, height, corner radius, filled and empty colours). `flash` (alpha of a bright flash) and `jolt` (life ms, amplitude, wobble period ms) of a hit.
+     * `breach`: the Breach mark (smudge alpha and colour, speck count range, speck radius range, speck alpha, margin from the ends). `simplifiedBelowPx`: below this many CSS px per world unit (the map view) walls draw simplified.
+     */
+    look: {
+      thickness: 1.4,
+      outlineWidth: 0.16,
+      jointWidth: 0.3,
+      boltRadius: 0.2,
+      capSteps: 8,
+      shadow: { dx: 0.15, dy: 0.3, alpha: 0.35 },
+      bevel: { lit: 0.45, mid: 0.05, midAt: 0.35, dark: -0.35, damage: { lit: 0.5, mid: 0.45, dark: 0.3 } },
+      highlight: { width: 0.16, alpha: 0.35, damage: 0.2 },
+      stripes: { pitch: 0.7, width: 0.3, alpha: 0.55, damageAlpha: 0.2 },
+      shine: { speed: 5.5, gap: 8, halfWidth: 2, alpha: 0.28, phase: 3.7 },
+      ladder: { 2: { cracks: 2, len: 1 }, 1: { cracks: 3, len: 1.8 } } as Record<number, { cracks: number; len: number }>,
+      crack: { steps: 5, margin: 1.6, lenRange: 1, jitter: 0.4, bend: 0.8, heading: 1.6, width: 0.11, edgeWidth: 0.06, edgeOffset: 0.07, dark: 'rgba(5,7,13,0.85)', edge: 'rgba(255,255,255,0.35)', glow: { width: 0.32, alpha: 0.35, swing: 0.35, periodMs: 160, lighten: 0.6 } },
+      chip: { width: [0.5, 0.9], depth: { 2: 0.25, 1: 0.4 } as Record<number, number>, far: { width: [0.6, 1], depth: 0.35, spread: 3 } },
+      pit: { count: 7, margin: 1, radius: [0.08, 0.21], alpha: 0.45, scorchRadius: 1.8, scorchAlpha: 0.45 },
+      jag: { reach: 0.4, notch: 0.3, points: 4 },
+      pips: { pitch: 0.7, width: 0.4, height: 0.32, radius: 0.12, on: 'rgba(255,255,255,0.95)', off: 'rgba(5,7,13,0.55)' },
+      flash: { alpha: 0.75 },
+      jolt: { ms: 200, amp: 0.22, periodMs: 18 },
+      breach: { alpha: 0.28, color: '#05070d', specks: [4, 6], speckRadius: [0.12, 0.3], speckAlpha: 0.8, margin: 0.8 },
+      simplifiedBelowPx: 7.5,
+    },
   },
   tower: {
     outline,

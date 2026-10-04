@@ -22,20 +22,42 @@ export function tierBuzz(prev: Hold | undefined, next: Hold | undefined): number
 
 /** What an event batch should trigger. Pure; `Game` turns it into entity calls. */
 export function feedbackFor(events: SimEvent[], walls: { id: number; owner: PlayerId }[]) {
-  const out = { flashes: [] as { wall: number; dim: boolean }[], bursts: [] as { at: Point; color: string; count: number }[], shakes: [] as number[], vibrations: [] as (number | number[])[] }
-  const cracked = new Set(events.flatMap((e) => (e.type === 'wall-cracked' ? [e.id] : [])))
-  const color = (id: number) => visual.player.colors[walls.find((w) => w.id === id)?.owner ?? 1]
+  const out = {
+    flashes: [] as { wall: number; dim: boolean; segment?: number; at?: Point }[],
+    bursts: [] as { at: Point; color: string; count: number }[],
+    /** Wall segments that broke: one full effect each, shake aside. */
+    breaks: [] as { id: number; segment: number; at: Point; breaker: boolean }[],
+    /** At most one: the largest of the tick's shake amplitudes, so several breaks (a Splash) shake once, never stacked. Only breaks and strong shots shake; a crack never does. */
+    shakes: [] as number[],
+    /** The owner's colour for the tracer's bounce burst on every wall a damaging hit landed on. */
+    hitColors: new Map<number, string>(),
+    vibrations: [] as (number | number[])[],
+  }
+  // A destroyed structure has left `walls` already, so its event carries the owner.
+  const owner = (id: number): PlayerId => walls.find((w) => w.id === id)?.owner ?? events.flatMap((e) => (e.type === 'wall-destroyed' && e.wall.id === id ? [e.wall.owner] : []))[0] ?? 1
+  const damaged = new Set(events.flatMap((e) => (e.type === 'wall-cracked' || e.type === 'segment-broken' ? [e.id] : e.type === 'wall-destroyed' ? [e.wall.id] : [])))
+  const amps: number[] = []
   for (const ev of events) {
-    if (ev.type === 'ball-hit-wall' && !cracked.has(ev.wall)) out.flashes.push({ wall: ev.wall, dim: true })
+    if (ev.type === 'ball-hit-wall') {
+      if (damaged.has(ev.wall)) out.hitColors.set(ev.wall, visual.player.colors[owner(ev.wall)])
+      else out.flashes.push({ wall: ev.wall, dim: true, at: ev.at })
+    }
     if (ev.type === 'wall-cracked') {
-      out.flashes.push({ wall: ev.id, dim: false })
-      out.bursts.push({ at: ev.at, color: color(ev.id), count: visual.wall.particles.crack })
+      out.flashes.push({ wall: ev.id, dim: false, segment: ev.segment, at: ev.at })
+      // The tracer's bounce is the one spark burst of a ball hit; a crack from a Splash has none, so it sprays its own.
+      if (!events.some((e) => e.type === 'ball-hit-wall' && e.wall === ev.id)) out.bursts.push({ at: ev.at, color: visual.player.colors[owner(ev.id)], count: visual.wall.particles.crack })
     }
     if (ev.type === 'repaired') out.flashes.push({ wall: ev.id, dim: false })
-    if (ev.type === 'wall-destroyed') out.bursts.push({ at: ev.at, color: visual.player.colors[ev.wall.owner], count: ev.breaker ? visual.wall.particles.breaker : visual.wall.particles.destroy })
-    if (ev.type === 'shot-fired' && ev.power >= visual.camera.shake.minPower) out.shakes.push(visual.camera.shake.max * ev.power)
+    if (ev.type === 'segment-broken' || (ev.type === 'wall-destroyed' && ev.segment !== undefined)) {
+      const [id, breaker] = ev.type === 'segment-broken' ? [ev.id, false] : [ev.wall.id, !!ev.breaker]
+      out.breaks.push({ id, segment: ev.segment as number, at: ev.at, breaker })
+      amps.push(breaker ? visual.wall.break.breakerShake : visual.wall.break.shake)
+    }
+    if (ev.type === 'wall-destroyed' && ev.segment === undefined) out.bursts.push({ at: ev.at, color: visual.player.colors[ev.wall.owner], count: visual.wall.particles.crack })
+    if (ev.type === 'shot-fired' && ev.power >= visual.camera.shake.minPower) amps.push(visual.camera.shake.max * ev.power)
     const v = vibration(ev)
     if (v !== undefined) out.vibrations.push(v)
   }
+  if (amps.length) out.shakes.push(Math.max(...amps))
   return out
 }

@@ -49,9 +49,9 @@ export class Ball extends Entity {
     this.tracer.fire(tier, from, this.clock)
   }
 
-  /** The ball bounced at `at` off a wall or a board: the tracer flashes and sprays sparks there. */
-  bounce(at: Point, wall: boolean): void {
-    this.tracer.bounce(at, wall, this.clock)
+  /** The ball bounced at `at` off a wall or a board: the tracer flashes and sprays sparks there, in `color` (the owner's, for a damaging wall hit) instead of white. */
+  bounce(at: Point, wall: boolean, color?: string): void {
+    this.tracer.bounce(at, wall, this.clock, color)
   }
 
   /** Possession changed: the tracer loses its colour and its tail. */
