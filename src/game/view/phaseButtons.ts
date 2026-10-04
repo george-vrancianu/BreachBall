@@ -10,6 +10,8 @@ export type PhaseSeam = {
   send(input: SimInput): void
   /** False while an overlay (the GOAL banner, the turn card) hides the board: the defence choice, Repair and Rearrange alike, is offered only when it is not. Default true. */
   choosable?: boolean
+  /** The builder holds a piece not yet in the sim (being drawn, or red): Done waits until it is placed or cancelled. */
+  unplaced?: boolean
 }
 
 /** The phase buttons in the HUD shell: Done in a build turn, Repair and Rearrange when the scorer owes a defence choice. */
@@ -18,7 +20,7 @@ export function phaseButtons(s: SimState, config: SimConfig, h: PhaseSeam): Butt
   if (builder && h.mine(builder)) {
     return [{
       label: 'Done',
-      disabled: !canFinishBuild(s, config),
+      disabled: !canFinishBuild(s, config) || !!h.unplaced,
       onClick: () => {
         const b = h.current().match.builder
         if (b && h.mine(b)) h.send({ done: b })

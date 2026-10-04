@@ -93,6 +93,15 @@ describe('hudModel', () => {
       expect(m.players[b].inventory.steal).toBe(2)
       expect(m.phase).toBe('Build · 10 credits')
     })
+    it('reads Placing … while the builder draws or holds an unplaced piece, else the Credits', () => {
+      const s = initialState(1)
+      const b = s.match.builder!
+      const phase = (placing?: 'wall' | 'repulsor' | 'steal') => hudModel(s, defaultConfig, { ...view, viewer: b, placing }).phase
+      expect(phase('wall')).toBe('Placing wall')
+      expect(phase('repulsor')).toBe('Placing Repulsor')
+      expect(phase('steal')).toBe('Placing Steal')
+      expect(phase()).toBe('Build · 10 credits')
+    })
   })
   it('Siege exposes each owner\'s structure count, towers included', () => {
     const c = { ...defaultConfig, mode: 'siege' as const }

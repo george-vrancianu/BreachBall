@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
-import type { Point } from '../../sim/pitch'
+import type { PlayerId, Point } from '../../sim/pitch'
 import { defaultConfig as c, initialState, step, type SimInput, type SimState } from '../../sim/step'
 import { buildState, emptied, hseg } from '../../sim/testkit'
 import type { Structure } from '../../sim/wall'
@@ -26,7 +26,7 @@ let pending: SimInput[]
 let ctl: InputController
 let keydown: (e: unknown) => void
 
-const make = (s: SimState) => {
+const make = (s: SimState, mine: (p: PlayerId) => boolean = () => true) => {
   state = s
   sent = []
   pending = []
@@ -39,7 +39,7 @@ const make = (s: SimState) => {
     state: () => state,
     config: () => c,
     shown: () => 1,
-    mine: () => true,
+    mine,
     mapOpen: () => false,
     blocked: () => false,
     toggleMap() {},
@@ -270,6 +270,44 @@ describe('drawing a wall', () => {
   it('arms another item', () => {
     ctl.build.arm('steal')
     expect(ctl.item).toBe('steal')
+  })
+})
+
+describe('online, the other peer\'s build turn', () => {
+  // Player 1 builds; this device plays only player 2.
+  const theirs: Structure = { kind: 'wall', owner: 1, id: 1, hp: 3, ...hseg(10, 40) }
+  beforeEach(() => make({ ...buildState(1), objects: [theirs], built: [1], nextId: 2 }, (p) => p === 2))
+
+  it('toggle and arm do not enter build mode', () => {
+    ctl.build.toggle()
+    ctl.build.arm('repulsor')
+    expect(ctl.item).toBeUndefined()
+  })
+  it('a draw sends nothing and selects nothing', () => {
+    ctl.item = 'wall'
+    drag({ x: 10, y: 90 }, { x: 10 + unit, y: 90 })
+    expect(sent).toEqual([])
+    expect(ctl.selection).toBeUndefined()
+  })
+  it('a tap on the builder\'s wall selects nothing', () => {
+    const mid = { x: (theirs.a.x + theirs.b.x) / 2, y: theirs.a.y }
+    down(mid), up(mid)
+    expect(ctl.selection).toBeUndefined()
+  })
+  it('rotate, remove and the R key send nothing and keep the selection', () => {
+    const sel = { spec: theirs, id: 1, movable: true }
+    ctl.selection = sel
+    ctl.build.rotate()
+    key('r')
+    ctl.build.remove()
+    expect(sent).toEqual([])
+    expect(ctl.selection).toBe(sel)
+  })
+  it('Esc leaves the selection alone', () => {
+    const sel = { spec: theirs, id: 1, movable: true }
+    ctl.selection = sel
+    key('Escape')
+    expect(ctl.selection).toBe(sel)
   })
 })
 

@@ -5,7 +5,7 @@ import { canArm, canPlaceBall } from '../../sim/possession'
 import { canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
 import { snapWallBetween, snapWallEnd, type StructureSpec } from '../../sim/wall'
 import { screenDown, type Camera } from '../entities/Camera'
-import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapBody, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/buildMenu'
+import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapBody, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/defenceCircle'
 import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, type AimGesture, type GestureView } from './gesture'
 
 /** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
@@ -125,20 +125,20 @@ export class InputController {
   // Tapping one of the builder's structures selects it (on lift, so a drag that starts on it is not a tap); an older one is only selected, to demolish it.
   build: BuildActions = {
     toggle: () => {
-      // Not mid-gesture, and not under a blocking hold or the map.
-      if (this.live || this.host.blocked() || this.host.mapOpen()) return
+      // Not mid-gesture, not under a blocking hold or the map, and not the other peer's turn.
+      if (this.live || this.host.blocked() || this.host.mapOpen() || this.watching) return
       if (this.item) this.leaveBuild()
       else if (canEdit(this.host.state())) this.item = 'wall'
     },
     arm: (item: Item) => {
-      if (this.live || this.host.blocked() || this.host.mapOpen()) return
+      if (this.live || this.host.blocked() || this.host.mapOpen() || this.watching) return
       const s = this.host.state()
       const builder = s.match.builder
       if (builder && !itemDisabled(s, builder, item) && (this.item || canEdit(s))) this.item = item
     },
     rotate: () => {
       // Mid-gesture the piece is still the finger's: rotating would place a second one.
-      if (this.live || !this.selection?.movable) return
+      if (this.live || this.watching || !this.selection?.movable) return
       const before = this.selection
       const next = rotated(before)
       if (before.id !== undefined) {
@@ -151,9 +151,16 @@ export class InputController {
     },
     cancel: () => (this.selection = undefined),
     remove: () => {
+      if (this.watching) return
       if (this.selection?.id !== undefined) this.host.send({ demolish: { player: this.selection.spec.owner, wall: this.selection.id } })
       this.selection = undefined
     },
+  }
+
+  /** A build turn this device does not play (online, the other peer's): every build input is ignored, the board is only for looking at. */
+  private get watching(): boolean {
+    const { builder } = this.host.state().match
+    return !!builder && !this.host.mine(builder)
   }
 
   /** Leaves build mode: the armed item and the selection go. */
@@ -351,7 +358,7 @@ export class InputController {
     const key = e.key.toLowerCase()
     if (e.code === 'Space') (e.preventDefault(), this.host.camera.recenter())
     if (key === 'm') this.host.toggleMap()
-    else if (key === 'escape') this.host.mapOpen() ? this.host.toggleMap(false) : this.live ? this.cancelPress() : this.selection ? (this.selection = undefined) : ((this.placement = undefined), this.leaveBuild())
+    else if (key === 'escape') this.host.mapOpen() ? this.host.toggleMap(false) : this.watching ? undefined : this.live ? this.cancelPress() : this.selection ? (this.selection = undefined) : ((this.placement = undefined), this.leaveBuild())
     else if (key === 'r') this.build.rotate()
     else if (key === 'enter' && !this.host.state().match.builder) this.confirmBall()
     this.refreshCursor()
@@ -567,6 +574,10 @@ export class InputController {
     }
     const state = this.host.state()
     const builder = state.match.builder
+    if (builder && this.watching) {
+      this.press = { kind: 'pan', id: e.pointerId }
+      return
+    }
     if (builder) {
       // Nothing changes on the press: what is under the finger decides on the move or the lift.
       const at = this.pxToWorld(e.offsetX, e.offsetY)

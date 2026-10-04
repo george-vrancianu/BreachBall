@@ -6,6 +6,7 @@ import { opponent } from '../../sim/possession'
 import { canRefund, type SimConfig, type SimState } from '../../sim/step'
 import { UNITS } from '../../sim/settings'
 import { structuresOf, type Structure } from '../../sim/wall'
+import type { Item } from './defenceCircle'
 
 /**
  * One button. `onClick` runs whenever the button is clicked, and the HUD keeps a row alive while its `[label, disabled, pressed]` are unchanged,
@@ -35,7 +36,9 @@ export type HudModel = {
 }
 
 /** What the game knows that the sim state does not. `viewer` is the local player (online: the peer's own seat; hot-seat: whoever holds the device), not necessarily the seat shown at the bottom. */
-export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; armed: boolean; tappable: boolean }
+export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; armed: boolean; tappable: boolean; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item }
+
+const PLACING: Record<Item, string> = { wall: 'Placing wall', repulsor: 'Placing Repulsor', steal: 'Placing Steal' }
 
 /** The round number for modes that have rounds, else null; the first-play hints show on round 1. */
 export function roundOf(m: Match): number | null {
@@ -80,7 +83,7 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
     shotsMax: c.shots,
     refundable: canRefund(s, v.active),
     // Waiting on a blind opponent's build, the spent points would show what they placed.
-    phase: buildPhase(s.match) === 'Rearrange' ? 'Rearrange' : b ? (b === hidden ? 'Build' : `Build · ${s.credits[b]} ${UNITS[s.match.mode]}`) : 'Play',
+    phase: buildPhase(s.match) === 'Rearrange' ? 'Rearrange' : v.placing ? PLACING[v.placing] : b ? (b === hidden ? 'Build' : `Build · ${s.credits[b]} ${UNITS[s.match.mode]}`) : 'Play',
     buttons: v.buttons,
     breaker: { armed: v.armed, tappable: v.tappable },
   }

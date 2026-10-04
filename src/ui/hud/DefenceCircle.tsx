@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import { reducedMotion } from '../../game/feedback'
-import type { BuildMenu as BuildMenuView, Item, ItemSpec } from '../../game/view/buildMenu'
+import type { DefenceCircle as DefenceCircleView, Item, ItemSpec } from '../../game/view/defenceCircle'
 import type { ButtonSpec } from '../../game/view/hudModel'
 import { Button, FONT } from '../ButtonRow'
 
@@ -18,8 +18,11 @@ const svg = (size: number, d: ReactNode) => <svg width={size} height={size} view
 const WALL = svg(26, <><rect x="2" y="4" width="20" height="16" rx="1" /><path d="M2 9.3h20M2 14.7h20M8 4v5.3M16 4v5.3M12 9.3v5.4M8 14.7V20M16 14.7V20" /></>)
 // Drawn rather than an emoji, which some fonts lack.
 const GLYPHS: Record<string, { icon: ReactNode; aria: string }> = { '🗑': { icon: svg(22, <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />), aria: 'Demolish' } }
-// Placeholder glyphs for the pieces until the icons are drawn.
-const ITEM_ICON: Record<ItemSpec['item'], ReactNode> = { wall: WALL, repulsor: 'R', steal: 'S', cannon: 'C' }
+// A ring with arcs pushing out, a magnet, a cannon on its wheel.
+const REPULSOR = svg(26, <><circle cx="12" cy="12" r="3" /><path d="M6.3 8a7 7 0 0 1 11.4 0M6.3 16a7 7 0 0 0 11.4 0" /></>)
+const STEAL = svg(26, <path d="M5 3h5v9a2 2 0 0 0 4 0V3h5v9a7 7 0 0 1-14 0zM5 7h5M14 7h5" />)
+const CANNON = svg(26, <><circle cx="8" cy="17" r="3" /><path d="M10.5 15 19 6.5l2 2-8.5 8.5M3 21h11" /></>)
+const ITEM_ICON: Record<ItemSpec['item'], ReactNode> = { wall: WALL, repulsor: REPULSOR, steal: STEAL, cannon: CANNON }
 
 const Round = ({ spec }: { spec: ButtonSpec }) => {
   const g = GLYPHS[spec.label]
@@ -28,7 +31,7 @@ const Round = ({ spec }: { spec: ButtonSpec }) => {
 
 type Press = { x: number; y: number; slid: boolean; opened: boolean; pulsed: boolean }
 
-/** One piece of the hold menu: a circle with its label pill beside it. Greyed when disabled, but still there (and hit-testable for a slide). */
+/** One piece of the piece column: a circle with its label pill beside it. Greyed when disabled, but still there (and hit-testable for a slide). */
 function ItemButton({ spec, color, onPick }: { spec: ItemSpec; color: string; onPick(item: Item): void }) {
   const off = spec.disabled
   const edge = off ? GREY : spec.pressed ? visual.hud.pressedBorder : ink
@@ -53,8 +56,8 @@ function ItemButton({ spec, color, onPick }: { spec: ItemSpec; color: string; on
  * opens; slide onto a piece and lift to arm it, lift on the circle to keep the column for a tap. When the viewer cannot build, the circle is greyed and a hold pulses it.
  * Beside it, the controls of the selected structure.
  */
-export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, className, style, children }: { menu: BuildMenuView; color: string; flipped?: boolean; onToggle(): void; onArm(item: Item): void; className?: string; style?: CSSProperties; children?: ReactNode }) {
-  const { building, available, items, selection } = menu
+export function DefenceCircle({ defence, color, flipped = false, onToggle, onArm, onOpen, className, style, children }: { defence: DefenceCircleView; color: string; flipped?: boolean; onToggle(): void; onArm(item: Item): void; /** The piece column opened (true) or closed (false), unmounting included. */ onOpen?(open: boolean): void; className?: string; style?: CSSProperties; children?: ReactNode }) {
+  const { building, available, items, selection } = defence
   const [open, setOpen] = useState(false)
   const hold = useRef<ReturnType<typeof setTimeout>>(undefined)
   const circle = useRef<HTMLButtonElement>(null)
@@ -67,6 +70,11 @@ export function BuildMenu({ menu, color, flipped = false, onToggle, onArm, class
   const clearHold = () => clearTimeout(hold.current)
   useEffect(() => () => clearTimeout(hold.current), [])
   useEffect(() => { if (!available) setOpen(false) }, [available])
+  useEffect(() => {
+    if (!open) return
+    onOpen?.(true)
+    return () => onOpen?.(false)
+  }, [open])
   // A press anywhere outside the circle and its column closes the column.
   useEffect(() => {
     if (!open) return

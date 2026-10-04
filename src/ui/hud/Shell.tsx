@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
-import type { BuildMenu as BuildMenuView, Item } from '../../game/view/buildMenu'
+import type { DefenceCircle as DefenceCircleView, Item } from '../../game/view/defenceCircle'
 import type { HudModel } from '../../game/view/hudModel'
 import type { PlayerId, PowerUp } from '../../game/Game'
 import { Button, ButtonRow, FONT } from '../ButtonRow'
-import { BuildMenu } from './BuildMenu'
+import { DefenceCircle } from './DefenceCircle'
 
 const ICONS: Record<PowerUp, string> = { breaker: 'B', repulsor: 'R', steal: 'S' }
 const ring = (f: number, color: string = visual.hud.ink) => `conic-gradient(${color} ${f * 360}deg,${visual.hud.track} 0)`
@@ -79,7 +79,7 @@ function MoveDots({ left, max, refundable, onRefund }: { left: number; max: numb
 
 export type ShellProps = {
   hud: HudModel
-  menu?: BuildMenuView
+  defence?: DefenceCircleView
   confirm: boolean
   mapOpen: boolean
   /** Player 2 is at the bottom of the screen: the stage is turned, so the shell sits at the stage's top. */
@@ -90,8 +90,8 @@ export type ShellProps = {
   onConfirm(): void
   onMapStretch(): void
   onMapClose(): void
-  onBuildToggle(): void
-  onBuildArm(item: Item): void
+  onDefenceToggle(): void
+  onDefenceArm(item: Item): void
   /** Refund `count` Move points. */
   onRefund(count: number): void
   className?: string
@@ -100,14 +100,17 @@ export type ShellProps = {
 }
 
 /** The in-match controls, in one shell at the bottom of the screen and only for the active viewer. Mount inside the rotating stage. Flipped, the rows run in reverse so the Defence circle is always the row nearest the pitch, where its column opens over the pitch and not the HUD. */
-export function Shell({ hud: m, menu, confirm, mapOpen, flipped, onMap, onRecenter, onPowerUp, onConfirm, onMapStretch, onMapClose, onBuildToggle, onBuildArm, onRefund, className, style, children }: ShellProps) {
+export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRecenter, onPowerUp, onConfirm, onMapStretch, onMapClose, onDefenceToggle, onDefenceArm, onRefund, className, style, children }: ShellProps) {
   const color = visual.player.colors[m.active]
   const live = m.breaker.tappable
+  // The power-ups dim to outlines while the Defence circle's column is open over the pitch.
+  const [columnOpen, setColumnOpen] = useState(false)
+  const dim = visual.tokens.dimOutline
   const row: CSSProperties = { ...FONT, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, pointerEvents: 'auto' }
   const auto: CSSProperties = { pointerEvents: 'auto' }
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, padding: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
-      {menu && <BuildMenu menu={menu} color={color} flipped={flipped} onToggle={onBuildToggle} onArm={onBuildArm} style={auto} />}
+      {defence && <DefenceCircle defence={defence} color={color} flipped={flipped} onToggle={onDefenceToggle} onArm={onDefenceArm} onOpen={setColumnOpen} style={auto} />}
       {confirm && <ButtonRow specs={[{ label: 'Confirm', onClick: onConfirm }]} style={auto} />}
       {mapOpen && <ButtonRow specs={[{ label: 'Stretch', onClick: onMapStretch }, { label: 'Close', onClick: onMapClose }]} style={auto} />}
       {m.buttons?.length ? <ButtonRow specs={m.buttons} style={auto} /> : null}
@@ -124,9 +127,9 @@ export function Shell({ hud: m, menu, confirm, mapOpen, flipped, onMap, onRecent
           const n = m.players[m.active].inventory[p]
           const armed = p === 'breaker' && m.breaker.armed
           return (
-            <Button key={p} spec={{ label: ICONS[p], onClick: () => onPowerUp(p), disabled: p === 'breaker' && !live }} style={{ position: 'relative', width: 44, height: 44, padding: 0, borderRadius: '50%', border: `2px solid ${color}`, color: armed ? visual.hud.dark : color, background: armed ? color : 'none', opacity: n > 0 ? 1 : 0.35 }}>
+            <Button key={p} spec={{ label: ICONS[p], onClick: () => onPowerUp(p), disabled: p === 'breaker' && !live }} style={{ position: 'relative', width: 44, height: 44, padding: 0, borderRadius: '50%', border: `2px solid ${columnOpen ? dim : color}`, color: columnOpen ? dim : armed ? visual.hud.dark : color, background: armed && !columnOpen ? color : 'none', opacity: n > 0 ? 1 : 0.35 }}>
               {ICONS[p]}
-              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: color, color: visual.hud.dark, fontSize: 12 }}>{n}</span>
+              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: columnOpen ? dim : color, color: visual.hud.dark, fontSize: 12 }}>{n}</span>
             </Button>
           )
         })}
