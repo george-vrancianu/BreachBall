@@ -6,7 +6,7 @@ import { opponent } from '../../sim/possession'
 import { canEdit, canRefund, type SimConfig, type SimState } from '../../sim/step'
 import { structuresOf, type Structure } from '../../sim/wall'
 import type { Item } from './defenceCircle'
-import { resourceBar, type ResourceBar } from './resourceBar'
+import { resourceBar, type Bullseyes, type ResourceBar } from './resourceBar'
 import { defenceBar, type DefenceBar, type Destroyed } from './defenceBar'
 
 /**
@@ -51,7 +51,7 @@ export type HudModel = {
 }
 
 /** What the game knows that the sim state does not. `viewer` is the local player (online: the peer's own seat; hot-seat: whoever holds the device), not necessarily the seat shown at the bottom. */
-export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item; /** Structures each player has lost in play this match (see `countDestroyed`); defaults to none, so no empty segments. */ destroyed?: Destroyed }
+export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item; /** Structures each player has lost in play this match (see `countDestroyed`); defaults to none, so no empty segments. */ destroyed?: Destroyed; /** Bullseye Credits each player has earned this match (see `countBullseyes`), for the Resource bar's flash. */ bullseyes?: Bullseyes }
 
 /** The balance chip's short unit: Credits in Rounds, wall points in Siege. */
 const BALANCE_UNIT: Record<Match['mode'], string> = { rounds: 'CR', siege: 'PTS' }
@@ -100,7 +100,7 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
   return {
     players: { 1: { digit: digitOf(1), inventory: inventoryOf(1) }, 2: { digit: digitOf(2), inventory: inventoryOf(2) } },
     defenceBar: defenceBar(s.objects, v.destroyed ?? { 1: 0, 2: 0 }, hidden),
-    resourceBar: resourceBar(s),
+    resourceBar: resourceBar(s, v.bullseyes),
     active: v.active,
     round: roundOf(s.match),
     rounds: c.rounds,

@@ -20,6 +20,7 @@ import { tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
 import { builderNow, defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { countDestroyed, type Destroyed } from './view/defenceBar'
+import { countBullseyes, type Bullseyes } from './view/resourceBar'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
 import { minimapOf, type MinimapView } from './view/minimap'
 import { offenceCircle, type OffenceActions, type OffenceCircle } from './view/offenceCircle'
@@ -144,6 +145,7 @@ export class Game implements Sink {
   private strategyQueue?: { builder: PlayerId; inputs: SimInput[] }
   /** The most structures each player has stood this match: the Defence bar keeps a segment for each that falls. */
   private destroyed: Destroyed = { 1: 0, 2: 0 }
+  private bullseyes: Bullseyes = { 1: 0, 2: 0 }
 
   constructor(private canvas: HTMLCanvasElement, makeDriver: DriverFactory, private onView?: (view: HudView) => void) {
     this.driver = makeDriver(this)
@@ -249,6 +251,7 @@ export class Game implements Sink {
   apply(state: SimState, events: SimEvent[]): void {
     this.state = state
     this.destroyed = countDestroyed(this.destroyed, events)
+    this.bullseyes = countBullseyes(this.bullseyes, events)
     const { camera, input } = this
     this.seeBlind()
     input.settle(state, events.some((ev) => ev.type === 'refused'))
@@ -285,6 +288,7 @@ export class Game implements Sink {
     this.camera.y = s.ball.pos.y
     this.lastBuilder = undefined
     this.destroyed = { 1: 0, 2: 0 }
+    this.bullseyes = { 1: 0, 2: 0 }
     this.apply(s, [])
     this.push()
   }
@@ -414,7 +418,7 @@ export class Game implements Sink {
     const { inHand } = state.possession
     const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, destroyed: this.destroyed }),
+      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, destroyed: this.destroyed, bullseyes: this.bullseyes }),
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),

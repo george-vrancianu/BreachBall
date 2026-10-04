@@ -158,7 +158,7 @@ describe('Side menu', () => {
 
   it('the ☰ button moves down by the Resource bar\'s height when that bar is shown', () => {
     inMatch()
-    const bar = { 1: { credits: 3, share: 0.5 }, 2: { credits: 3, share: 0.5 } }
+    const bar = { 1: { credits: 3, share: 0.5, bullseyes: 0 }, 2: { credits: 3, share: 0.5, bullseyes: 0 } }
     const hud = { ...freshView().hud, resourceBar: bar }
     act(() => games[0]!.onView(view({ hud })))
     expect(screen.getByRole('button', { name: 'Menu' }).style.top).toBe('56px')

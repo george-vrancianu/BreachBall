@@ -354,6 +354,21 @@ describe('Game', () => {
     expect(game.structures.get(99)!.isShattering).toBe(true)
   })
 
+  it('counts Bullseye Credits per player for the Resource bar, from zero again on a rematch', () => {
+    const onView = vi.fn()
+    const game = make(onView)
+    const t = performance.now()
+    game.actions.start({ ...defaultSettings, mode: 'rounds' })
+    game.apply(game.state, [{ type: 'bullseye-credited', player: 2, credits: 2 }])
+    frame(t)
+    const bar = () => onView.mock.lastCall![0].hud.resourceBar
+    expect([bar()[1].bullseyes, bar()[2].bullseyes]).toEqual([0, 1])
+    game.actions.rematch()
+    frame(t)
+    expect(bar()[2].bullseyes).toBe(0)
+    game.destroy()
+  })
+
   describe('Flip on turn', () => {
     afterEach(() => vi.restoreAllMocks())
     const store = new Map<string, string>()
