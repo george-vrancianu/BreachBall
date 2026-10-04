@@ -46,9 +46,8 @@ function sweep(p: Point, d: Point, { a, b }: Segment, r: number): { t: number; n
 }
 
 /** One tick of ball motion: friction, then swept movement with bounces; walls hit hard enough lose hp. */
-/** With `breaker`, the first structure touched is destroyed outright and the ball keeps its speed. */
-export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker = false, shooter: PlayerId = 1): { ball: Ball; objects: Structure[]; events: SimEvent[]; breaker: boolean } {
-  const dt = 1 / c.tickHz
+/** With `breaker`, the first structure touched is destroyed outright and the ball keeps its speed. `dt` is the seconds the call covers (a tick by default). */
+export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker = false, shooter: PlayerId = 1, dt = 1 / c.tickHz): { ball: Ball; objects: Structure[]; events: SimEvent[]; breaker: boolean } {
   const decay = 0.5 ** (dt / c.halfLife)
   let { pos, vel, rolled } = ball
   vel = { x: vel.x * decay, y: vel.y * decay }
