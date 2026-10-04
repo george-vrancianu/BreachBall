@@ -4,6 +4,7 @@ import { LocalDriver } from '../game/driver'
 import { Game, type HudView } from '../game/Game'
 import { showConnectScreen } from '../net/connectScreen'
 import { defaultSettings, type Settings } from '../game/view/settings'
+import { stageLayers } from '../game/view/stageLayers'
 import { DefenceBar } from './hud/DefenceBar'
 import { ResourceBar } from './hud/ResourceBar'
 import { Shell } from './hud/Shell'
@@ -38,12 +39,15 @@ export function App() {
   }, [view?.winner, screen])
 
   const actions = () => game.current!.actions
+  const { canvasAngle, hudAngle } = stageLayers(view?.angle ?? 0)
 
   return (
     <>
-      {/* The overlay goes under the shell so the controls stay tappable during a card. The stage rotates as one: canvas, in-match HUD and overlay (the 180-degree handover flip). */}
-      <div style={{ position: 'fixed', inset: 0, transform: `rotate(${view?.angle ?? 0}deg)` }}>
+      <div style={{ position: 'fixed', inset: 0, transform: `rotate(${canvasAngle}deg)` }}>
         <canvas ref={canvas} />
+      </div>
+      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. The overlay goes under the shell so the controls stay tappable during a card. Today both layers turn with the handover flip (180 degrees), so the stage still rotates as one. */}
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', transform: `rotate(${hudAngle}deg)` }}>
         {view && (
           <>
             <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onTap={() => actions().dismiss()} />
@@ -71,7 +75,7 @@ export function App() {
             />
             {/* The minimap chip (top-left) and ☰ (top-right) sit level with each other, under the far-edge bars. */}
             {!screen && <Minimap minimap={view.minimap} open={view.mapOpen} color={visual.player.colors[view.hud.active]} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onToggle={() => actions().map()} />}
-            {/* Both sit in the stage, so they turn with the flip and open from the viewer's left. */}
+            {/* Both sit in the HUD layer, so they turn with the flip and open from the viewer's left. */}
             {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onOpen={() => actions().menu(true)} />}
             {!screen && <SideMenu menu={view.menu} onResume={() => actions().menu(false)} onHelp={() => setScreen('help')} onRestart={() => actions().restart()} onQuit={() => (actions().quit(), setScreen('title'))}>
               {view.menu.hotSeat && <FlipToggle on={view.flipOnTurn} onChange={(on) => actions().flipOnTurn(on)} />}
