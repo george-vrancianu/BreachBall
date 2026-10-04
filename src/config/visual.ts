@@ -68,6 +68,8 @@ export const visual = {
     dimFlashMs: 50,
     dimFlashAlpha: 0.35,
     ghostAlpha: 0.5,
+    /** The live Credit cost beside an unplaced build piece's midpoint: text size and distance from the midpoint (world units). */
+    cost: { size: 1.6, offset: 1.4 },
     /** The dashed outline on this turn's pieces and the breathing one on a selection. */
     mark: { pad: 0.6, width: 0.15, movableDash: [0.4, 0.4] },
     selected: { periodMs: 150, alpha: 0.6, alphaSwing: 0.4, pad: 0.8, padSwing: 0.15 },
@@ -129,7 +131,7 @@ export const visual = {
     /** `tier`: the short buzz on reaching a higher tier while holding. */
     vibration: { shotBase: 10, shotPerPower: 40, goal: [60, 40, 60], tier: 30 },
   },
-  input: { tapSlopPx: 12, dragSlopPx: 6, edgeScrollSpeed: 30, edgeBand: 0.1, touchTargetPx: 22 },
+  input: { tapSlopPx: 12, dragSlopPx: 6, /** A wall drawn from within this many screen px of a wall end starts exactly on it. */ snapPx: 16, edgeScrollSpeed: 30, edgeBand: 0.1, touchTargetPx: 22 },
   transition: { flipMs: 400, goalMs: 1500, sweepMs: 1000, dismissMs: 1000, revealMs: 1500 },
   hud: {
     /** UI text: Chakra Petch 700, uppercase, tabular numerals. `display` is Bungee, for digits, the title and Play. Both load from Google Fonts in `index.html`. */

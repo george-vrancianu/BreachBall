@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
 import { buildState, hseg } from '../../sim/testkit'
 import type { WallSpec } from '../../sim/wall'
-import { anchorOf, buildMenu, commit, landed, movedTo, edgeScrollDy, legal, pick, rotated, spawn, type BuildActions } from './buildMenu'
+import { anchorOf, buildMenu, commit, landed, movedTo, edgeScrollDy, legal, pick, rotated, snapStart, towerAt, type BuildActions } from './buildMenu'
 
 const noop = () => {}
-const actions: BuildActions = { toggle: noop, spawn: noop, confirm: noop, cancel: noop, rotate: noop, remove: noop }
+const actions: BuildActions = { toggle: noop, arm: noop, cancel: noop, rotate: noop, remove: noop }
 const wall: WallSpec = { kind: 'wall', owner: 1, ...hseg(10, 40) }
 const placed = (): SimState => step(buildState(1), { placeWall: wall }, c).state
 const labels = (s: SimState, v: Parameters<typeof buildMenu>[2]) => {
@@ -13,11 +13,19 @@ const labels = (s: SimState, v: Parameters<typeof buildMenu>[2]) => {
   return m.kind === 'menu' ? m.items.map((i) => i.label) : m.buttons.map((b) => b.label)
 }
 
-describe('spawn', () => {
-  it('lands at the view centre, clamped to the owner\'s half', () => {
-    expect(spawn('wall', 1, 80).spec).toEqual({ kind: 'wall', owner: 1, ...hseg(10, 40) })
-    expect(spawn('wall', 1, 10).spec).toMatchObject({ a: { y: 54 }, b: { y: 54 } })
-    expect(spawn('steal', 2, 100).spec).toEqual({ kind: 'tower', owner: 2, power: 'steal', at: { gx: 10, gy: 26 } })
+describe('towerAt', () => {
+  it('puts a tower on the grid vertex nearest the finger', () => {
+    expect(towerAt('steal', 2, { x: 20.4, y: 52.3 })).toEqual({ kind: 'tower', owner: 2, power: 'steal', at: { gx: 10, gy: 26 } })
+  })
+})
+
+describe('snapStart', () => {
+  const end = { x: 20.123, y: 80.456 }
+  const s = { objects: [{ id: 1, kind: 'wall' as const, owner: 2 as const, hp: 3, a: { x: 12.123, y: 80.456 }, b: end }] }
+  it('copies the nearest wall end within the radius exactly, else keeps the point', () => {
+    expect(snapStart(s, { x: 20.5, y: 80 }, 1)).toStrictEqual(end)
+    expect(snapStart(s, { x: 20.5, y: 80 }, 1)).not.toBe(end)
+    expect(snapStart(s, { x: 25, y: 80 }, 1)).toEqual({ x: 25, y: 80 })
   })
 })
 
@@ -25,7 +33,7 @@ describe('dragging', () => {
   it('slides a wall freely, both ends together, and snaps a tower to the grid', () => {
     expect(movedTo(wall, { x: 21.3, y: 81.7 })).toEqual({ ...wall, a: { x: 21.3, y: 81.7 }, b: { x: 29.3, y: 81.7 } })
     expect(anchorOf(wall)).toEqual(wall.a)
-    const t = spawn('steal', 1, 80).spec
+    const t = towerAt('steal', 1, { x: 20, y: 80 })
     expect(movedTo(t, { x: 21.3, y: 81.7 })).toMatchObject({ at: { gx: 11, gy: 41 } })
     expect(anchorOf(t)).toEqual({ x: 20, y: 80 })
   })
@@ -57,15 +65,15 @@ describe('selection', () => {
 
 describe('build menu', () => {
   it('lists pieces with costs and stock when nothing is selected', () => {
-    expect(labels(buildState(1), { open: true })).toEqual(['Wall · 2/unit', 'Repulsor ×3', 'Steal ×3'])
+    expect(labels(buildState(1), { item: 'wall' })).toEqual(['Wall · 2/unit', 'Repulsor ×3', 'Steal ×3'])
   })
-  it('a new wall gets Rotate, cancel and confirm; a new tower no Rotate', () => {
-    expect(labels(buildState(1), { open: false, selection: { spec: wall, movable: true } })).toEqual(['↻', '✕', '✓'])
-    expect(labels(buildState(1), { open: false, selection: spawn('steal', 1, 80) })).toEqual(['✕', '✓'])
+  it('a new wall gets Rotate and cancel; a new tower only cancel', () => {
+    expect(labels(buildState(1), { selection: { spec: wall, movable: true } })).toEqual(['↻', '✕'])
+    expect(labels(buildState(1), { selection: { spec: towerAt('steal', 1, { x: 20, y: 80 }), movable: true } })).toEqual(['✕'])
   })
   it('a placed structure also gets the bin; an older one only bin and cancel', () => {
-    expect(labels(placed(), { open: false, selection: { spec: wall, id: 1, movable: true } })).toEqual(['🗑', '↻', '✕', '✓'])
-    expect(labels(placed(), { open: false, selection: { spec: wall, id: 1, movable: false } })).toEqual(['🗑', '✕'])
+    expect(labels(placed(), { selection: { spec: wall, id: 1, movable: true } })).toEqual(['🗑', '↻', '✕'])
+    expect(labels(placed(), { selection: { spec: wall, id: 1, movable: false } })).toEqual(['🗑', '✕'])
   })
 })
 
@@ -99,10 +107,6 @@ describe('landing', () => {
     expect(landed(step(s, { moveStructure: { player: 1, id: 1, a: moved.spec.a, b: moved.spec.b } }, c).state, moved)).toBe(true)
     expect(landed(s, rotated({ spec: wall, id: 1, movable: true }))).toBe(false)
   })
-  it('✓ waits while a confirmed piece is landing', () => {
-    const m = buildMenu(buildState(1), 1, { open: false, selection: { spec: wall, movable: true }, landing: true }, actions)!
-    expect(m.kind === 'selected' && m.buttons.find((b) => b.label === '✓')?.disabled).toBe(true)
-  })
 })
 
 describe('rearrange turn', () => {
@@ -110,9 +114,9 @@ describe('rearrange turn', () => {
   const base = initialState(1, siege)
   const s: SimState = { ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: [{ ...wall, id: 1, hp: 2 }], built: [1], credits: { 1: 0, 2: 0 } }
   it('has no palette when nothing is selected, and no demolish once a piece is', () => {
-    expect(buildMenu(s, 1, { open: true }, actions)).toBeUndefined()
+    expect(buildMenu(s, 1, { item: 'wall' }, actions)).toBeUndefined()
     const sel = pick(s, 1, { x: 21, y: 80.5 }, 1)!
     expect(sel.movable).toBe(true)
-    expect(labels(s, { open: false, selection: sel })).toEqual(['↻', '✕', '✓'])
+    expect(labels(s, { selection: sel })).toEqual(['↻', '✕'])
   })
 })

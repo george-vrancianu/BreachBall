@@ -2,9 +2,10 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
 import { canArm, canPlaceBall } from '../../sim/possession'
-import type { Aiming, SimConfig, SimInput, SimState } from '../../sim/step'
+import { canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
+import { snapWallEnd } from '../../sim/wall'
 import { screenDown, type Camera } from '../entities/Camera'
-import { anchorOf, commit, edgeScrollDy, landed, legal, movedTo, onPiece, pick, rotated, spawn, type BuildActions, type Piece, type Selection } from '../view/buildMenu'
+import { anchorOf, commit, edgeScrollDy, landedAs, legal, movedTo, onPiece, pick, rotated, snapStart, towerAt, type BuildActions, type Item, type Selection } from '../view/buildMenu'
 import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, type AimGesture, type GestureView } from './gesture'
 
 /** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
@@ -32,9 +33,10 @@ export type InputHost = {
 export class InputController {
   /** The builder's selection: a new piece, or one of their structures. */
   selection?: Selection
-  /** A confirmed selection stays drawn until the sim has it (online it runs a few ticks later) or refuses it. */
+  /** A committed selection stays drawn until the sim has it (online it runs a few ticks later) or refuses it. */
   landing?: Selection
-  menuOpen = false
+  /** The Defence item armed for drawing: set while in build mode (Rounds, Siege opening), never in a Rearrange turn. */
+  item?: Item
   /** Ball-in-hand: where the shooter has put the ball, before Confirm. */
   placement?: Point
   /** Breaker icon armed for the next shot; the shot carries it, cancelling just disarms. */
@@ -46,7 +48,10 @@ export class InputController {
   private sentAim = 'null'
   // Grab point relative to the piece's anchor, and the pointer's last canvas position (for edge scrolling).
   // `moved` once the pointer has travelled past visual.input.dragSlopPx from the press, which is when edge scrolling may start.
-  private drag?: { offset: Point; px: number; py: number; id: number; from: Point; moved: boolean }
+  // `fresh`: a tower put down by this press, which lifting places even without a move.
+  private drag?: { offset: Point; px: number; py: number; id: number; from: Point; moved: boolean; fresh: boolean }
+  // A wall being drawn from `a` (world); the build piece shows once the pointer has moved past dragSlopPx.
+  private draw?: { a: Point; px: number; py: number; id: number; from: Point; moved: boolean }
   private draggingBall = false
   private tap?: Point
   // Pan: any drag that is not an aim or ghost drag, or two fingers in any phase.
@@ -90,25 +95,39 @@ export class InputController {
     if (canArm(s, s.possession.shooter)) this.armed = !this.armed
   }
 
-  // Build turn: the build menu spawns a piece; drag it by pressing on it, ✓ sends it through the sim, ✕ drops it.
-  // Pressing one of this turn's structures picks it up again; an older one is only selected, to demolish it.
+  // Build turn: arm an item, then draw (wall) or press (tower) on the pitch; lifting places the piece if it is legal, else it stays red and unplaced.
+  // Pressing one of this turn's structures selects it; an older one is only selected, to demolish it.
   build: BuildActions = {
-    toggle: () => (this.menuOpen = !this.menuOpen),
-    spawn: (p: Piece) => {
-      const b = this.host.state().match.builder
-      if (b) (this.selection = spawn(p, b, this.host.camera.y)), (this.menuOpen = false)
+    toggle: () => {
+      if (this.item) this.leaveBuild()
+      else if (canEdit(this.host.state())) this.item = 'wall'
     },
-    rotate: () => this.selection?.movable && (this.selection = rotated(this.selection)),
+    arm: (item: Item) => {
+      if (this.item) this.item = item
+    },
+    rotate: () => {
+      if (!this.selection?.movable) return
+      this.selection = rotated(this.selection)
+      this.place()
+    },
     cancel: () => (this.selection = undefined),
-    confirm: () => {
-      const { selection } = this
-      const input = !this.landing && selection && legal(this.host.state(), selection) && commit(selection)
-      if (input) (this.host.send(input), (this.landing = selection), (this.selection = undefined))
-    },
     remove: () => {
       if (this.selection?.id !== undefined) this.host.send({ demolish: { player: this.selection.spec.owner, wall: this.selection.id } })
       this.selection = undefined
     },
+  }
+
+  /** Leaves build mode: the armed item and any unplaced piece go. */
+  private leaveBuild(): void {
+    this.item = this.draw = this.drag = undefined
+    if (this.selection?.id === undefined) this.selection = undefined
+  }
+
+  /** Sends the selection if it stands legal (a new piece is placed, a structure moved) and keeps it drawn as `landing` until the sim has it. */
+  private place(): void {
+    const { selection } = this
+    const input = !this.landing && selection && legal(this.host.state(), selection) && commit(selection)
+    if (input) (this.host.send(input), (this.landing = selection), (this.selection = undefined))
   }
 
   /** The aim to draw, while pressing on the ball or dragging back from it. */
@@ -149,7 +168,12 @@ export class InputController {
   settle(state: SimState, refused: boolean): void {
     if (!canArm(state, state.possession.shooter)) this.armed = false
     if (!state.possession.inHand || state.match.choosing) this.placement = undefined
-    if (this.landing && (landed(state, this.landing) || refused)) this.landing = undefined
+    if (this.landing && (landedAs(state, this.landing) || refused)) {
+      // What the sim took becomes the selection (unless the builder has already moved on to something else).
+      const taken = landedAs(state, this.landing)
+      this.landing = undefined
+      if (taken && !this.selection && !this.draw && !this.drag) this.selection = taken
+    }
     // The shot clock fired the held aim: the gesture is spent.
     if (this.aim && state.possession.live) this.dropAim()
   }
@@ -168,19 +192,20 @@ export class InputController {
 
   /** The build turn changed hands or ended: a new piece is gone, a moved one never left its spot in the sim. */
   resetBuild(): void {
-    this.selection = this.landing = this.drag = undefined
-    this.menuOpen = false
+    this.selection = this.landing = this.drag = this.draw = this.item = undefined
   }
 
-  /** While dragging near the top or bottom tenth of the view, scroll toward any of the builder's half that is off screen. */
+  /** While dragging or drawing near the top or bottom tenth of the view, scroll toward any of the builder's half that is off screen. */
   edgeScroll(dt: number): void {
     const builder = this.host.state().match.builder
-    if (!this.drag?.moved || !builder) return
+    const held = this.drag?.moved ? this.drag : this.draw?.moved ? this.draw : undefined
+    if (!held || !builder) return
     const { visibleHeight } = this.view
-    const dy = edgeScrollDy(this.host.camera.y, visibleHeight, builder, this.pxToWorld(this.drag.px, this.drag.py).y, dt)
+    const dy = edgeScrollDy(this.host.camera.y, visibleHeight, builder, this.pxToWorld(held.px, held.py).y, dt)
     if (!dy) return
     this.host.camera.pan(dy)
-    this.dragTo(this.drag.px, this.drag.py)
+    if (held === this.drag) this.dragTo(held.px, held.py)
+    else this.drawTo(held.px, held.py)
   }
 
   // Drags keep the grab point under the finger; a wall slides freely, a tower snaps to the grid.
@@ -192,6 +217,18 @@ export class InputController {
     this.selection = { ...selection, spec: movedTo(selection.spec, { x: p.x - drag.offset.x, y: p.y - drag.offset.y }) }
   }
 
+  // The wall's start stays put; its end snaps live to the nearest allowed angle and unit. Under half a unit there is no piece.
+  private drawTo(px: number, py: number): void {
+    const { draw } = this
+    const builder = this.host.state().match.builder
+    if (!draw || !builder) return
+    const moved = draw.moved || Math.hypot(px - draw.from.x, py - draw.from.y) > visual.input.dragSlopPx
+    this.draw = { ...draw, px, py, moved }
+    if (!moved) return
+    const b = snapWallEnd(draw.a, this.pxToWorld(px, py))
+    this.selection = b ? { spec: { kind: 'wall', owner: builder, a: draw.a, b }, movable: true } : undefined
+  }
+
   private panBy(dyPx: number): void {
     this.host.camera.pan((-screenDown(this.host.shown()) * dyPx) / this.pxPerUnit)
   }
@@ -200,9 +237,9 @@ export class InputController {
     const key = e.key.toLowerCase()
     if (e.code === 'Space') (e.preventDefault(), this.host.camera.recenter())
     if (key === 'm') this.host.toggleMap()
-    else if (key === 'escape') this.host.mapOpen() ? this.host.toggleMap(false) : ((this.selection = this.placement = undefined), (this.menuOpen = false))
+    else if (key === 'escape') this.host.mapOpen() ? this.host.toggleMap(false) : this.selection ? (this.selection = undefined) : ((this.placement = undefined), this.leaveBuild())
     else if (key === 'r') this.build.rotate()
-    else if (key === 'enter') this.host.state().match.builder ? this.build.confirm() : this.confirmBall()
+    else if (key === 'enter' && !this.host.state().match.builder) this.confirmBall()
   }
 
   private move(e: PointerEvent): void {
@@ -215,6 +252,7 @@ export class InputController {
       else if (this.panOnly) this.panBy(dy)
     }
     if (this.drag?.id === e.pointerId) this.dragTo(e.offsetX, e.offsetY)
+    if (this.draw?.id === e.pointerId) this.drawTo(e.offsetX, e.offsetY)
     if (this.aim?.id === e.pointerId) {
       this.aim.gesture = aimMove(this.aim.gesture, { x: e.offsetX, y: e.offsetY }, performance.now())
       this.sendAiming(aimOf(this.aim.gesture))
@@ -223,7 +261,16 @@ export class InputController {
 
   private up(e: PointerEvent): void {
     this.draggingBall = false
-    if (this.drag?.id === e.pointerId) this.drag = undefined
+    if (this.drag?.id === e.pointerId) {
+      const { moved, fresh } = this.drag
+      this.drag = undefined
+      // Lifting after a translate (or putting a new tower down) places the piece if it stands legal; else it stays, red and unplaced.
+      if (moved || fresh) this.place()
+    }
+    if (this.draw?.id === e.pointerId) {
+      this.draw = undefined
+      this.place()
+    }
     if (this.tap && Math.hypot(e.clientX - this.tap.x, e.clientY - this.tap.y) <= visual.input.tapSlopPx) this.placement = this.pxToWorld(e.offsetX, e.offsetY)
     this.tap = undefined
     this.pointers.delete(e.pointerId)
@@ -251,26 +298,38 @@ export class InputController {
       this.host.toggleMap(false)
       return
     }
+    // A second finger during a draw that is showing is ignored: it neither cancels the draw nor pans.
+    if (this.draw?.moved && this.draw.id !== e.pointerId) return
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (this.pointers.size > 1) {
-      // A second finger pinches/pans and abandons the aim.
+      // A second finger pinches/pans and abandons the aim, and a draw that has not shown yet.
       if (this.aim) (this.aim.gesture = { phase: 'pan' }), this.sendAiming(null)
-      this.drag = undefined
+      this.drag = this.draw = undefined
       return
     }
     const state = this.host.state()
     const builder = state.match.builder
     if (builder) {
-      this.menuOpen = false
       const at = this.pxToWorld(e.offsetX, e.offsetY)
       // On the piece: half a cell, or a 44px touch target.
       const tolerance = Math.max(rules.cellSize / 2, visual.input.touchTargetPx / this.pxPerUnit)
       if (!this.selection) this.selection = pick(state, builder, at, tolerance)
       const sel = this.selection
+      const from = { x: e.offsetX, y: e.offsetY }
       if (sel?.movable && onPiece(sel.spec, at, tolerance)) {
         const anchor = anchorOf(sel.spec)
-        this.drag = { offset: { x: at.x - anchor.x, y: at.y - anchor.y }, px: e.offsetX, py: e.offsetY, id: e.pointerId, from: { x: e.offsetX, y: e.offsetY }, moved: false }
+        this.drag = { offset: { x: at.x - anchor.x, y: at.y - anchor.y }, px: from.x, py: from.y, id: e.pointerId, from, moved: false, fresh: false }
         canvas.setPointerCapture(e.pointerId)
+      } else if (this.item && canEdit(state)) {
+        // Empty pitch with an item armed: draw. An unplaced piece is discarded first, and a tower is not put down by that same press (a tap only discards).
+        const discarded = !!sel && sel.id === undefined
+        this.selection = undefined
+        canvas.setPointerCapture(e.pointerId)
+        if (this.item === 'wall') this.draw = { a: snapStart(state, at, visual.input.snapPx / this.pxPerUnit), px: from.x, py: from.y, id: e.pointerId, from, moved: false }
+        else if (!discarded) {
+          this.selection = { spec: towerAt(this.item, builder, at), movable: true }
+          this.drag = { offset: { x: 0, y: 0 }, px: from.x, py: from.y, id: e.pointerId, from, moved: false, fresh: true }
+        }
       } else this.panOnly = true
       return
     }

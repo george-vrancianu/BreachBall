@@ -174,13 +174,23 @@ describe('Game', () => {
       send: (input) => void calls.push(`send ${Object.keys(input)}`),
       update: () => void calls.push('update'),
     }
-    const game = new Game(new FakeCanvas() as unknown as HTMLCanvasElement, () => fake)
+    const canvas = new FakeCanvas()
+    const game = new Game(canvas as unknown as HTMLCanvasElement, () => fake)
     expect(calls).toEqual(['start'])
     frame(performance.now())
     expect(calls).toContain('update')
-    game.actions.build.spawn('wall')
-    game.actions.build.confirm()
+    // Let the opening card pass, then draw a one-unit wall across the middle of the builder's half.
+    const later = performance.now() + 60_000
+    frame(later)
+    vi.spyOn(performance, 'now').mockReturnValue(later)
+    game.actions.dismiss()
+    game.actions.build.toggle()
+    const at = (type: string, offsetX: number) => canvas.dispatchEvent(Object.assign(new Event(type), { offsetX, offsetY: 320, clientX: offsetX, clientY: 320, pointerId: 1 }))
+    at('pointerdown', 100)
+    at('pointermove', 190)
+    at('pointerup', 190)
     expect(calls).toContain('send placeWall')
+    vi.restoreAllMocks()
     game.destroy()
   })
 

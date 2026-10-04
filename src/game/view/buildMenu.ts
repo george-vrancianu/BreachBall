@@ -12,19 +12,24 @@ import type { ButtonSpec } from './hudModel'
  */
 export type Selection = { spec: StructureSpec; id?: number; movable: boolean }
 
-export type Piece = 'wall' | TowerPower
+/** The Defence item armed for drawing. */
+export type Item = 'wall' | TowerPower
 
-/** Grid rows (vertices) a piece anchored on `owner`'s half may use. */
-const rows = (owner: PlayerId) => (owner === 1 ? [rules.gridRows / 2, rules.gridRows - 1] : [0, rules.gridRows / 2 - 1])
-
-/** A new piece at the vertex nearest the view centre, clamped to the owner's half; a wall starts as one horizontal unit running right from there. */
-export function spawn(piece: Piece, owner: PlayerId, viewY: number): Selection {
-  const [lo, hi] = rows(owner)
-  const at = { gx: rules.gridCols / 2, gy: Math.min(Math.max(Math.round(viewY / rules.cellSize), lo), hi) }
-  const a = vertexToWorld(at)
-  const spec: StructureSpec = piece === 'wall' ? { kind: 'wall', owner, a, b: { x: a.x + rules.wall.unit, y: a.y } } : { kind: 'tower', owner, power: piece, at }
-  return { spec, movable: true }
+/** The start of a wall drawn from `at`: the nearest existing wall end (any owner) within `radius`, copied exactly so chained walls share a vertex; else `at` itself. */
+export function snapStart(s: Pick<SimState, 'objects'>, at: Point, radius: number): Point {
+  let best: { p: Point; d: number } | undefined
+  for (const o of s.objects) {
+    if (o.kind !== 'wall') continue
+    for (const p of [o.a, o.b]) {
+      const d = Math.hypot(p.x - at.x, p.y - at.y)
+      if (d <= radius && (!best || d < best.d)) best = { p, d }
+    }
+  }
+  return best ? { x: best.p.x, y: best.p.y } : at
 }
+
+/** The tower build piece under `at` (grid-snapped, as a drag holds it). */
+export const towerAt = (power: TowerPower, owner: PlayerId, at: Point): StructureSpec => movedTo({ kind: 'tower', owner, power, at: { gx: 0, gy: 0 } }, at)
 
 /** Whether `at` lands on `spec`, within `tolerance` world units of its segments. */
 export const onPiece = (spec: StructureSpec, at: Point, tolerance: number) => nearestOnWall(spec, at).dist <= tolerance
@@ -70,7 +75,7 @@ const sameSpec = (a: StructureSpec, b: StructureSpec) =>
 export const landed = (s: SimState, sel: Selection): boolean =>
   s.objects.some((o) => (sel.id === undefined ? s.built.includes(o.id) : o.id === sel.id) && sameSpec(o, sel.spec))
 
-/** The sim input ✓ sends: place a new piece or move a structure. Undefined when there is nothing to send. */
+/** The sim input a lift sends: place a new piece or move a structure. Undefined when there is nothing to send. */
 export function commit(sel: Selection): SimInput | undefined {
   const { spec, id } = sel
   if (id === undefined) return { placeWall: spec }
@@ -78,14 +83,20 @@ export function commit(sel: Selection): SimInput | undefined {
   return { moveStructure: spec.kind === 'wall' ? { player: spec.owner, id, a: spec.a, b: spec.b } : { player: spec.owner, id, at: spec.at } }
 }
 
-/** What the build menu shows: the closed or open icon, or the selection's controls. */
-export type BuildMenu = { kind: 'menu'; open: boolean; items: ButtonSpec[] } | { kind: 'selected'; buttons: ButtonSpec[] }
+/** The structure the sim now holds in place of a landed selection, selected as it stands. */
+export function landedAs(s: SimState, sel: Selection): Selection | undefined {
+  const o = s.objects.find((o) => (sel.id === undefined ? s.built.includes(o.id) : o.id === sel.id) && sameSpec(o, sel.spec))
+  return o && { spec: sel.spec, id: o.id, movable: true }
+}
 
-export type BuildActions = { toggle(): void; spawn(p: Piece): void; confirm(): void; cancel(): void; rotate(): void; remove(): void }
+/** What the build menu shows: the closed or open icon, or the selection's controls. */
+export type BuildMenu = { kind: 'menu'; open: boolean; /** The armed item while building. */ item?: Item; items: ButtonSpec[] } | { kind: 'selected'; buttons: ButtonSpec[] }
+
+export type BuildActions = { toggle(): void; arm(item: Item): void; cancel(): void; rotate(): void; remove(): void }
 
 const POWER_LABEL: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: 'Steal' }
 
-export function buildMenu(s: SimState, b: PlayerId, v: { open: boolean; selection?: Selection; /** A confirmed piece is still on its way to the sim. */ landing?: boolean }, a: BuildActions): BuildMenu | undefined {
+export function buildMenu(s: SimState, b: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection }, a: BuildActions): BuildMenu | undefined {
   const sel = v.selection
   // A turn that may only move pieces (Rearrange) has no palette and no demolish.
   const edit = canEdit(s)
@@ -96,10 +107,11 @@ export function buildMenu(s: SimState, b: PlayerId, v: { open: boolean; selectio
     const oneUnit = wallCost({ a: { x: 0, y: 0 }, b: { x: rules.wall.unit * Math.min(...rules.wall.units), y: 0 } })
     return {
       kind: 'menu',
-      open: v.open,
+      open: v.item !== undefined,
+      item: v.item,
       items: [
-        { label: `Wall · ${rules.wall.unitCost}/unit`, disabled: credits < oneUnit, onClick: () => a.spawn('wall') },
-        ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => ({ label: `${POWER_LABEL[power]} ×${s.players[b].inventory[power]}`, disabled: s.players[b].inventory[power] < 1, onClick: () => a.spawn(power) })),
+        { label: `Wall · ${rules.wall.unitCost}/unit`, disabled: credits < oneUnit, pressed: v.item === 'wall', onClick: () => a.arm('wall') },
+        ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => ({ label: `${POWER_LABEL[power]} ×${s.players[b].inventory[power]}`, disabled: s.players[b].inventory[power] < 1, pressed: v.item === power, onClick: () => a.arm(power) })),
       ],
     }
   }
@@ -109,7 +121,6 @@ export function buildMenu(s: SimState, b: PlayerId, v: { open: boolean; selectio
       ...(sel.id !== undefined && edit ? [{ label: '🗑', disabled: !sel.movable && s.credits[b] < rules.demolishCost, onClick: a.remove }] : []),
       ...(sel.movable && sel.spec.kind === 'wall' ? [{ label: '↻', onClick: a.rotate }] : []),
       { label: '✕', onClick: a.cancel },
-      ...(sel.movable ? [{ label: '✓', disabled: !!v.landing || !legal(s, sel), onClick: a.confirm }] : []),
     ],
   }
 }

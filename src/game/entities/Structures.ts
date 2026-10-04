@@ -1,8 +1,9 @@
+import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
 import { splashDamage, splashOf } from '../../sim/splash'
 import type { SimConfig, SimState } from '../../sim/step'
-import { isLegal, type Structure, type StructureSpec } from '../../sim/wall'
+import { isLegal, structureCost, type Structure, type StructureSpec } from '../../sim/wall'
 import { Entity } from './Entity'
 import { Fixture, type FixtureData } from './Fixture'
 import { Tower } from './Tower'
@@ -21,6 +22,12 @@ export class Structures extends Entity {
   /** The piece being dragged and a confirmed piece not yet in the sim, drawn half-transparent. */
   ghost?: StructureSpec
   landing?: StructureSpec
+  /** The build piece is new (unplaced or being drawn): its Credit cost shows beside its midpoint. */
+  costLabel = false
+  /** The build piece fails the full legality check (the Credit balance too), which the ghost's own geometry check cannot see. */
+  ghostBlocked = false
+  /** The canvas is turned for the other seat (hot-seat flip): text is turned back to read upright. */
+  flipped = false
   /** Ids stood in for by the ghost or landing piece. */
   hidden: number[] = []
   /** An older structure picked to demolish. */
@@ -88,6 +95,7 @@ export class Structures extends Entity {
     for (const [id, f] of this.fixtures) this.drop(id, f)
     this.particles = []
     this.ghost = this.landing = this.selected = undefined
+    this.costLabel = this.ghostBlocked = false
     this.hidden = []
     this.movable = []
     this.preview = new Map()
@@ -143,6 +151,22 @@ export class Structures extends Entity {
   drawPieces(ctx: CanvasRenderingContext2D): void {
     if (this.landing) this.drawGhost(ctx, this.landing, false)
     if (this.ghost) this.drawGhost(ctx, this.ghost, true)
+    if (this.ghost && this.costLabel) this.drawCost(ctx, this.ghost)
+  }
+
+  /** The piece's Credit cost beside its midpoint, red where it cannot be placed. */
+  private drawCost(ctx: CanvasRenderingContext2D, spec: StructureSpec): void {
+    const { size, offset } = visual.wall.cost
+    const mid = spec.kind === 'wall' ? { x: (spec.a.x + spec.b.x) / 2, y: (spec.a.y + spec.b.y) / 2 } : { x: (spec.at.gx + 0.5) * rules.cellSize, y: (spec.at.gy + 0.5) * rules.cellSize }
+    ctx.save()
+    ctx.translate(mid.x, mid.y)
+    if (this.flipped) ctx.rotate(Math.PI)
+    ctx.font = `700 ${size}px ${visual.hud.font}`
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = this.ghostBlocked ? visual.wall.illegal : visual.hud.ink
+    ctx.fillText(String(structureCost(spec)), offset, 0)
+    ctx.restore()
   }
 
   private drawGhost(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean): void {
@@ -150,7 +174,7 @@ export class Structures extends Entity {
     f.clock = this.clock
     f.alpha = visual.wall.ghostAlpha
     f.selected = selected
-    if (selected && !isLegal(spec, this.standing())) f.tint = visual.wall.illegal
+    if (selected && (this.ghostBlocked || !isLegal(spec, this.standing()))) f.tint = visual.wall.illegal
     f.draw(ctx)
   }
 

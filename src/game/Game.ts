@@ -18,7 +18,7 @@ import { Structures } from './entities/Structures'
 import { routeEvents } from './events'
 import { reducedMotion, tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
-import { buildMenu, type BuildActions, type BuildMenu } from './view/buildMenu'
+import { buildMenu, legal, type BuildActions, type BuildMenu } from './view/buildMenu'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
 import { phaseButtons } from './view/phaseButtons'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
@@ -273,6 +273,9 @@ export class Game implements Sink {
     const { shooter } = state.possession
     const sel = input.selection
     structures.ghost = mapOpen || !sel?.movable ? undefined : sel.spec
+    structures.costLabel = !mapOpen && !!sel?.movable && sel.id === undefined
+    structures.ghostBlocked = !!sel && !legal(state, sel)
+    structures.flipped = this.transition.shown === 2
     structures.landing = mapOpen ? undefined : input.landing?.spec
     structures.hidden = mapOpen ? [] : [sel?.movable ? sel.id : undefined, input.landing?.id].filter((id) => id !== undefined)
     structures.selected = !mapOpen && sel && !sel.movable ? sel.id : undefined
@@ -316,7 +319,7 @@ export class Game implements Sink {
     const { shooter, inHand } = state.possession
     const view: HudView = {
       hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked }), viewer: this.viewer(), armed: input.armed, tappable: canArm(state, shooter) }),
-      menu: builder && !this.mapOpen && !blocked ? buildMenu(state, builder, { open: input.menuOpen, selection: input.selection, landing: !!input.landing }, input.build) : undefined,
+      menu: builder && !this.mapOpen && !blocked ? buildMenu(state, builder, { item: input.item, selection: input.selection }, input.build) : undefined,
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),
       flipped: transition.shown === 2,
