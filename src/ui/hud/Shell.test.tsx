@@ -169,13 +169,13 @@ describe('Shell', () => {
     afterEach(() => vi.useRealTimers())
     const refund = () => screen.getByRole('button', { name: 'Refund a shot for 2 Credits' })
 
-    it('lays out the shots and Refund, then the three actions: Build, Powerup and Subterfuge', () => {
+    it('aligns the abilities left (Build, Powerup, Subterfuge) and the shots and Refund right', () => {
       render(<Shell {...props()} hud={hud({ refundRate: 2 })} subterfuge={{ available: true, queued: [], items: [] }} />)
-      const shots = screen.getByRole('img', { name: '2 of 3 shots left' })
       const build = screen.getByRole('button', { name: 'Build' })
       const power = screen.getByRole('button', { name: /^Offence/ })
       const trick = screen.getByRole('button', { name: 'Subterfuge' })
-      expect(follows(shots, refund()) && follows(refund(), build) && follows(build, power) && follows(power, trick)).toBe(true)
+      const shots = screen.getByRole('img', { name: '2 of 3 shots left' })
+      expect(follows(build, power) && follows(power, trick) && follows(trick, shots) && follows(shots, refund())).toBe(true)
     })
 
     it('greys Build when the viewer cannot build in play (no model), and it does nothing', () => {
@@ -187,17 +187,51 @@ describe('Shell', () => {
       expect(p.onDefenceToggle).not.toHaveBeenCalled()
     })
 
-    it('an in-play build: Build enters build mode, and the row becomes the pieces until Build is tapped again', () => {
+    it('an in-play build: Build opens (build mode), the other abilities fold away and the pieces take the row until Build is tapped again', () => {
       const p = props()
-      const { rerender } = render(<Shell {...p} defence={defence({ building: false, item: undefined })} />)
+      const { rerender } = render(<Shell {...p} hud={hud({ refundRate: 2 })} defence={defence({ building: false, item: undefined })} />)
       fireEvent.click(screen.getByRole('button', { name: 'Build' }))
       expect(p.onDefenceToggle).toHaveBeenCalledTimes(1)
-      rerender(<Shell {...p} defence={defence()} />)
-      expect(screen.getByRole('button', { name: 'Wall · 2/unit' })).toBeTruthy()
+      rerender(<Shell {...p} hud={hud({ refundRate: 2 })} defence={defence()} />)
+      expect(screen.getByRole('button', { name: 'Leave building' }).getAttribute('aria-expanded')).toBe('true')
+      fireEvent.click(screen.getByRole('button', { name: 'Repulsor · 3' }))
+      expect(p.onDefenceArm).toHaveBeenCalledWith('repulsor')
+      // Folded away: out of the accessibility tree, and the shots and Refund step aside.
       expect(screen.queryByRole('button', { name: /^Offence/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /^Refund/ })).toBeNull()
       expect(screen.queryByRole('button', { name: 'Strategies' })).toBeNull()
       fireEvent.click(screen.getByRole('button', { name: 'Leave building' }))
       expect(p.onDefenceToggle).toHaveBeenCalledTimes(2)
+    })
+
+    it('Subterfuge opens to its options (the Jam with its price, two locked); buying closes it; tapping it again closes it', () => {
+      const p = props()
+      const sub = { available: true, queued: [], items: [{ item: 'jam' as const, label: 'Jam · 2', when: 'next possession', disabled: false }, { item: 'soon1' as const, label: 'Soon', when: '', disabled: true as const, soon: true as const }, { item: 'soon2' as const, label: 'Soon', when: '', disabled: true as const, soon: true as const }] }
+      render(<Shell {...p} subterfuge={sub} />)
+      const tile = () => screen.getByRole('button', { name: 'Subterfuge' })
+      expect(screen.queryByRole('button', { name: 'Jam · 2 · next possession' })).toBeNull()
+      fireEvent.click(tile())
+      expect(tile().getAttribute('aria-expanded')).toBe('true')
+      expect(screen.getAllByRole('button', { name: 'Locked · soon' })).toHaveLength(2)
+      expect(screen.queryByRole('button', { name: 'Build' })).toBeNull()
+      fireEvent.click(tile())
+      expect(screen.queryByRole('button', { name: 'Jam · 2 · next possession' })).toBeNull()
+      fireEvent.click(tile())
+      fireEvent.click(screen.getAllByRole('button', { name: 'Locked · soon' })[0]!)
+      expect(p.onSubterfuge).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Jam · 2 · next possession' }))
+      expect(p.onSubterfuge).toHaveBeenCalledWith('jam')
+      expect(screen.queryByRole('button', { name: 'Jam · 2 · next possession' })).toBeNull()
+    })
+
+    it('a greyed Subterfuge still opens, its Jam greyed, and buys nothing', () => {
+      const p = props()
+      render(<Shell {...p} subterfuge={{ available: false, queued: [], items: [{ item: 'jam', label: 'Jam · 2', when: 'next possession', disabled: false }] }} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Subterfuge' }))
+      const jam = screen.getByRole('button', { name: 'Jam · 2 · next possession' })
+      expect(jam.getAttribute('aria-disabled')).toBe('true')
+      fireEvent.click(jam)
+      expect(p.onSubterfuge).not.toHaveBeenCalled()
     })
 
     it('has no Refund where refunds do not exist (Siege)', () => {
@@ -259,17 +293,18 @@ describe('Shell', () => {
   describe('Powerup tile (the Offence circle)', () => {
     const circle = () => screen.getByRole('button', { name: /^Offence/ })
 
-    it('a tap opens the column of items and a second tap closes it', () => {
+    it('a tap opens its options beside it and a second tap closes it', () => {
       render(<Shell {...props()} />)
       expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
       fireEvent.click(circle())
+      expect(circle().getAttribute('aria-expanded')).toBe('true')
       expect(screen.getByRole('button', { name: 'Breaker · 2' })).toBeTruthy()
-      expect(screen.getByText('Overdrive · soon')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Overdrive · soon' })).toBeTruthy()
       fireEvent.click(circle())
       expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
     })
 
-    it('tapping the Breaker arms it and closes the column', () => {
+    it('tapping the Breaker arms it and closes the options', () => {
       const p = props()
       render(<Shell {...p} />)
       fireEvent.click(circle())
@@ -283,11 +318,11 @@ describe('Shell', () => {
       render(<Shell {...p} offence={offence({ items: [{ item: 'breaker', label: 'Breaker · 2', disabled: true, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }] })} />)
       fireEvent.click(circle())
       fireEvent.click(screen.getByRole('button', { name: 'Breaker · 2' }))
-      fireEvent.click(screen.getByRole('button', { name: 'Overdrive' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Overdrive · soon' }))
       expect(p.onOffenceArm).not.toHaveBeenCalled()
     })
 
-    it('outside the viewer\'s possession it is greyed but its column still opens', () => {
+    it('outside the viewer\'s possession it is greyed but still opens', () => {
       render(<Shell {...props()} offence={offence({ available: false })} />)
       expect(circle().getAttribute('aria-disabled')).toBe('true')
       fireEvent.click(circle())
@@ -304,7 +339,7 @@ describe('Shell', () => {
       expect(circle().style.background).toBe(probe.style.background)
     })
 
-    it('Escape closes the column', () => {
+    it('Escape closes it', () => {
       render(<Shell {...props()} />)
       fireEvent.click(circle())
       fireEvent.keyDown(circle(), { key: 'Escape' })

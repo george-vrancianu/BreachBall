@@ -4,7 +4,7 @@ import { visual } from '../../config/visual'
 import type { StrategyCard, StrategyPiece } from '../../game/view/strategies'
 import { FONT } from '../ButtonRow'
 import { CREDIT } from './icons'
-import { NO_CALLOUT } from './ItemButton'
+import { NO_CALLOUT } from './press'
 
 const { card, trayZ, gapPx } = visual.hud.dock
 /** World units of the half next to the halfway line left out of a preview. */

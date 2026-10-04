@@ -8,10 +8,9 @@ import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/s
 import type { SubterfugeItem } from '../../game/Game'
 import { FONT } from '../ButtonRow'
 import { CANNON, CHECK, CLOSE, CREDIT, LAYERS, LOCK, RECENTER, REFUND, REPULSOR, ROTATE, STEAL, TOWER, TRASH, WALL } from './icons'
-import { noMenu } from './ItemButton'
-import { OffenceCircle } from './OffenceCircle'
+import { noMenu } from './press'
+import { AbilityBar } from './AbilityBar'
 import { StrategyTray } from './StrategyTray'
-import { SubterfugeCircle } from './SubterfugeCircle'
 import { tileBadge, tileLabel, tileStyle } from './tile'
 
 const ELLIPSIS: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
@@ -278,16 +277,23 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
           {m.dock === 'build' && defence && <div style={{ flex: 1, minWidth: 0 }}><BuildTools defence={defence} color={color} trayOpen={!!strategies} strategies={!!defence.available} onToggle={onDefenceToggle} onArm={onDefenceArm} onStrategies={onStrategies} /></div>}
           {m.dock === 'rearrange' && <Prompt text="Drag your pieces to new spots, then OK" />}
           {m.dock === 'choice' && (choices.length ? choices.map((b) => <Primary key={b.label} spec={b} color={color} grow />) : <Prompt text="Waiting for the defence choice" />)}
-          {m.dock === 'play' && defence?.building && <div style={{ flex: 1, minWidth: 0 }}><BuildTools defence={defence} color={color} trayOpen={false} strategies={false} onToggle={onDefenceToggle} onArm={onDefenceArm} onStrategies={onStrategies} /></div>}
-          {m.dock === 'play' && !defence?.building && (
-            <>
-              <ShotPips left={m.shotsLeft} max={m.shotsMax} color={color} />
-              {m.refundRate !== null && <RefundButton rate={m.refundRate} left={m.shotsLeft} refundable={m.refundable} color={color} onRefund={onRefund} />}
-              <span style={{ flex: 1 }} />
-              <BuildTile defence={defence} color={color} onToggle={onDefenceToggle} />
-              <OffenceCircle offence={offence} color={color} flipped={flipped} onArm={onOffenceArm} />
-              {subterfuge && <SubterfugeCircle subterfuge={subterfuge} color={color} flipped={flipped} onBuy={onSubterfuge} />}
-            </>
+          {m.dock === 'play' && (
+            <AbilityBar
+              defence={defence}
+              offence={offence}
+              subterfuge={subterfuge}
+              color={color}
+              onDefenceToggle={onDefenceToggle}
+              onDefenceArm={onDefenceArm}
+              onOffenceArm={onOffenceArm}
+              onSubterfuge={onSubterfuge}
+              trailing={
+                <div style={{ display: 'flex', alignItems: 'center', gap: dock.gapPx + 2 }}>
+                  <ShotPips left={m.shotsLeft} max={m.shotsMax} color={color} />
+                  {m.refundRate !== null && <RefundButton rate={m.refundRate} left={m.shotsLeft} refundable={m.refundable} color={color} onRefund={onRefund} />}
+                </div>
+              }
+            />
           )}
         </div>
       </div>

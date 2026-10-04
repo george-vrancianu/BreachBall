@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { visual } from '../../config/visual'
 import { FONT } from '../ButtonRow'
-import { NO_CALLOUT } from './ItemButton'
+import { NO_CALLOUT } from './press'
 
 const { ink, panel, dark } = visual.hud
 const { tilePx, radiusPx, labelPx, labelSpacingEm } = visual.hud.dock
@@ -42,6 +42,3 @@ export const tileLabel: CSSProperties = { fontSize: labelPx, lineHeight: 1, lett
 
 /** A tile's corner badge (a price, a stock count, the Credits left): a small pill overhanging the top-right corner. */
 export const tileBadge = (color: string, dim = false): CSSProperties => ({ position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, padding: '0 4px', boxSizing: 'border-box', borderRadius: 9, background: dim ? visual.tokens.dimOutline : color, color: dim ? visual.tokens.muted : dark, fontSize: 11, lineHeight: '18px', textAlign: 'center', pointerEvents: 'none' })
-
-/** How far above its tile a Powerup or Subterfuge column opens: clear of the dock's status row, so the column stands over the pitch. */
-export const columnLift = visual.hud.dock.tilePx + visual.hud.dock.rowGapPx + visual.hud.dock.chipPx + visual.hud.dock.padPx + visual.hud.defence.gap
