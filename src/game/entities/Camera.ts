@@ -48,14 +48,14 @@ export function layout({ width, height }: Size, reserve: Reserve = NONE) {
   return { scale, visibleHeight, pane: { x: (width - w) / 2, y, w, h } }
 }
 
-/** The world y direction that points down the screen of `seat` at the bottom: +1 for seat 1, -1 for seat 2 (the stage is turned for it). */
+/** The world y direction that points down a screen with `seat`'s end at the bottom: +1 for seat 1, -1 for seat 2. A drag of the canvas goes by the seat the canvas is turned to (`shown`); the HUD band and the anchor by the HUD's seat. */
 export const screenDown = (seat: PlayerId): 1 | -1 => (seat === 1 ? 1 : -1)
 
-/** The HUD band of `px` canvas px, kept clear at the bottom of `seat`'s screen (the top of the canvas when the stage is turned). */
+/** The HUD band of `px` canvas px, kept clear on the HUD seat's edge: the bottom of the canvas for seat 1, its top for seat 2 (the stage turned for it, or in Tabletop mode the HUD alone, across the table). */
 export const hudReserve = (seat: PlayerId, px: number): Reserve => (screenDown(seat) > 0 ? { top: 0, bottom: px } : { top: px, bottom: 0 })
 
-/** The camera centre that holds the ball `visual.camera.anchor` of the way down the screen of `seat` at the bottom, leaving the pitch ahead in view. `shootsUp` false: the shooter plays from across the table (Flip on turn off), so the pitch ahead is down the screen and the ball is held the same distance from the top instead. */
-export const anchorY = (ballY: number, seat: PlayerId, visibleHeight: number, shootsUp = true): number => ballY - screenDown(seat) * ((shootsUp ? visual.camera.anchor : 1 - visual.camera.anchor) - 0.5) * visibleHeight
+/** The camera centre that holds the ball `visual.camera.anchor` of the way down the screen of the HUD's `seat`, leaving the pitch ahead of the ball in view (up the screen for seat 1; for seat 2 the pitch ahead is the other way, so the view sits on the other side of the ball). */
+export const anchorY = (ballY: number, seat: PlayerId, visibleHeight: number): number => ballY - screenDown(seat) * (visual.camera.anchor - 0.5) * visibleHeight
 
 /** World y range of the opponent's half left out for a blind viewer sitting at `seat`: boards and net included, up to the halfway line. */
 export const fogOf = (seat: PlayerId): { top: number; bottom: number } => (seat === 1 ? { top: rules.mapTop, bottom: rules.halfHeight } : { top: rules.halfHeight, bottom: rules.mapTop + rules.mapHeight })

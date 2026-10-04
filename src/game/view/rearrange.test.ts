@@ -17,7 +17,7 @@ function play() {
   let now = 0
   const log = { blind: 0, reveals: 0 }
   const frame = (events: SimEvent[] = []) => {
-    t = advance(t, { handover: true, active: whoActs(s), phase: buildPhase(s.match), opening: openingBuild(s.match), events, now })
+    t = advance(t, { handover: true, tabletop: true, active: whoActs(s), phase: buildPhase(s.match), opening: openingBuild(s.match), events, now })
     if (blindSeat(s.match, 1) || blindSeat(s.match, 2)) log.blind++
     if (revealing(t)) log.reveals++
     now += 2000

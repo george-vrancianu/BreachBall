@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { visual } from '../config/visual'
 import { LocalDriver } from '../game/driver'
 import { Game, type HudView } from '../game/Game'
@@ -12,10 +12,13 @@ import { Minimap } from './hud/Minimap'
 import { SideMenu, SideMenuButton } from './hud/SideMenu'
 import { QueuedIcons } from './hud/QueuedIcons'
 import { Overlay } from './overlays/Overlay'
-import { FlipToggle } from './ButtonRow'
+import { TabletopToggle } from './ButtonRow'
 import { HelpScreen, MatchEndScreen, SettingsScreen, TitleScreen } from './screens/Screens'
 
 type Screen = 'title' | 'settings' | 'help' | 'end' | undefined
+
+/** A full-screen layer of the stage, turned `angle` degrees. */
+const layerStyle = (angle: number, style?: CSSProperties): CSSProperties => ({ position: 'fixed', inset: 0, transform: `rotate(${angle}deg)`, ...style })
 
 /** Owns the canvas, the Game and the HUD view. Game pushes the view up; the layers drive it back through `actions`. */
 export function App() {
@@ -39,15 +42,15 @@ export function App() {
   }, [view?.winner, screen])
 
   const actions = () => game.current!.actions
-  const { canvasAngle, hudAngle } = stageLayers(view?.angle ?? 0)
+  const { canvasAngle, hudAngle } = stageLayers({ tabletop: view?.tabletop ?? true, stageAngle: view?.angle ?? 0, seatAngle: view?.seatAngle ?? 0 })
 
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, transform: `rotate(${canvasAngle}deg)` }}>
+      <div data-testid="canvas-layer" style={layerStyle(canvasAngle)}>
         <canvas ref={canvas} />
       </div>
-      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. The overlay goes under the shell so the controls stay tappable during a hold. Today both layers turn with the handover flip (180 degrees), so the stage still rotates as one. */}
-      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', transform: `rotate(${hudAngle}deg)` }}>
+      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. The overlay goes under the shell so the controls stay tappable during a hold. In Tabletop mode only this layer turns at a handover, to face the active player; with it off both layers turn together. */}
+      <div data-testid="hud-layer" style={layerStyle(hudAngle, { pointerEvents: 'none' })}>
         {view && (
           <>
             <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} />
@@ -78,7 +81,7 @@ export function App() {
             {/* Both sit in the HUD layer, so they turn with the flip and open from the viewer's left. */}
             {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onOpen={() => actions().menu(true)} />}
             {!screen && <SideMenu menu={view.menu} onResume={() => actions().menu(false)} onHelp={() => setScreen('help')} onRestart={() => actions().restart()} onQuit={() => (actions().quit(), setScreen('title'))}>
-              {view.menu.hotSeat && <FlipToggle on={view.flipOnTurn} onChange={(on) => actions().flipOnTurn(on)} />}
+              {view.menu.hotSeat && <TabletopToggle on={view.tabletop} onChange={(on) => actions().tabletop(on)} />}
             </SideMenu>}
           </>
         )}
@@ -86,7 +89,7 @@ export function App() {
       {/* Online opens the Host/Join overlay as-is; a connection does nothing yet, online play is the next wave (specs.md). */}
       {screen === 'title' && <TitleScreen onPlay={() => setScreen('settings')} onOnline={() => showConnectScreen(() => {})} onSettings={() => setScreen('settings')} onHelp={() => setScreen('help')} />}
       {screen === 'help' && <HelpScreen onBack={() => setScreen(view?.menu.open ? undefined : 'title')} />}
-      {screen === 'settings' && <SettingsScreen settings={settings} onChange={setSettings} flipOnTurn={view?.flipOnTurn ?? false} onFlipOnTurn={(on) => actions().flipOnTurn(on)} onStart={() => (actions().start(settings), setScreen(undefined))} />}
+      {screen === 'settings' && <SettingsScreen settings={settings} onChange={setSettings} tabletop={view?.tabletop ?? true} onTabletop={(on) => actions().tabletop(on)} onStart={() => (actions().start(settings), setScreen(undefined))} />}
       {screen === 'end' && view?.winner && <MatchEndScreen winner={view.winner} result={view.result} onRematch={() => (actions().rematch(), setScreen(undefined))} onMenu={() => setScreen('title')} />}
     </>
   )

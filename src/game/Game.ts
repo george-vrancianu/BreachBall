@@ -27,10 +27,10 @@ import { minimapOf, type MinimapView } from './view/minimap'
 import { offenceCircle, type OffenceActions, type OffenceCircle } from './view/offenceCircle'
 import { phaseButtons } from './view/phaseButtons'
 import { pausesSim, settingRows, type SideMenuView } from './view/sideMenu'
-import { loadFlipOnTurn, saveFlipOnTurn } from './deviceSettings'
+import { loadTabletop, saveTabletop } from './deviceSettings'
 import { subterfugeCircle, type SubterfugeCircle } from './view/subterfugeCircle'
 import { planStrategy, STRATEGIES, strategyCards, type StrategyCard } from './view/strategies'
-import { acrossTable, advance, angle, blocking, choosingNotice, goalBall, handedOver, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
+import { acrossTable, advance, angle, blocking, choosingNotice, goalBall, handedOver, hudAngle, newTransition, overlayView, reorient, revealing, type OverlayView } from './view/transition'
 
 export type { PlayerId, PowerUp, SubterfugeItem }
 
@@ -46,12 +46,14 @@ export type HudView = {
   /** The Offence circle's model, for the whole match (greyed outside the viewer's possession). */
   offence: OffenceCircle
   overlay?: OverlayView
-  /** Degrees the stage (canvas and in-match HUD) is rotated by the hot-seat flip. */
+  /** Degrees the whole-stage flip (Tabletop mode off) has turned the stage; `stageLayers` maps it, with `seatAngle` and `tabletop`, to each layer's rotation. */
   angle: number
-  /** Player 2 is at the bottom of the screen. */
+  /** Degrees that face the HUD's seat: what the HUD layer turns by in Tabletop mode. */
+  seatAngle: number
+  /** The stage is turned for Player 2 (Tabletop mode off): the HUD's dock and bars sit on the stage's other edges. */
   flipped: boolean
-  /** The Flip on turn device setting (hot-seat only; online ignores it). */
-  flipOnTurn: boolean
+  /** The Tabletop mode device setting (hot-seat only; online ignores it). */
+  tabletop: boolean
   /** The ball-in-hand Confirm button is up. */
   confirm: boolean
   mapOpen: boolean
@@ -82,8 +84,8 @@ export type GameActions = {
   restart(): void
   /** Quit: tears the match down, leaving a fresh default one behind the Title screen. */
   quit(): void
-  /** Flip on turn: a device setting, saved on this device. Takes effect at the next handover. */
-  flipOnTurn(on: boolean): void
+  /** Tabletop mode: a device setting, saved on this device. In a match the layout snaps to the active player's orientation once the Side menu is closed. */
+  tabletop(on: boolean): void
   build: BuildActions
   /** The build dock's Strategies: open or close the tray, and drop a layout in (this turn's own pieces are cleared and refunded first). */
   strategies: { toggle(open?: boolean): void; apply(id: string): void }
@@ -131,7 +133,9 @@ export class Game implements Sink {
   private input: InputController
   private ctx: CanvasRenderingContext2D
   private transition = newTransition(1)
-  private flipOnTurn = loadFlipOnTurn()
+  private tabletop = loadTabletop()
+  /** The setting changed mid-match: the layout snaps to the active player's orientation, once the Side menu is closed. */
+  private reorientDue = false
   private lastBuilder: SimState['match']['builder'] | undefined
   private mapOpen = false
   private menuOpen = false
@@ -164,6 +168,7 @@ export class Game implements Sink {
       state: () => this.state,
       config: () => this.config,
       shown: () => this.transition.shown,
+      across: () => acrossTable(this.transition),
       mine,
       mapOpen: () => this.mapOpen,
       blocked: this.inputBlocked,
@@ -197,7 +202,7 @@ export class Game implements Sink {
         this.config = defaultConfig
         this.newMatch()
       },
-      flipOnTurn: (on) => ((this.flipOnTurn = on), saveFlipOnTurn(on)),
+      tabletop: (on) => ((this.tabletop = on), saveTabletop(on), (this.reorientDue = true)),
       build: this.input.build,
       strategies: {
         toggle: (open = !this.strategiesOpen) => {
@@ -243,8 +248,11 @@ export class Game implements Sink {
   /** Whether the board ignores input: behind a blocking hold or the Side menu, online or not. */
   private inputBlocked = () => blocking(this.transition) || this.menuOpen
 
-  /** Whether this device turns the stage at a handover: hot-seat only, and only when the player has Flip on turn on. */
-  private flips = () => hotSeat() && this.flipOnTurn
+  /** Whether only the HUD turns at a handover, the pitch staying put: the player's Tabletop mode in hot-seat; online never turns the stage. */
+  private tabletopNow = () => !hotSeat() || this.tabletop
+
+  /** The viewer is Player 2, whose end the stage is turned to or, in Tabletop mode, who sits across the table: the pitch's text, gauge and lighting are drawn turned for them. */
+  private viewerTurned = () => this.transition.hudSeat === 2
 
   /** Whoever builds, else whoever has the device: online it would be the peer's own seat. */
   private viewer = (): PlayerId => this.state.match.builder ?? this.transition.hudSeat
@@ -293,7 +301,7 @@ export class Game implements Sink {
     this.menuOpen = false
     this.strategiesOpen = false
     this.strategyQueue = undefined
-    this.transition = newTransition(s.possession.shooter, this.flips())
+    this.transition = newTransition(s.possession.shooter, this.tabletopNow())
     this.acted = false
     this.camera.recenter()
     this.camera.y = s.ball.pos.y
@@ -312,9 +320,9 @@ export class Game implements Sink {
     canvas.height = canvas.clientHeight * this.dpr
   }
 
-  /** Keeps the HUD band clear on the side the HUD sits (the stage is turned for seat 2) and takes the height the canvas shows. */
+  /** Keeps the HUD band clear on the edge the HUD sits at (the top of the canvas for seat 2, whether the stage turned for it or only the HUD did) and takes the height the canvas shows. */
   private fitCamera(): void {
-    this.camera.reserve = hudReserve(this.transition.shown, visual.camera.hudReservePx * this.dpr)
+    this.camera.reserve = hudReserve(this.transition.hudSeat, visual.camera.hudReservePx * this.dpr)
     this.camera.fit(this.canvas)
     this.mapCam.reserve = this.camera.reserve
   }
@@ -335,7 +343,7 @@ export class Game implements Sink {
   private announce(events: SimEvent[]): void {
     const { state } = this
     const before = this.transition
-    this.transition = advance(before, { handover: true, flip: this.flips(), active: whoActs(state), phase: buildPhase(state.match), opening: openingBuild(state.match), events, now: this.now })
+    this.transition = advance(before, { handover: true, tabletop: this.tabletopNow(), active: whoActs(state), phase: buildPhase(state.match), opening: openingBuild(state.match), events, now: this.now })
     if (handedOver(before, this.transition)) this.acted = false
   }
 
@@ -349,18 +357,21 @@ export class Game implements Sink {
     this.camera.update(dt)
     this.driver.update(dt)
     this.announce([])
+    // The Side menu is the HUD's: it must not turn under the finger, so a mid-match change of Tabletop mode waits for it to close.
+    const snapped = this.reorientDue && !this.menuOpen
+    if (snapped) (this.transition = reorient(this.transition, this.tabletopNow())), (this.reorientDue = false)
     this.seeBlind()
     // A ball-in-hand placement or half-made gesture does not survive a blocking hold into the next player's turn.
     if (blocking(this.transition)) this.input.cancelGestures()
     const { state, transition, camera } = this
     this.fitCamera()
     const flipping = !!transition.flip && now - transition.flip.at >= transition.flip.ms / 2
-    // The seat across the table (stage not turned for it) shoots down the screen, so the ball is held near the top instead.
-    const target = anchorY(state.ball.pos.y, transition.shown, camera.visibleHeight, !acrossTable(transition))
-    // Mid-flip the camera snaps to where the incoming seat frames the ball, so the flip ends already framed.
+    // The ball is held a set way down the HUD seat's screen, so across the table (Tabletop mode, seat 2) it sits near the top of the unturned canvas.
+    const target = anchorY(state.ball.pos.y, transition.hudSeat, camera.visibleHeight)
+    // Mid-flip the camera snaps to where the incoming HUD seat frames the ball, so the flip ends already framed; so does a mid-match change of Tabletop mode.
     const f = transition.flip
-    const dest = f ? anchorY(state.ball.pos.y, f.to, camera.visibleHeight, f.hudSeat === f.to) : target
-    if (!state.match.builder && flipping) (camera.y = dest), camera.recenter()
+    const dest = f ? anchorY(state.ball.pos.y, f.hudSeat, camera.visibleHeight) : target
+    if (!state.match.builder && (flipping || snapped)) (camera.y = dest), camera.recenter()
     this.input.edgeScroll(dt)
     this.input.tickAim()
     if (!camera.held) camera.follow(target, dt)
@@ -381,7 +392,7 @@ export class Game implements Sink {
     structures.costLabel = !mapOpen && !!sel?.movable && sel.id === undefined && sel.spec.kind === 'wall'
     structures.pieceBlocked = !!sel && !legal(state, sel)
     structures.inPlay = !builder
-    structures.flipped = this.transition.shown === 2
+    structures.flipped = this.viewerTurned()
     structures.pieceId = sel?.id
     structures.landing = mapOpen ? undefined : input.landing?.spec
     structures.landingId = input.landing?.id
@@ -400,15 +411,15 @@ export class Game implements Sink {
     this.pitch.charge = this.ball.charge = state.charge
     this.ball.radius = this.config.ballRadius
     this.ball.tracer.pxPerUnit = this.camera.view(this.canvas).sy / this.dpr
-    this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.gauge.flipped = this.transition.shown === 2
+    this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.gauge.flipped = this.viewerTurned()
     // During the goal hold the ball rests in the net (the sim has already reset it).
     const inNet = goalBall(this.transition)
     this.ball.sync(inNet ? { ...state.ball, pos: inNet, vel: { x: 0, y: 0 } } : state.ball)
     this.gauge.at = this.ball.state.pos
     // The Charged badge keeps clear of the gauge's near-ball chip.
     this.ball.avoid = this.gauge.chipRects
-    // The view's edge on the HUD's side: the dock band starts there.
-    this.gauge.dockEdge = this.camera.y + (screenDown(this.transition.shown) * this.camera.visibleHeight) / 2
+    // The view's edge on the HUD's side (the viewer's bottom): the dock band starts there.
+    this.gauge.dockEdge = this.camera.y + (screenDown(this.transition.hudSeat) * this.camera.visibleHeight) / 2
     this.ball.placement = input.placement && { at: input.placement, legal: canPlaceBall(shooter, input.placement, state.objects, this.config), radius: this.config.ballRadius }
     this.ball.armed = input.armed || state.breaker ? shooter : undefined
   }
@@ -449,8 +460,9 @@ export class Game implements Sink {
       strategies: this.strategiesOpen && builder && !blocked ? strategyCards(state, builder, this.config) : undefined,
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),
+      seatAngle: hudAngle(transition),
       flipped: transition.shown === 2,
-      flipOnTurn: this.flipOnTurn,
+      tabletop: this.tabletop,
       confirm: inHand && !builder && !state.match.choosing && !blocked,
       mapOpen: this.mapOpen,
       menu: { open: this.menuOpen, hotSeat: hotSeat(), settings: settingRows(this.config) },

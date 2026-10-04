@@ -5,13 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import type { GameActions, HudView } from '../game/Game'
 
 // Game needs a real canvas; the seam under test is how App creates, feeds and drives it.
-const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, flipOnTurn: false, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, resourceBar: null, refundable: false, score: null, phase: 'Play', dock: 'play', balance: null, refundRate: null }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
-const games = vi.hoisted(() => [] as { destroyed: boolean; onView: (v: HudView) => void; actions: { [K in 'start' | 'rematch' | 'map' | 'menu' | 'restart' | 'quit' | 'flipOnTurn']: Mock<GameActions[K]> } }[])
+const freshView = vi.hoisted(() => () => ({ angle: 0, seatAngle: 0, flipped: false, tabletop: true, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, resourceBar: null, refundable: false, score: null, phase: 'Play', dock: 'play', balance: null, refundRate: null }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
+const games = vi.hoisted(() => [] as { destroyed: boolean; onView: (v: HudView) => void; actions: { [K in 'start' | 'rematch' | 'map' | 'menu' | 'restart' | 'quit' | 'tabletop']: Mock<GameActions[K]> } }[])
 vi.mock('../game/Game', () => ({
   Game: class {
     destroyed = false
     // Like the real Game, starting a match pushes its (winnerless) view at once.
-    actions = { start: vi.fn(() => this.onView(freshView())), rematch: vi.fn(() => this.onView(freshView())), map: vi.fn(), menu: vi.fn(), restart: vi.fn(), quit: vi.fn(), flipOnTurn: vi.fn() }
+    actions = { start: vi.fn(() => this.onView(freshView())), rematch: vi.fn(() => this.onView(freshView())), map: vi.fn(), menu: vi.fn(), restart: vi.fn(), quit: vi.fn(), tabletop: vi.fn() }
     constructor(_canvas: HTMLCanvasElement, _driver: unknown, public onView: (v: HudView) => void) {
       games.push(this)
     }
@@ -41,18 +41,28 @@ it('mounting under StrictMode leaves one running Game, and unmounting stops it',
   expect(games.filter((g) => !g.destroyed)).toHaveLength(0)
 })
 
-it('rotates the canvas layer and the HUD layer with the view angle', () => {
-  const { container } = render(<App />)
-  act(() => games[0]!.onView(view({ angle: 180, flipped: true })))
-  const canvasLayer = container.querySelector('canvas')!.parentElement as HTMLElement
-  expect(canvasLayer.style.transform).toBe('rotate(180deg)')
-  expect((canvasLayer.nextElementSibling as HTMLElement).style.transform).toBe('rotate(180deg)')
+it('Tabletop mode off: both layers turn with the stage angle', () => {
+  render(<App />)
+  act(() => games[0]!.onView(view({ tabletop: false, angle: 180, seatAngle: 180, flipped: true })))
+  expect(screen.getByTestId('canvas-layer').style.transform).toBe('rotate(180deg)')
+  expect(screen.getByTestId('hud-layer').style.transform).toBe('rotate(180deg)')
 })
 
-it('keeps the HUD layer out of the pitch input', () => {
-  const { container } = render(<App />)
+it('Tabletop mode on: only the HUD layer turns, to face its seat', () => {
+  render(<App />)
+  act(() => games[0]!.onView(view({ tabletop: true, angle: 0, seatAngle: 180 })))
+  expect(screen.getByTestId('canvas-layer').style.transform).toBe('rotate(0deg)')
+  expect(screen.getByTestId('hud-layer').style.transform).toBe('rotate(180deg)')
+})
+
+it('keeps the HUD layer out of the pitch input, while its controls still take clicks', () => {
+  render(<App />)
+  fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+  fireEvent.click(screen.getByText('Start'))
   act(() => games[0]!.onView(view()))
-  expect(((container.querySelector('canvas')!.parentElement as HTMLElement).nextElementSibling as HTMLElement).style.pointerEvents).toBe('none')
+  expect(screen.getByTestId('hud-layer').style.pointerEvents).toBe('none')
+  fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
+  expect(games[0]!.actions.menu).toHaveBeenCalledWith(true)
 })
 
 it('plays from title through settings into a match, then offers match end once and rematch', () => {
@@ -107,11 +117,11 @@ it('draws the overlay under the shell, so the controls stay tappable during a ho
   expect(games[0]!.actions.map).toHaveBeenCalled()
 })
 
-it('the settings screen holds the Flip on turn toggle, off on a fresh device', () => {
+it('the settings screen holds the Tabletop mode toggle, on for a fresh device', () => {
   render(<App />)
   fireEvent.click(screen.getByRole('button', { name: 'Play' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Flip on turn: Off' }))
-  expect(games[0]!.actions.flipOnTurn).toHaveBeenCalledWith(true)
+  fireEvent.click(screen.getByRole('button', { name: 'Tabletop mode: On' }))
+  expect(games[0]!.actions.tabletop).toHaveBeenCalledWith(false)
 })
 
 it('the Title screen opens the connect overlay, settings, and help and back', () => {
@@ -200,19 +210,19 @@ describe('Side menu', () => {
     expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy()
   })
 
-  it('holds the Flip on turn toggle, which shows its state and sets the device setting', () => {
+  it('holds the Tabletop mode toggle, which shows its state and sets the device setting', () => {
     const game = inMatch({ open: true })
-    const toggle = screen.getByRole('button', { name: 'Flip on turn: Off' })
-    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    const toggle = screen.getByRole('button', { name: 'Tabletop mode: On' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(toggle)
-    expect(game.actions.flipOnTurn).toHaveBeenCalledWith(true)
-    act(() => game.onView(view({ flipOnTurn: true, menu: { ...freshView().menu, open: true } })))
-    expect(screen.getByRole('button', { name: 'Flip on turn: On' }).getAttribute('aria-pressed')).toBe('true')
+    expect(game.actions.tabletop).toHaveBeenCalledWith(false)
+    act(() => game.onView(view({ tabletop: false, menu: { ...freshView().menu, open: true } })))
+    expect(screen.getByRole('button', { name: 'Tabletop mode: Off' }).getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('has no Flip on turn toggle online, which ignores it', () => {
+  it('has no Tabletop mode toggle online, which ignores it', () => {
     inMatch({ open: true, hotSeat: false })
-    expect(screen.queryByRole('button', { name: /Flip on turn/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Tabletop mode/ })).toBeNull()
   })
 
   it('Help opens the how-to page and Back returns to the open menu, not the Title', () => {
@@ -230,10 +240,11 @@ describe('Side menu', () => {
     expect(game.actions.menu).toHaveBeenCalledWith(false)
   })
 
-  it('turns with the HUD layer', () => {
+  it('turns with the HUD layer, so in Tabletop mode it faces the active player', () => {
     inMatch({ open: true })
-    act(() => games[0]!.onView(view({ angle: 180, flipped: true, menu: { ...freshView().menu, open: true } })))
-    const stage = screen.getByRole('navigation', { name: 'Side menu' }).parentElement!.parentElement as HTMLElement
-    expect(stage.style.transform).toBe('rotate(180deg)')
+    act(() => games[0]!.onView(view({ seatAngle: 180, menu: { ...freshView().menu, open: true } })))
+    const hud = screen.getByTestId('hud-layer')
+    expect(hud.style.transform).toBe('rotate(180deg)')
+    expect(hud.contains(screen.getByRole('navigation', { name: 'Side menu' }))).toBe(true)
   })
 })

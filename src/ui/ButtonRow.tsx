@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { visual } from '../config/visual'
 import type { ButtonSpec } from '../game/view/hudModel'
-import { flipToggle } from '../game/view/settings'
+import { tabletopToggle } from '../game/view/settings'
 
 export const FONT: CSSProperties = { font: `700 14px ${visual.hud.font}`, textTransform: 'uppercase', fontVariantNumeric: 'tabular-nums' }
 
@@ -37,7 +37,7 @@ export function ButtonRow({ specs, className, style, children }: { specs: Button
   )
 }
 
-/** The Flip on turn toggle, full width of its container: the Side menu and the settings screen share it. */
-export function FlipToggle({ on, onChange }: { on: boolean; onChange(on: boolean): void }) {
-  return <Button spec={flipToggle(on, onChange)} style={{ width: '100%' }} />
+/** The Tabletop mode toggle, full width of its container: the Side menu and the settings screen share it. */
+export function TabletopToggle({ on, onChange }: { on: boolean; onChange(on: boolean): void }) {
+  return <Button spec={tabletopToggle(on, onChange)} style={{ width: '100%' }} />
 }

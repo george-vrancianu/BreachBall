@@ -5,19 +5,28 @@ import type { SimEvent } from '../../sim/step'
 
 /** `holds` = the handover waits for this overlay and the sim is paused while it is up (the REPAIRED sweep; the goal and reveal kinds always hold). */
 type Overlay = { kind: 'goal' | 'sweep' | 'reveal'; at: number; player: PlayerId; text: string; ms: number; net?: Point; holds?: true }
-/** `shown` is whose end of the pitch is at the bottom of the screen; `hudSeat` is whose turn the HUD shows (the same seat when the stage turns, but not when Flip on turn is off and seat 2 plays from across the table); `due` = a handover is waiting (e.g. for the goal hold to end); `opening` = the last frame saw a Siege opening build (the reveal fires when it ends). */
+/** `shown` is whose end of the pitch is at the bottom of the screen; `hudSeat` is whose turn the HUD shows (the same seat when the stage turns, but not in Tabletop mode, where the pitch stays put and seat 2 plays from across the table); `due` = a handover is waiting (e.g. for the goal hold to end); `opening` = the last frame saw a Siege opening build (the reveal fires when it ends). */
 export type Transition = { shown: PlayerId; hudSeat: PlayerId; flip?: { at: number; ms: number; from: PlayerId; to: PlayerId; hudSeat: PlayerId }; overlay?: Overlay; due?: boolean; phase?: string; opening?: boolean }
 
-/** `flip` false (Flip on turn off, the device default): seat 1's end is at the bottom whoever starts. Online passes false too, and `advance` ignores the flip there, so online never flips. */
-export const newTransition = (active: PlayerId, flip = false): Transition => ({ shown: flip ? active : 1, hudSeat: active, due: true })
+/** `tabletop` (Tabletop mode, the device default): the pitch never turns, so seat 1's end is at the bottom whoever starts. Off, the stage turns to the starting player. Online passes true, and `advance` ignores the flip there, so online never flips. */
+export const newTransition = (active: PlayerId, tabletop = true): Transition => ({ shown: tabletop ? 1 : active, hudSeat: active, due: true })
 
-/** The HUD's seat sits across the table from the bottom end (Flip on turn off, seat 2 playing): the HUD and view face the bottom seat's way, not the active player's. */
+/** The HUD's seat sits across the table from the bottom end (Tabletop mode, seat 2 playing): the pitch and its camera keep the bottom seat's way, while the HUD layer faces the HUD seat. */
 export const acrossTable = (t: Transition) => t.hudSeat !== t.shown
 
 const rot = (p: PlayerId) => (p === 1 ? 0 : 180)
 
-/** `handover` false = online: each player always sits at the bottom, so no flip, and `flip` is ignored. `flip` false or missing = hot-seat with Flip on turn off (the device default): the stage never turns and seat 1's end stays at the bottom. Read at each handover; a flip already under way is not changed. */
-export type Frame = { handover?: boolean; flip?: boolean; active: PlayerId; phase: string; /** A Siege opening build is in progress (not a Rearrange turn); its end triggers the reveal. */ opening?: boolean; events: SimEvent[]; now: number }
+/** Degrees the HUD layer turns to face the HUD's seat: what Tabletop mode applies to the HUD layer alone (the pitch layer stays at `angle`, 0 there). */
+export const hudAngle = (t: Transition): number => rot(t.hudSeat)
+
+/** The setting changed mid-match: snap to the active seat's orientation with no animation. A flip under way lands first; the overlay and everything else stay. */
+export function reorient(t: Transition, tabletop: boolean): Transition {
+  const seat = t.flip ? t.flip.hudSeat : t.hudSeat
+  return { ...t, shown: tabletop ? 1 : seat, hudSeat: seat, flip: undefined }
+}
+
+/** `handover` false = online: each player always sits at the bottom, so no flip, and `tabletop` is ignored. `tabletop` true = hot-seat with Tabletop mode on (the device default): the pitch never turns, seat 1's end stays at the bottom, and only the HUD layer faces the active seat (`hudAngle`). Off, the stage turns. Read at each handover; a flip already under way is not changed. */
+export type Frame = { handover?: boolean; tabletop: boolean; active: PlayerId; phase: string; /** A Siege opening build is in progress (not a Rearrange turn); its end triggers the reveal. */ opening?: boolean; events: SimEvent[]; now: number }
 
 /** Call each tick (with that tick's events) and once per frame. Pure; the sim never waits on it, the shell pauses `step` while `blocking`. */
 export function advance(t: Transition, f: Frame): Transition {
@@ -37,8 +46,8 @@ export function advance(t: Transition, f: Frame): Transition {
   if (f.handover === false) due = false
   else if ((due || f.active !== hudSeat) && !flip && !repairing && overlay?.kind !== 'goal' && overlay?.kind !== 'reveal') {
     const ms = visual.transition.flipMs
-    // With the toggle off the bottom seat is always 1: the stage turns back once if it was left turned.
-    const to = f.flip ? f.active : 1
+    // In Tabletop mode the bottom seat is always 1: the stage turns back once if it was left turned.
+    const to = f.tabletop ? 1 : f.active
     // Even when `to` is already shown the flip runs (rotating 0 degrees), so the hold is the same as ever.
     if (ms) flip = { at: f.now, ms, from: shown, to, hudSeat: f.active }
     else (shown = to), (hudSeat = f.active)
@@ -57,7 +66,7 @@ export const blocking = (t: Transition) => !!t.flip || t.overlay?.kind === 'goal
 /** The reveal hold is up: the shell shows the whole pitch through the map camera. */
 export const revealing = (t: Transition) => t.overlay?.kind === 'reveal'
 
-/** Screen rotation in degrees (canvas and HUD together). */
+/** The whole-stage flip's rotation in degrees (canvas and HUD together; always 0 in Tabletop mode, where only the HUD layer turns, by `hudAngle`). */
 export function angle(t: Transition, now: number): number {
   if (!t.flip) return rot(t.shown)
   const p = Math.min(1, (now - t.flip.at) / t.flip.ms)
