@@ -146,6 +146,7 @@ describe('Boost ring and Bullseye', () => {
     const p = new Pitch()
     p.reduced = true
     p.charge = rules.boost.bullseye.factor
+    p.chargeZone = 'bullseye'
     expect(fills(p, rules.boost.bullseye.radius)[0].alpha).toBe(visual.pitch.boost.litAlpha)
     expect(fills(p, rules.boost.ring.radius)[0].alpha).toBe(visual.pitch.boost.alpha)
   })
@@ -153,7 +154,7 @@ describe('Boost ring and Bullseye', () => {
   it('animates an arrival for its time, flashing the zone and growing a ring out of it', () => {
     const p = new Pitch()
     p.reduced = true
-    p.arrive(rules.boost.ring.factor)
+    p.arrive('ring')
     expect(p.arrivalCount).toBe(1)
     expect(fills(p, rules.boost.ring.radius)[0].alpha).toBe(visual.pitch.boost.arrive.flashAlpha)
     p.update((visual.pitch.boost.arrive.ms - 1) / 1000)

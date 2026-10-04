@@ -6,6 +6,7 @@ import type { SimConfig, SimState } from '../../sim/step'
 import { structureCost, type Structure, type StructureSpec } from '../../sim/wall'
 import { Entity } from './Entity'
 import { Fixture, type FixtureData } from './Fixture'
+import { drawLabel } from './label'
 import { Tower } from './Tower'
 import { Wall } from './Wall'
 
@@ -186,15 +187,7 @@ export class Structures extends Entity {
   private drawCost(ctx: CanvasRenderingContext2D, spec: StructureSpec): void {
     const { size, offset } = visual.wall.cost
     const at = costLabelAt(spec, offset, this.flipped)
-    ctx.save()
-    ctx.translate(at.x, at.y)
-    if (this.flipped) ctx.rotate(Math.PI)
-    ctx.font = `${visual.wall.cost.weight} ${size}px ${visual.hud.font}`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = this.pieceBlocked ? visual.wall.illegal : visual.hud.ink
-    ctx.fillText(String(structureCost(spec)), 0, 0)
-    ctx.restore()
+    drawLabel(ctx, String(structureCost(spec)), at, { size, weight: visual.wall.cost.weight, color: this.pieceBlocked ? visual.wall.illegal : visual.hud.ink, flipped: this.flipped })
   }
 
   private drawBuildPiece(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean): void {

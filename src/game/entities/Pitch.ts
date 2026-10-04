@@ -1,9 +1,12 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
-import { centreSpot, halfSpan, type PlayerId } from '../../sim/pitch'
-import { boostLabel, zoneOf } from '../feedback'
+import { centreSpot, halfSpan, isCharged, type BoostZone, type PlayerId } from '../../sim/pitch'
+import { boostColor, boostLabel } from '../boost'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
+
+/** The Boost zones, outer first so the Bullseye draws over the ring. */
+const zones: BoostZone[] = ['ring', 'bullseye']
 
 /** One goal end: its line's y, the direction into the pitch (+1 down the canvas) and the owner. P2 defends the top, P1 the bottom. */
 const ends = [
@@ -20,15 +23,17 @@ export class Pitch extends Entity {
   builder?: PlayerId
   /** The ball's charge: a zone holding a Charged ball is tinted stronger (1 = none). */
   charge = 1
+  /** The zone the charge came from: that zone is tinted stronger. */
+  chargeZone: BoostZone | null = null
   /** Turns the labels upright for Player 2's view. */
   flipped = false
   /** Reduced motion: no pulse. */
   reduced = false
-  private arrivals: { factor: number; born: number }[] = []
+  private arrivals: { zone: BoostZone; born: number }[] = []
 
   /** A shot came to rest in a zone: it flashes and a ring grows out from it for `visual.pitch.boost.arrive.ms`. */
-  arrive(factor: number): void {
-    this.arrivals.push({ factor, born: this.clock })
+  arrive(zone: BoostZone): void {
+    this.arrivals.push({ zone, born: this.clock })
   }
 
   /** Arrivals still animating. */
@@ -40,6 +45,7 @@ export class Pitch extends Entity {
   reset(): void {
     this.arrivals = []
     this.charge = 1
+    this.chargeZone = null
   }
 
   override update(dt: number): void {
@@ -70,7 +76,7 @@ export class Pitch extends Entity {
     this.halfwayLine(ctx)
     ctx.stroke()
     ctx.beginPath()
-    ctx.arc(w / 2, halfHeight, rules.boost.ring.radius, 0, 2 * Math.PI)
+    ctx.arc(w / 2, halfHeight, rules.centreZoneRadius, 0, 2 * Math.PI)
     ctx.stroke()
     ctx.lineWidth = v.centre.innerWidthPx * u
     ctx.setLineDash(dashed(v.centre.innerDashPx))
@@ -102,18 +108,18 @@ export class Pitch extends Entity {
   }
 
   /** The alpha of the `zone` tint: steady, pulsing slowly (none under reduced motion), stronger while it holds a Charged ball, flashing on an arrival. */
-  private zoneAlpha(zone: 'ring' | 'bullseye'): number {
+  private zoneAlpha(zone: BoostZone): number {
     const { alpha, litAlpha, pulse, arrive } = visual.pitch.boost
     const swing = this.reduced ? 0 : pulse.alphaSwing * Math.sin((2 * Math.PI * this.clock) / pulse.periodMs)
-    const lit = this.charge > 1 && zoneOf(this.charge) === zone
-    const flash = this.arrivals.reduce((a, r) => (zoneOf(r.factor) === zone ? Math.max(a, arrive.flashAlpha * (1 - (this.clock - r.born) / arrive.ms)) : a), 0)
+    const lit = isCharged(this.charge) && this.chargeZone === zone
+    const flash = this.arrivals.reduce((a, r) => (r.zone === zone ? Math.max(a, arrive.flashAlpha * (1 - (this.clock - r.born) / arrive.ms)) : a), 0)
     return Math.max(lit ? litAlpha : alpha + swing, flash)
   }
 
   /** The Boost ring's disc, then the Bullseye's over it, each tinted its own colour. */
   private drawBoostFills(ctx: CanvasRenderingContext2D): void {
     const at = centreSpot()
-    for (const zone of ['ring', 'bullseye'] as const) {
+    for (const zone of zones) {
       ctx.globalAlpha = this.zoneAlpha(zone)
       ctx.fillStyle = visual.pitch.boost.colors[zone]
       ctx.beginPath()
@@ -127,9 +133,9 @@ export class Pitch extends Entity {
   private drawBoostLabels(ctx: CanvasRenderingContext2D): void {
     const { label, colors } = visual.pitch.boost
     const at = centreSpot()
-    for (const zone of ['ring', 'bullseye'] as const) {
+    for (const zone of zones) {
       const { radius, factor } = rules.boost[zone]
-      drawLabel(ctx, boostLabel(factor), { x: at.x, y: at.y + radius * label[`${zone}At`] }, { size: label.px * visual.pitch.unit, weight: label.weight, font: visual.hud.font, color: colors[zone], alpha: label.alpha, flipped: this.flipped })
+      drawLabel(ctx, boostLabel(factor), { x: at.x, y: at.y + radius * label[`${zone}At`] }, { size: label.px * visual.pitch.unit, weight: label.weight, color: colors[zone], alpha: label.alpha, flipped: this.flipped })
     }
   }
 
@@ -139,11 +145,11 @@ export class Pitch extends Entity {
     const at = centreSpot()
     for (const a of this.arrivals) {
       const t = (this.clock - a.born) / arrive.ms
-      const zone = zoneOf(a.factor)
+      const { zone } = a
       ctx.globalAlpha = 1 - t
       ctx.beginPath()
       ctx.arc(at.x, at.y, rules.boost[zone].radius * (1 + arrive.grow * t), 0, 2 * Math.PI)
-      ctx.strokeStyle = visual.pitch.boost.colors[zone]
+      ctx.strokeStyle = boostColor(zone)
       ctx.lineWidth = arrive.widthPx * visual.pitch.unit
       ctx.stroke()
     }

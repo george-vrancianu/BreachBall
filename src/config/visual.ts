@@ -142,8 +142,8 @@ export const visual = {
     stealMs: 300,
     /** The ball-in-hand placement disc. */
     placementAlpha: 0.5,
-    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period, still under reduced motion), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), the badge's pop-in (`popMs`, growing from `popScale`), and the launch trail, brighter and `trailWidth` wide. */
-    charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 400 }, badge: { size: 1.6, offset: 2.6, weight: 700 }, popMs: 250, popScale: 0.5, trailWidth: 4 },
+    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period; the glow is static under reduced motion), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), the badge's pop-in (`popMs`, growing from `popScale`), and the launch trail, brighter and `trailWidth` wide. */
+    charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700 }, popMs: 250, popScale: 0.5, trailWidth: 4 },
     /** The Breaker outline. */
     armed: { radius: 1.5, swing: 0.25, periodMs: 120, width: 0.3 },
     /** The faint control-radius ring while aiming. */

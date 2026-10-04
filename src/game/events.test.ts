@@ -27,14 +27,14 @@ function setup(objects: Structure[]) {
 describe('routeEvents', () => {
   it('a shot that comes to rest Charged pops the ball badge and sends a ring out of the zone', () => {
     const w = setup([])
-    w.route([{ type: 'charged', factor: 2, at }], [])
+    w.route([{ type: 'charged', zone: 'bullseye', factor: 2, at }], [])
     expect(w.pitch.arrivalCount).toBe(1)
     expect(w.ball.badgeScale).toBe(visual.ball.charged.popScale)
   })
 
   it('shows no arrival animation under reduced motion', () => {
     const w = setup([])
-    w.route([{ type: 'charged', factor: 2, at }], [], true)
+    w.route([{ type: 'charged', zone: 'bullseye', factor: 2, at }], [], true)
     expect(w.pitch.arrivalCount).toBe(0)
     expect(w.ball.badgeScale).toBe(1)
   })

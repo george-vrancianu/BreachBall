@@ -1,4 +1,3 @@
-import { rules } from '../config/rules'
 import { visual } from '../config/visual'
 import type { PlayerId, Point } from '../sim/pitch'
 import type { SimEvent } from '../sim/step'
@@ -6,15 +5,6 @@ import type { GestureView } from './input/gesture'
 
 /** Whether the viewer wants no animation. With no `matchMedia` (tests, odd embeds) there is no stated preference to honour, so it counts as still. */
 export const reducedMotion = () => typeof matchMedia !== 'function' || matchMedia('(prefers-reduced-motion: reduce)').matches
-
-/** Which zone a Charged ball's `factor` came from. */
-export const zoneOf = (factor: number): 'ring' | 'bullseye' => (factor === rules.boost.bullseye.factor ? 'bullseye' : 'ring')
-
-/** The "x1.5" / "x2" text for a Charged `factor`. */
-export const boostLabel = (factor: number): string => `×${factor}`
-
-/** The colour of the zone a Charged `factor` came from. */
-export const boostColor = (factor: number): string => visual.pitch.boost.colors[zoneOf(factor)]
 
 /** Vibration pattern for an event, if it has one. */
 export function vibration(ev: SimEvent): number | number[] | undefined {

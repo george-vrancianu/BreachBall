@@ -1,11 +1,11 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
-import type { Point } from '../../sim/pitch'
+import { isCharged, type BoostZone, type Point } from '../../sim/pitch'
 import { predictPath } from '../../sim/predict'
 import { splashOf } from '../../sim/splash'
 import type { SimConfig, SimState } from '../../sim/step'
 import type { GestureView } from '../input/gesture'
-import { boostColor, boostLabel } from '../feedback'
+import { boostColor, boostLabel } from '../boost'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
 
@@ -71,7 +71,7 @@ export class Aim extends Entity {
     const { aim, state, config } = this
     if (!aim?.dir || aim.power === undefined || !state || !config) return undefined
     const { tier, dir, power, ghost } = aim
-    const key = JSON.stringify([tier, dir, power, ghost, state.ball.pos, state.possession.shooter])
+    const key = JSON.stringify([tier, dir, power, ghost, state.ball.pos, state.possession.shooter, state.charge])
     const p = this.predicted
     if (p?.key === key && p.objects === state.objects) return p.points
     const path = predictPath(state, { player: state.possession.shooter, tier, dir, power }, config, ghost.until)
@@ -85,12 +85,17 @@ export class Aim extends Entity {
     return this.state?.charge ?? 1
   }
 
-  private drawBadge(ctx: CanvasRenderingContext2D, ghost: Point[]): void {
+  /** The zone the charge came from, null when not Charged. */
+  get chargeZone(): BoostZone | null {
+    return this.state?.chargeZone ?? null
+  }
+
+  private drawBadge(ctx: CanvasRenderingContext2D, ghost: Point[], zone: BoostZone): void {
     const { size, offset, weight } = visual.aim.ghost.badge
     const [a, b] = [ghost.at(-2) ?? ghost[0], ghost.at(-1)!]
     const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
     const at = { x: b.x + ((b.x - a.x) / len) * offset, y: b.y + ((b.y - a.y) / len) * offset }
-    drawLabel(ctx, boostLabel(this.charge), at, { size, weight, font: visual.hud.font, color: boostColor(this.charge), flipped: this.flipped })
+    drawLabel(ctx, boostLabel(this.charge), at, { size, weight, color: boostColor(zone), flipped: this.flipped })
   }
 
   /** While cancel is armed: an ✕ on the ball, and the Ghost drawn in the same grey. */
@@ -117,10 +122,11 @@ export class Aim extends Entity {
       ghost.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
       ctx.lineCap = ctx.lineJoin = 'round'
       ctx.strokeStyle = ghostColor
-      ctx.lineWidth = this.charge > 1 ? visual.aim.ghost.chargedWidth : visual.aim.ghost.width
+      ctx.lineWidth = isCharged(this.charge) ? visual.aim.ghost.chargedWidth : visual.aim.ghost.width
       ctx.stroke()
       // A Charged ball's Ghost carries its factor at the tip, past the last point along the path's end direction.
-      if (this.charge > 1 && !cancel) this.drawBadge(ctx, ghost)
+      const zone = this.chargeZone
+      if (zone && isCharged(this.charge) && !cancel) this.drawBadge(ctx, ghost, zone)
     }
     if (cancel) {
       const { size, width } = visual.aim.cancel

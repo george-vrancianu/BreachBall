@@ -29,6 +29,6 @@ export function routeEvents(events: SimEvent[], t: Targets, objects: Structure[]
     } else if (ev.type === 'shot-fired') {
       t.aim.splash(ev.from, ev.tier, ev.power)
       if (ev.charge) t.ball.launch()
-    } else if (ev.type === 'charged' && !reduced) (t.pitch.arrive(ev.factor), t.ball.pop())
+    } else if (ev.type === 'charged' && !reduced) (t.pitch.arrive(ev.zone), t.ball.pop())
   }
 }

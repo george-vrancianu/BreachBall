@@ -1,5 +1,5 @@
 import { rules } from '../config/rules'
-import { boostAt, goalCrossed, kickoffSpot, type PlayerId, type Point } from './pitch'
+import { boostAt, goalCrossed, isCharged, kickoffSpot, type BoostZone, type PlayerId, type Point } from './pitch'
 import type { GameModeName, Match } from './match'
 import { modeFor, modeNamed, type DefenceChoice, type ModeContext } from './mode'
 import { initialPlayers, type Player, type PowerUp } from './player'
@@ -101,7 +101,7 @@ export type SimEvent =
   /** `from` is the ball's position at launch. */
   | { type: 'shot-fired'; player: PlayerId; from: Point; dir: Point; power: number; tier: number; breaker?: boolean; /** The Charged ball's factor, when the shot used one. */ charge?: number }
   /** A shot came to rest in the Boost ring or Bullseye: the ball is Charged by `factor` until its next shot or move. */
-  | { type: 'charged'; factor: number; at: Point }
+  | { type: 'charged'; zone: BoostZone; factor: number; at: Point }
   | { type: 'possession-changed'; shooter: PlayerId; inHand: boolean }
   /** The shooter traded `count` Move points for Credits. */
   | { type: 'refunded'; player: PlayerId; count: number }
@@ -138,6 +138,8 @@ export type SimState = {
   ball: Ball
   /** The factor the ball's next shot is multiplied by (1 = not Charged). Set when a shot comes to rest in a ring, spent by the next shot, lost whenever the ball is moved. */
   charge: number
+  /** The zone `charge` came from (null exactly when not Charged), for the view. */
+  chargeZone: BoostZone | null
   possession: Possession
   match: Match
   /** Shot clock: ticks left (frozen while a shot is live) and consecutive expiries in this possession. */
@@ -230,7 +232,7 @@ export function initialState(seed = 1, config: SimConfig = defaultConfig): SimSt
   // The first builder's turn opens here, so it gets its grant as every later build turn does in step; the other player holds nothing yet.
   const none = { 1: 0, 2: 0 }
   const credits = { ...none, ...(b && { [b]: mode.onBuildStart(start.match, ctxOf([], start.possession, start.possession.shooter, none), config).credits }) }
-  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: kickoffSpot(start.possession.shooter), vel: { x: 0, y: 0 }, rolled: 0 }, charge: 1, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false } }
+  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: kickoffSpot(start.possession.shooter), vel: { x: 0, y: 0 }, rolled: 0 }, charge: 1, chargeZone: null, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false } }
 }
 
 const spend = (players: SimState['players'], id: PlayerId, power: PowerUp, n = 1): SimState['players'] => ({ ...players, [id]: { ...players[id], inventory: { ...players[id].inventory, [power]: players[id].inventory[power] - n } } })
@@ -285,10 +287,11 @@ export function step(
     } else events.push({ type: 'refused' })
   }
   let ball = state.ball
-  let { charge } = state
+  let { charge, chargeZone } = state
   /** Moves the ball to `pos` at rest: a restart, kick-off or placement, which loses its charge. */
   const put = (b: Ball, pos: Point): Ball => {
     charge = 1
+    chargeZone = null
     return setAt(b, pos)
   }
   let { possession } = state
@@ -359,11 +362,12 @@ export function step(
         if (mode.paysBreaker(match)) credits = { ...credits, [shot.player]: credits[shot.player] - rules.breakerCost }
         else players = spend(players, shot.player, 'breaker')
       }
-      events.push({ type: 'shot-fired', ...shot, from: ball.pos, ...(charge > 1 && { charge }) })
+      events.push({ type: 'shot-fired', ...shot, from: ball.pos, ...(isCharged(charge) && { charge }) })
       possession = { ...possession, live: true }
       match = mode.onShotFired(match)
       const v = launchSpeed(shot.power, charge, config)
       charge = 1
+      chargeZone = null
       ball = { ...ball, vel: { x: shot.dir.x * v, y: shot.dir.y * v } }
       const splash = splashOf(shot.tier, shot.power, config)
       if (splash) {
@@ -433,7 +437,8 @@ export function step(
   else if (possession.live && !landed.vel.x && !landed.vel.y) {
     consumed = true
     // Only a shot coming to rest Charges the ball, by where it rests; a restart below moves it and takes the charge back.
-    charge = boostAt(landed.pos)
+    chargeZone = boostAt(landed.pos)
+    charge = chargeZone ? rules.boost[chargeZone].factor : 1
     rested = true
     const r = resolveRest(possession, landed.pos.y, config)
     possession = r.possession
@@ -449,7 +454,7 @@ export function step(
     if (turn.ball) landed = put(landed, turn.ball)
     events.push(...turn.events)
   }
-  if (rested && charge > 1) events.push({ type: 'charged', factor: charge, at: landed.pos })
+  if (rested && chargeZone) events.push({ type: 'charged', zone: chargeZone, factor: charge, at: landed.pos })
   if (conceder || consumed) {
     const winner = mode.winner(match, ctxOf(rolled.objects, possession, shooter, credits), config)
     if (winner && !match.winner) {
@@ -481,5 +486,5 @@ export function step(
   if (expired || fired || ended || (chose && !match.builder) || (state.possession.live && !possession.live) || possession.shooter !== state.possession.shooter) clock = { ...clock, left: config.shotClock * config.tickHz }
   // A goal opens the choice: its window is the build window, set after the resets above.
   if (match.choosing && !state.match.choosing && config.buildTime) clock = { left: config.buildTime * config.tickHz, expiries: 0 }
-  return { state: { ...state, possession, match, clock, tick: state.tick + 1, charge, players, subterfuge, breaker: rolled.breaker && possession.live, objects: rolled.objects, credits, nextId, built, ball: landed }, events }
+  return { state: { ...state, possession, match, clock, tick: state.tick + 1, charge, chargeZone, players, subterfuge, breaker: rolled.breaker && possession.live, objects: rolled.objects, credits, nextId, built, ball: landed }, events }
 }

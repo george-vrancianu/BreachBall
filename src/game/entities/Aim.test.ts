@@ -37,6 +37,16 @@ describe('Aim Ghost', () => {
     return a.ghost
   }
 
+  it('redraws the path when the charge changes, not from a stale cache', () => {
+    const state = shooting()
+    const a = new Aim()
+    a.sync(state, defaultConfig)
+    a.aim = { tier: 0, ghost: { until: 'rest', scale: 1 }, dir: { x: 1, y: 0 }, power: 0.2 }
+    const plain = a.ghost
+    a.sync({ ...state, charge: 2, chargeZone: 'bullseye' }, defaultConfig)
+    expect(a.ghost).not.toEqual(plain)
+  })
+
   it('is the predicted path from the ball to its first contact', () => {
     const g = ghostOf(touch)!
     expect(g[0]).toEqual({ x: 10, y: 20 })

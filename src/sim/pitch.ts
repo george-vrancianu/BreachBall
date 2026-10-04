@@ -19,13 +19,19 @@ export function halfSpan(player: PlayerId): [top: number, bottom: number] {
 /** The centre spot, where a Centre-spot restart puts the ball. */
 export const centreSpot = (): Point => ({ x: rules.pitchWidth / 2, y: rules.halfHeight })
 
-/** The factor a ball resting at `pos` is Charged by: the Bullseye's, else the Boost ring's, else 1 (not Charged). Measured on the ball's centre. */
-export function boostAt(pos: Point): number {
+/** A Boost zone: the Boost ring or the Bullseye. */
+export type BoostZone = keyof typeof rules.boost
+
+/** The zone a ball resting at `pos` is in: the Bullseye, else the Boost ring, else null (not Charged). Measured on the ball's centre. */
+export function boostAt(pos: Point): BoostZone | null {
   const { x, y } = centreSpot()
   const d = Math.hypot(pos.x - x, pos.y - y)
   const { ring, bullseye } = rules.boost
-  return d <= bullseye.radius ? bullseye.factor : d <= ring.radius ? ring.factor : 1
+  return d <= bullseye.radius ? 'bullseye' : d <= ring.radius ? 'ring' : null
 }
+
+/** Whether a ball's `charge` factor means it is Charged (1 = not). */
+export const isCharged = (charge: number): boolean => charge > 1
 
 /** Where `kicker` kicks off: the centre line, `rules.kickoffGap` out from their own goal line. */
 export const kickoffSpot = (kicker: PlayerId): Point => ({ x: rules.pitchWidth / 2, y: kicker === 1 ? rules.pitchHeight - rules.kickoffGap : rules.kickoffGap })
