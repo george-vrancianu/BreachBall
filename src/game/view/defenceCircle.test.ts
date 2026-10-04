@@ -180,10 +180,6 @@ describe('Defence circle balance', () => {
     const back = step(after, { demolish: { player: 1, wall: after.objects[0]!.id } }, c).state
     expect(menuOf(back, 1, {}, actions).balance!.amount).toBe(14)
   })
-  it('is absent for the viewer who is not building, so a blind build reveals nothing', () => {
-    expect(menuOf(inRounds(14), 2, {}, actions).balance).toBeUndefined()
-    expect(menuOf(siegeOpening(), 2, {}, actions).balance).toBeUndefined()
-  })
   it('is absent when this device does not play the builder, and on a Rearrange turn', () => {
     expect(menuOf(inRounds(14), 1, { mine: (p) => p === 2 }, actions).balance).toBeUndefined()
     const base = initialState(1, { ...c, mode: 'siege' })

@@ -2,7 +2,7 @@ import { visual } from '../../config/visual'
 import { rules } from '../../config/rules'
 import { nearestOnWall } from '../../sim/near'
 import { type PlayerId, type Point } from '../../sim/pitch'
-import { modeFor } from '../../sim/mode'
+import { UNITS } from '../../sim/settings'
 import { canEdit, canMove, canPlace, type SimInput, type SimState } from '../../sim/step'
 import { rotatedWall, translatedWall, vertexToWorld, wallCost, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
 import type { ButtonSpec } from './hudModel'
@@ -116,7 +116,7 @@ export function landedAs(s: SimState, sel: Selection): Selection | undefined {
 export type ItemSpec = { item: Item | 'cannon'; label: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
 /** The builder's own balance, shown beside the priced items: Credits in Rounds, wall points in Siege. */
-export type Balance = { amount: number; unit: 'Credits' | 'wall points' }
+export type Balance = { amount: number; unit: (typeof UNITS)[keyof typeof UNITS]['long'] }
 
 /** What the Defence circle shows (nothing when no build turn is running): the viewer's balance on their own spending build turn, whether the viewer is building, the pieces to offer, whether they can build now (else the circle is greyed), and the controls of the selected structure. */
 export type DefenceCircle = { balance?: Balance; building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: ButtonSpec[] } }
@@ -135,11 +135,12 @@ export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed 
   const builds = s.match.builder === viewer && v.mine(viewer)
   // A turn that may only move pieces (Rearrange) has no placing and no demolish.
   const edit = canEdit(s)
+  const spending = builds && edit
   const sel = builds && !v.blocked ? v.selection : undefined
   // The price on the item is one unit's; a longer wall is drawn and costed live.
   const piece = (item: Item, label: string): ItemSpec => ({ item, label, disabled: itemDisabled(s, viewer, item), pressed: v.item === item })
   return {
-    ...(builds && edit && { balance: { amount: s.credits[viewer], unit: modeFor(s.match).hasCredits(s.match) ? 'Credits' as const : 'wall points' as const } }),
+    ...(spending && { balance: { amount: s.credits[viewer], unit: UNITS[s.match.mode].long } }),
     building: v.item !== undefined,
     ...(v.item && { item: v.item }),
     items: [
@@ -147,7 +148,7 @@ export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed 
       ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => piece(power, POWER_LABEL[power])),
       { item: 'cannon', label: 'Cannon', disabled: true, pressed: false, soon: true },
     ],
-    available: builds && edit && !v.blocked,
+    available: spending && !v.blocked,
     ...(sel && {
       selection: {
         buttons: [
