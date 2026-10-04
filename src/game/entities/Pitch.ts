@@ -1,6 +1,6 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
-import type { PlayerId } from '../../sim/pitch'
+import { halfSpan, type PlayerId } from '../../sim/pitch'
 import { Entity } from './Entity'
 
 /** One goal end: its line's y, the direction into the pitch (+1 down the canvas) and the owner. P2 defends the top, P1 the bottom. */
@@ -78,19 +78,18 @@ export class Pitch extends Entity {
     const rows = Math.floor(h / cell)
     const x0 = (w - cols * cell) / 2
     const y0 = (h - rows * cell) / 2
-    for (let i = 0; i <= cols; i++) for (let j = 0; j <= rows; j++) ctx.fillRect(x0 + i * cell - dot / 2, y0 + j * cell - dot / 2, dot, dot)
+    fillDots(ctx, x0, x0 + cols * cell, y0, y0 + rows * cell, cell, dot)
   }
 
-  /** The snap grid: a faint dot at every cell corner (`rules.cellSize`) on the builder's half, where pieces snap. Over the ground dots, under the markings. */
+  /** The snap grid: a faint dot at every cell corner (`rules.cellSize`) on the builder's half, where the build piece snaps. Over the ground dots, under the markings. */
   private drawSnapGrid(ctx: CanvasRenderingContext2D, builder: PlayerId): void {
-    const { pitchWidth: w, pitchHeight: h, halfHeight, cellSize } = rules
+    const { pitchWidth: w, cellSize } = rules
     const { unit: u, snapGrid } = visual.pitch
     const dot = snapGrid.dotPx * u
-    // Player 1 builds on the bottom half (high y), player 2 on the top.
-    const [top, bottom] = builder === 1 ? [halfHeight, h] : [0, halfHeight]
+    const [top, bottom] = halfSpan(builder)
     ctx.globalAlpha = snapGrid.alpha
     ctx.fillStyle = snapGrid.color
-    for (let x = 0; x <= w; x += cellSize) for (let y = top; y <= bottom; y += cellSize) ctx.fillRect(x - dot / 2, y - dot / 2, dot, dot)
+    fillDots(ctx, 0, w, top, bottom, cellSize, dot)
     ctx.globalAlpha = 1
   }
 
@@ -197,4 +196,12 @@ export class Pitch extends Entity {
     ctx.setLineDash([])
     ctx.globalAlpha = 1
   }
+}
+
+/** Fills a square dot at every `step` from (x0, y0) across to (x1, y1), inclusive. */
+function fillDots(ctx: CanvasRenderingContext2D, x0: number, x1: number, y0: number, y1: number, step: number, dot: number): void {
+  const eps = 1e-9
+  const cols = Math.floor((x1 - x0) / step + eps)
+  const rows = Math.floor((y1 - y0) / step + eps)
+  for (let i = 0; i <= cols; i++) for (let j = 0; j <= rows; j++) ctx.fillRect(x0 + i * step - dot / 2, y0 + j * step - dot / 2, dot, dot)
 }
