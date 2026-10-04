@@ -111,7 +111,7 @@ describe('Strategies', () => {
     }
   })
 
-  // The archetype of each Strategy (not a tag on it), and the band each holds: walls are cheap, so wall-heavy plans are mostly walls.
+  // The archetype of each Strategy (not a tag on it), and the band each holds: walls are cheap, so wall-heavy Strategies are mostly walls.
   const archetype: Record<string, 'wall' | 'hybrid' | 'tower'> = {
     bulwark: 'wall', fortress: 'wall', honeycomb: 'wall', bastion: 'wall', layers: 'wall', labyrinth: 'wall',
     chevron: 'hybrid', zigzag: 'hybrid', net: 'hybrid', pinball: 'hybrid', wings: 'hybrid', gauntlet: 'hybrid', spider: 'hybrid',
@@ -124,24 +124,24 @@ describe('Strategies', () => {
 
   it.each(STRATEGIES.map((st) => [st.name, st] as const))('%s sits in its archetype\'s band of wall units and towers', (_, st) => {
     const pieces = piecesFor(st, 1)
-    const walls = pieces.filter((p) => p.kind === 'wall').reduce((n, p) => n + structureCost(p), 0)
+    const wallUnits = pieces.filter((p) => p.kind === 'wall').reduce((n, p) => n + structureCost(p), 0)
     const towers = pieces.filter((p) => p.kind === 'tower')
     const towerCost = towers.reduce((n, p) => n + structureCost(p), 0)
     const kind = archetype[st.id]
     if (kind === 'wall') {
-      expect(walls).toBeGreaterThanOrEqual(26)
+      expect(wallUnits).toBeGreaterThanOrEqual(26)
       expect(towers.length).toBeLessThanOrEqual(2)
       expect(towerCost).toBeLessThanOrEqual(10)
     } else if (kind === 'hybrid') {
-      expect(walls).toBeGreaterThanOrEqual(17)
-      expect(walls).toBeLessThanOrEqual(23)
+      expect(wallUnits).toBeGreaterThanOrEqual(17)
+      expect(wallUnits).toBeLessThanOrEqual(23)
       expect(towers.length).toBeGreaterThanOrEqual(3)
       expect(towers.length).toBeLessThanOrEqual(4)
       expect(towerCost).toBeGreaterThanOrEqual(14)
       expect(towerCost).toBeLessThanOrEqual(18)
     } else {
       expect(towerCost).toBeGreaterThanOrEqual(25)
-      expect(walls).toBeLessThanOrEqual(11)
+      expect(wallUnits).toBeLessThanOrEqual(11)
     }
   })
 

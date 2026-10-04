@@ -24,10 +24,10 @@ const vee = (x: number, y: number): StrategyPiece[] => [wall(x, y, x + d1, y + d
 
 /**
  * The layouts on offer, each placing whole within the Opening Credits (in Rounds; Siege pays walls in wall points and towers from its stock) and spending within
- * five of them, so none is a lean plan. Grouped by archetype: wall-heavy, then hybrid, then tower-heavy. No layout seals the pitch: every one leaves a path from the Kick-off spot to the goal mouth.
+ * five of them, so no Strategy is lean. Grouped by archetype: wall-heavy, then hybrid, then tower-heavy. No layout seals the pitch: every one leaves a path from the Kick-off spot to the goal mouth.
  */
 export const STRATEGIES: readonly Strategy[] = [
-  // Wall-heavy. Doubled full rows with offset gaps (sides, middle, right), so the ball must weave: the front row and a Steal at its seam are the core, one Repulsor up front.
+  // Wall-heavy. Full rows, most of them doubled, with offset gaps (sides, middle, right), so the ball must weave: the goal-side row and a Steal at its seam are the core, one Repulsor up the pitch.
   {
     id: 'bulwark',
     name: 'Bulwark',
@@ -52,7 +52,7 @@ export const STRATEGIES: readonly Strategy[] = [
       wall(16, 85, 24, 85), tower('steal', 9, 44), tower('repulsor', 9, 31),
     ],
   },
-  // Wall-heavy. A lattice of short staggered diagonals (Vs in offset rows, edge stubs) that bleeds the ball's speed over many contacts: the two front rows are the core, one Steal and one Repulsor.
+  // Wall-heavy. A lattice of short staggered diagonals (Vs in offset rows, edge stubs) that bleeds the ball's speed over many contacts: the first two rows of Vs (y 62 and 69) are the core, then more rows, one Steal and one Repulsor.
   {
     id: 'honeycomb',
     name: 'Honeycomb',
@@ -103,7 +103,7 @@ export const STRATEGIES: readonly Strategy[] = [
       wall(0, 60, 8, 60), wall(32, 56, 40, 56), tower('steal', 18, 29), tower('repulsor', 3, 28),
     ],
   },
-  // Hybrid. Three nested arrowheads pointing up the pitch (the first, with its Steal, is the core): shots off their faces glance to the sides; board stubs and two forward Repulsors.
+  // Hybrid. Three nested arrowheads pointing up the pitch (the first, with its Steal, is the core) and a small one before the goal: shots off their faces glance to the sides; board stubs, goal-line posts and two forward Repulsors.
   {
     id: 'chevron',
     name: 'Chevron',
@@ -205,7 +205,7 @@ export const STRATEGIES: readonly Strategy[] = [
       wall(0, 96, 8, 96), wall(32, 96, 40, 96), wall(12, 84, 28, 84), wall(12, 72, 28, 72), wall(0, 70, 8, 70), wall(32, 70, 40, 70),
     ],
   },
-  // Tower-heavy. Repulsors and Steals in a diamond around a hub Repulsor, a wall in front of the goal and short flank posts; the core is a Repulsor, a Steal and that wall.
+  // Tower-heavy. Repulsors and Steals in a diamond around a hub Repulsor, a fourth Steal off its corner, a row in front of the goal and short flank posts; the core is a Repulsor, a Steal and the middle of that row.
   {
     id: 'crossfire',
     name: 'Crossfire',
@@ -217,7 +217,7 @@ export const STRATEGIES: readonly Strategy[] = [
       wall(4, 64, 12, 64), wall(28, 64, 36, 64), wall(0, 80, 8, 80), wall(32, 80, 40, 80),
     ],
   },
-  // Tower-heavy. Three Repulsors spread across the forward line (the core is two), Steals set in the gaps between them, and three staggered rows of short walls behind.
+  // Tower-heavy. Three Repulsors spread across the forward line (the core is two), two Steals in the gaps between them and one behind, and three staggered rows of short walls.
   {
     id: 'watchtowers',
     name: 'Watchtowers',
