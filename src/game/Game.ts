@@ -16,7 +16,7 @@ import { Fog } from './entities/Fog'
 import { Pitch } from './entities/Pitch'
 import { Structures } from './entities/Structures'
 import { routeEvents } from './events'
-import { reducedMotion, tierBuzz } from './feedback'
+import { tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
 import { builderNow, defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { countDestroyed, type Destroyed } from './view/defenceBar'
@@ -179,7 +179,7 @@ export class Game implements Sink {
         const { shooter } = this.state.possession
         if (!mine(shooter)) return
         if (count >= 1) this.driver.send({ refund: { player: shooter, count } })
-        else if (!reducedMotion()) navigator.vibrate?.([...visual.hud.refund.denied])
+        else navigator.vibrate?.([...visual.hud.refund.denied])
       },
       subterfuge: (item) => {
         // Whoever acts (the builder, else the shooter) buys it, on the device that plays their seat.
@@ -264,7 +264,7 @@ export class Game implements Sink {
     }
     this.announce(events)
     this.aim.sync(state, this.config)
-    routeEvents(events, { camera, structures: this.structures, ball: this.ball, aim: this.aim, pitch: this.pitch, vibrate: (p) => navigator.vibrate?.(p) }, state.objects, reducedMotion())
+    routeEvents(events, { camera, structures: this.structures, ball: this.ball, aim: this.aim, pitch: this.pitch, vibrate: (p) => navigator.vibrate?.(p) }, state.objects)
     this.structures.sync(state.objects)
     const queue = this.strategyQueue
     if (queue && (state.match.builder !== queue.builder || !queue.inputs.length)) this.strategyQueue = undefined
@@ -319,7 +319,7 @@ export class Game implements Sink {
 
   private announce(events: SimEvent[]): void {
     const { state } = this
-    this.transition = advance(this.transition, { handover: true, flip: this.flips(), active: whoActs(state), round: roundOf(state.match) ?? undefined, inHand: state.possession.inHand, phase: buildPhase(state.match), opening: openingBuild(state.match), events, now: this.now, reduced: reducedMotion() })
+    this.transition = advance(this.transition, { handover: true, flip: this.flips(), active: whoActs(state), round: roundOf(state.match) ?? undefined, inHand: state.possession.inHand, phase: buildPhase(state.match), opening: openingBuild(state.match), events, now: this.now })
   }
 
   private frame = (now: number): void => {
@@ -367,19 +367,16 @@ export class Game implements Sink {
     structures.selected = !mapOpen && sel && !sel.movable ? sel.id : undefined
     structures.movable = builder && !mapOpen ? state.built : []
     const aim = mapOpen ? undefined : input.aimView()
-    const reduced = reducedMotion()
-    const buzz = tierBuzz(this.ball.aim, aim, reduced)
+    const buzz = tierBuzz(this.ball.aim, aim)
     if (buzz) navigator.vibrate?.(buzz)
     this.aim.aim = this.ball.aim = aim
     // A cancel-armed aim fires nothing, so it previews no Splash.
     structures.previewSplash(state, aim?.cancel ? undefined : aim, this.config)
-    this.ball.reduced = reduced
     structures.mark()
     // The snap grid and build edge show for an in-play build too, while an item is armed.
     this.pitch.builder = builder ?? (input.item ? builderNow(state) ?? undefined : undefined)
     this.pitch.charge = this.ball.charge = state.charge
     this.ball.radius = this.config.ballRadius
-    this.pitch.reduced = reduced
     this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.transition.shown === 2
     // During the goal hold the ball rests in the net (the sim has already reset it).
     const inNet = goalBall(this.transition)

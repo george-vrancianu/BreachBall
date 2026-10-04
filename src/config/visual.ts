@@ -67,7 +67,7 @@ export const visual = {
     /** The centre circle (the Centre zone, in the rules config) and the Bullseye's outline inside it (radius in the rules config; line width and dash, px), and the dot radius, px. */
     centre: { widthPx: 3, bullseyeWidthPx: 2, bullseyeDashPx: [4, 6], dotRadiusPx: 6 },
     /**
-     * The Boost ring and Bullseye zones: each one's colour; the tint's alpha at rest and while it holds a Charged ball (`litAlpha`); the slow pulse (period and alpha swing, none under reduced motion);
+     * The Boost ring and Bullseye zones: each one's colour; the tint's alpha at rest and while it holds a Charged ball (`litAlpha`); the slow pulse (period and alpha swing);
      * the arrival of a shot that comes to rest in one (the zone flashes at `flashAlpha`, and a ring grows `grow` times the zone's radius outward over `ms`, `widthPx` wide); and the "x1.5" / "x2" labels (px, alpha, weight, and each one's distance from the centre spot as a fraction of its zone's radius).
      */
     boost: {
@@ -75,7 +75,7 @@ export const visual = {
       alpha: 0.1, litAlpha: 0.3,
       pulse: { periodMs: 3000, alphaSwing: 0.04 },
       arrive: { ms: 700, grow: 0.6, widthPx: 3, flashAlpha: 0.4 },
-      /** The Bullseye Credit: the zone flashes and a "+Credits" in the shooter's colour floats up `rise` world units, over `ms`. Reduced motion keeps the flash and drops the float. */
+      /** The Bullseye Credit: the zone flashes and a "+Credits" in the shooter's colour floats up `rise` world units, over `ms`. */
       credit: { ms: 900, flashAlpha: 0.6, rise: 5, px: 16, weight: 800 },
       label: { px: 12, alpha: 0.7, weight: 700, ringAt: 0.75, bullseyeAt: 0.55 },
     },
@@ -144,7 +144,7 @@ export const visual = {
     stealMs: 300,
     /** The ball-in-hand placement disc. */
     placementAlpha: 0.5,
-    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period; the glow is static under reduced motion), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), the badge's pop-in (`popMs`, growing from `popScale`), and the launch trail, brighter and `trailWidth` wide. */
+    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), the badge's pop-in (`popMs`, growing from `popScale`), and the launch trail, brighter and `trailWidth` wide. */
     charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700 }, popMs: 250, popScale: 0.5, trailWidth: 4 },
     /** The Breaker outline. */
     armed: { radius: 1.5, swing: 0.25, periodMs: 120, width: 0.3 },
@@ -193,7 +193,7 @@ export const visual = {
     refund: { dotPx: 9, ringPx: 2, gap: 4, vibration: 20, denied: [15, 40, 15] }, shadow: '#0008', gap: 8, /** The gap between the Offence, Defence and Subterfuge circles in their row (px). */ circleGapPx: 10,
     /** The minimap chip (px): the chip and its thumbnail, the chip's border and radius, its inset from the band's corner and its tap area, the glyph's font size and the thumbnail's line width; the frame's fill over the thumbnail, the fog's fill, and the map view's hint pill (height, side padding, border, font size). */
     minimap: { chipW: 30, chipH: 74, thumbW: 21, thumbH: 70, borderPx: 2, radiusPx: 6, insetPx: 8, hitPx: 44, fontPx: 18, linePx: 1, frame: 'rgba(232,234,240,0.12)', fog: 'rgba(11,15,26,0.7)', pill: { heightPx: 36, padPx: 18, borderPx: 2, fontPx: 13 } },
-    /** The far-edge bars (Defence bar, then the Resource bar) share this look: the strip's height, a segment's height and widest width (a segment never narrows below twice the slant), the gap between segments, how far a segment's ends slant (px), the end digit's size and width, the P2 stripe's two band widths at 45 degrees (px) and its dark stripe, and the empty fill. The Resource bar sits under the Defence bar in a row `resourceRowPx` tall, its bar `resourcePx` thick, and eases a share change over `resourceMs` (none under reduced motion). */
+    /** The far-edge bars (Defence bar, then the Resource bar) share this look: the strip's height, a segment's height and widest width (a segment never narrows below twice the slant), the gap between segments, how far a segment's ends slant (px), the end digit's size and width, the P2 stripe's two band widths at 45 degrees (px) and its dark stripe, and the empty fill. The Resource bar sits under the Defence bar in a row `resourceRowPx` tall, its bar `resourcePx` thick, and eases a share change over `resourceMs`. */
     bar: { heightPx: 28, segmentPx: 12, segmentMaxPx: 36, gapPx: 3, slantPx: 4, digitPx: 16, digitWidthPx: 28, stripePx: [4, 2], stripeDark: '#7c2d12', empty: pitchDots, resourceRowPx: 20, resourcePx: 12, resourceMs: 400 } },
   /** The Side menu: a press within `edgePx` of the viewer's left edge and a drag in `swipePx` opens it (screen px); the ☰ ghost button's size, its inset from the stage's left and from the Defence bar (which it sits just inside), the glyph size, `buttonZ` (above the Defence circle's column, so it can't cover the button), the panel's width cap and share (%), padding and gaps, and the layer's z-index (above the HUD and the Defence circle's column, under the full-screen screens). */
   sideMenu: { edgePx: 20, swipePx: 40, buttonPx: 40, buttonInsetPx: 8, panelMaxPx: 320, panelWidthPct: 80, panelPadPx: 16, gapPx: 12, rowGap: '4px 12px', glyphPx: 20, buttonZ: 12, z: 15 },

@@ -20,7 +20,7 @@ function setup(objects: Structure[]) {
   const t = { camera: new Camera(54), structures: new Structures(), ball: new Ball(), aim: new Aim(), pitch: new Pitch(), vibrate: vi.fn() }
   t.structures.sync(objects)
   t.aim.sync({ ...playState(), ball: t.ball.state }, defaultConfig)
-  const route = (events: SimEvent[], left: Structure[], reduced = false) => routeEvents(events, t, left, reduced)
+  const route = (events: SimEvent[], left: Structure[]) => routeEvents(events, t, left)
   return { ...t, route }
 }
 
@@ -32,19 +32,10 @@ describe('routeEvents', () => {
     expect(w.ball.badgeScale).toBe(visual.ball.charged.popScale)
   })
 
-  it('a Bullseye pass-through flashes the zone and floats the Credits, also under reduced motion', () => {
-    for (const reduced of [false, true]) {
-      const w = setup([])
-      w.route([{ type: 'bullseye-credited', player: 1, credits: 2 }], [], reduced)
-      expect(w.pitch.creditCount).toBe(1)
-    }
-  })
-
-  it('shows no arrival animation under reduced motion', () => {
+  it('a Bullseye pass-through flashes the zone and floats the Credits', () => {
     const w = setup([])
-    w.route([{ type: 'charged', zone: 'bullseye', factor: 2, at }], [], true)
-    expect(w.pitch.arrivalCount).toBe(0)
-    expect(w.ball.badgeScale).toBe(1)
+    w.route([{ type: 'bullseye-credited', player: 1, credits: 2 }], [])
+    expect(w.pitch.creditCount).toBe(1)
   })
 
   it('a Charged shot brightens the ball trail until the ball stops', () => {
@@ -97,16 +88,13 @@ describe('routeEvents', () => {
     expect(w.structures.count).toBe(0)
   })
 
-  it('a strong shot shakes the camera, rings the aim and vibrates; reduced motion keeps only the ring', () => {
+  it('a strong shot shakes the camera, rings the aim and vibrates', () => {
     const w = setup([])
     const shot: SimEvent = { type: 'shot-fired', player: 1, from: at, dir: { x: 0, y: -1 }, tier: 1, power: 1 }
     w.route([shot], [])
     expect(w.aim.splashCount).toBe(1)
     expect(w.camera.shakeNow).not.toEqual({ x: 0, y: 0 })
     expect(w.vibrate).toHaveBeenCalledTimes(1)
-    const calm = setup([])
-    calm.route([shot], [], true)
-    expect([calm.aim.splashCount, calm.camera.shakeNow, calm.vibrate.mock.calls.length]).toEqual([1, { x: 0, y: 0 }, 0])
   })
 
   it('a Touch shot sets off no Splash ring', () => {

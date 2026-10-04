@@ -74,15 +74,6 @@ describe('Ball hold ring', () => {
     b.update(visual.ball.hold.pulseMs / 1000)
     expect(b.holdRing!.scale).toBe(1)
   })
-  it('only changes colour under reduced motion, without the pulse', () => {
-    const b = ball()
-    b.reduced = true
-    b.aim = holding(0, 0.9)
-    b.update(0.016)
-    b.aim = holding(1, 1)
-    b.update(visual.ball.hold.pulseMs / 2000)
-    expect(b.holdRing).toMatchObject({ color: red, scale: 1 })
-  })
 })
 
 describe('Ball reset', () => {

@@ -25,8 +25,6 @@ export class Pitch extends Entity {
   charge: Charge | null = null
   /** Turns the labels upright for Player 2's view. */
   flipped = false
-  /** Reduced motion: no pulse. */
-  reduced = false
   private arrivals: { zone: BoostZone; born: number }[] = []
   private credits: { player: PlayerId; credits: number; born: number }[] = []
 
@@ -128,10 +126,10 @@ export class Pitch extends Entity {
     if (this.builder) this.drawBuildEdge(ctx, this.builder)
   }
 
-  /** The alpha of the `zone` tint: steady, pulsing slowly (none under reduced motion), stronger while it holds a Charged ball, flashing on an arrival. */
+  /** The alpha of the `zone` tint: steady, pulsing slowly, stronger while it holds a Charged ball, flashing on an arrival. */
   private zoneAlpha(zone: BoostZone): number {
     const { alpha, litAlpha, pulse, arrive, credit } = visual.pitch.boost
-    const swing = this.reduced ? 0 : pulse.alphaSwing * Math.sin((2 * Math.PI * this.clock) / pulse.periodMs)
+    const swing = pulse.alphaSwing * Math.sin((2 * Math.PI * this.clock) / pulse.periodMs)
     const lit = this.charge?.zone === zone
     const flash = this.arrivals.reduce((a, r) => (r.zone === zone ? Math.max(a, this.fade(arrive.flashAlpha, r.born, arrive.ms)) : a), 0)
     const credited = zone === 'bullseye' ? this.credits.reduce((a, c) => Math.max(a, this.fade(credit.flashAlpha, c.born, credit.ms)), 0) : 0
@@ -178,9 +176,8 @@ export class Pitch extends Entity {
     ctx.globalAlpha = 1
   }
 
-  /** Each credit's "+Credits", rising from the Bullseye in the shooter's colour and fading (up the screen, so down the canvas for Player 2); none under reduced motion (the flash stays). */
+  /** Each credit's "+Credits", rising from the Bullseye in the shooter's colour and fading (up the screen, so down the canvas for Player 2). */
   private drawCredits(ctx: CanvasRenderingContext2D): void {
-    if (this.reduced) return
     const { credit } = visual.pitch.boost
     const at = centreSpot()
     const dir = this.flipped ? 1 : -1

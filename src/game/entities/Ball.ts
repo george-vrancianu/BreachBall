@@ -18,8 +18,6 @@ export class Ball extends Entity {
   armed?: PlayerId
   /** The aim in progress: its phase and tier, the hold's climb to the next tier, its control radius in screen px, and how many screen px a world unit spans. */
   aim?: Pick<AimView, 'phase' | 'tier' | 'holdProgress' | 'radiusPx' | 'pxPerUnit'>
-  /** Reduced motion: reaching a tier changes the hold ring's colour without the pulse. */
-  reduced = false
   /** The ball's charge, null when not Charged: it wears a glow and a badge in its zone's colour, which pop in when a shot brings it to rest in a ring. */
   charge: Charge | null = null
   /** The ball's radius in world units. */
@@ -86,7 +84,7 @@ export class Ball extends Entity {
     if (aim?.phase !== 'holding') return undefined
     const { radiusPx, pulseMs, grow } = visual.ball.hold
     const k = this.reachedAt === undefined ? 1 : (this.clock - this.reachedAt) / pulseMs
-    const scale = !this.reduced && k < 1 ? 1 + grow * Math.sin(Math.PI * k) : 1
+    const scale = k < 1 ? 1 + grow * Math.sin(Math.PI * k) : 1
     return { at: this.state.pos, radius: radiusPx / aim.pxPerUnit, progress: aim.holdProgress, color: tierColor(aim.tier), scale }
   }
 
@@ -157,17 +155,17 @@ export class Ball extends Entity {
     }
   }
 
-  /** The Charged ball's glow ring (pulsing, but static under reduced motion) and its badge above. */
+  /** The Charged ball's glow ring (pulsing) and its badge above. */
   private drawCharge(ctx: CanvasRenderingContext2D, { zone, factor }: Charge): void {
     const { glow, badge } = visual.ball.charged
     const { x, y } = this.state.pos
     const color = boostColor(zone)
     ctx.beginPath()
-    ctx.arc(x, y, this.radius + glow.offset + (this.reduced ? 0 : glow.swing * Math.sin((2 * Math.PI * this.clock) / glow.periodMs)), 0, Math.PI * 2)
+    ctx.arc(x, y, this.radius + glow.offset + glow.swing * Math.sin((2 * Math.PI * this.clock) / glow.periodMs), 0, Math.PI * 2)
     ctx.strokeStyle = color
     ctx.lineWidth = glow.width
     ctx.stroke()
-    drawLabel(ctx, boostLabel(factor), { x, y: y + (this.flipped ? badge.offset : -badge.offset) }, { size: badge.size, weight: badge.weight, color, flipped: this.flipped, scale: this.reduced ? 1 : this.badgeScale })
+    drawLabel(ctx, boostLabel(factor), { x, y: y + (this.flipped ? badge.offset : -badge.offset) }, { size: badge.size, weight: badge.weight, color, flipped: this.flipped, scale: this.badgeScale })
   }
 
   private drawDisc(ctx: CanvasRenderingContext2D, { pos, vel, rolled }: BallState, bright: boolean, scale: number): void {

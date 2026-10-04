@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
-import { reducedMotion } from '../../game/feedback'
 import { FONT } from '../ButtonRow'
 import { createAttract, position, step, type Attract, type Piece, type Side } from './attract'
 
@@ -126,13 +125,11 @@ export function StillHero() {
   )
 }
 
-/** The Attract loop (see GLOSSARY.md), or the still under reduced motion. Runs on requestAnimationFrame while mounted and the tab is visible; the seed is the clock. */
+/** The Attract loop (see GLOSSARY.md), showing the still until its first frame. Runs on requestAnimationFrame while mounted and the tab is visible; the seed is the clock. */
 export function AttractHero() {
-  const [still] = useState(reducedMotion)
   const loop = useRef<Attract>(null)
   const [scene, setScene] = useState<Attract | null>(null)
   useEffect(() => {
-    if (still) return
     loop.current ??= createAttract(Date.now())
     let raf = 0
     let last = 0
@@ -156,8 +153,8 @@ export function AttractHero() {
       stop()
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [still])
-  return still || !scene ? <StillHero /> : <Scene scene={scene} />
+  }, [])
+  return !scene ? <StillHero /> : <Scene scene={scene} />
 }
 
 /** One moment of the loop. */

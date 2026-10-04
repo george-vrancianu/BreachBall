@@ -4,7 +4,6 @@ import type { DefenceCircle as DefenceCircleView, Item, ItemSpec } from '../../g
 import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
-import { reducedMotion } from '../../game/feedback'
 import { BOLT, BREAKER, CANNON, JAM, LOCK, MASK, OVERDRIVE, REPULSOR, STEAL, TOWER, WALL } from './icons'
 import { noMenu } from './press'
 import { tileBadge, tileLabel, tileStyle } from './tile'
@@ -37,7 +36,7 @@ function AbilityTile({ label, aria, icon, color, available, open, active, onTap 
 function Options({ options, color }: { options: OptionSpec[]; color: string }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!reducedMotion()) ref.current?.animate?.([{ opacity: 0, transform: 'translateX(24px)' }, { opacity: 1, transform: 'none' }], { duration: SLIDE_MS, easing: 'ease-out' })
+    ref.current?.animate?.([{ opacity: 0, transform: 'translateX(24px)' }, { opacity: 1, transform: 'none' }], { duration: SLIDE_MS, easing: 'ease-out' })
   }, [])
   return (
     <div ref={ref} role="toolbar" aria-label="Options" style={{ display: 'flex', gap: dock.gapPx, minWidth: 0 }}>
@@ -54,7 +53,7 @@ function Options({ options, color }: { options: OptionSpec[]; color: string }) {
 
 /** A slot that folds to nothing (width and opacity) while another ability is open, so the open one slides to the left edge. */
 function Fold({ hidden, children }: { hidden: boolean; children: ReactNode }) {
-  const t = reducedMotion() ? 'none' : `max-width ${SLIDE_MS}ms ease, opacity ${SLIDE_MS * 0.7}ms ease, margin ${SLIDE_MS}ms ease`
+  const t = `max-width ${SLIDE_MS}ms ease, opacity ${SLIDE_MS * 0.7}ms ease, margin ${SLIDE_MS}ms ease`
   const style: CSSProperties = { flex: 'none', maxWidth: hidden ? 0 : dock.abilityPx, opacity: hidden ? 0 : 1, marginRight: hidden ? 0 : dock.gapPx, overflow: hidden ? 'hidden' : 'visible', transition: t, pointerEvents: hidden ? 'none' : undefined }
   return <div aria-hidden={hidden || undefined} style={style}>{children}</div>
 }

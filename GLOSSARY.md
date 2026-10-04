@@ -57,7 +57,7 @@ Siege's opening build, during which each viewer sees only their own half; the op
 _Avoid_: Hidden build, secret build
 
 **Reveal**:
-The 1.5 s hold after the second Done of a Siege opening build: the fog lifts and the map camera shows both layouts at once, then play begins. Same hold under reduced motion; Rounds and Rearrange have none.
+The 1.5 s hold after the second Done of a Siege opening build: the fog lifts and the map camera shows both layouts at once, then play begins. Rounds and Rearrange have none.
 _Avoid_: Unveil, showdown
 
 **Fog**:
