@@ -65,17 +65,18 @@ export const STRATEGIES: readonly Strategy[] = [
       tower('steal', 9, 45), tower('repulsor', 15, 30),
     ],
   },
-  // Wall-heavy. A box with chamfered corners just outside the goal arc, open at the top (the core), behind forward screens and a baffle with up-turned tips, two Repulsors up front.
+  // Wall-heavy. "A box with chamfered corners just outside the goal arc, plus a forward screen" (#123): the closed box, chamfered at all four corners, is the core; the screen is three rows with alternating gaps
+  // (middle, edges, middle) and short stubs ahead of it, then posts at the goal corners and two Repulsors up front.
   {
     id: 'bastion',
     name: 'Bastion',
-    core: 6,
+    core: 8,
     pieces: [
-      wall(8, 88, 16, 88), wall(24, 88, 32, 88), wall(8, 88, 8 - d1, 88 + d1), wall(32, 88, 32 + d1, 88 + d1),
-      wall(8 - d1, 88 + d1, 8 - d1, 96 + d1), wall(32 + d1, 88 + d1, 32 + d1, 96 + d1), wall(4, 74, 20, 74), wall(20, 74, 36, 74),
-      wall(0, 64, 16, 64), wall(24, 64, 40, 64), wall(12, 82, 28, 82), wall(12, 82, 12 - d1, 82 - d1),
-      wall(28, 82, 28 + d1, 82 - d1), wall(12, 69, 28, 69), wall(0, 60, 16, 60), wall(24, 60, 40, 60),
-      wall(0, 86, 8, 86), wall(32, 86, 40, 86), tower('repulsor', 4, 28), tower('repulsor', 15, 28),
+      wall(12, 84 - d2, 28, 84 - d2), wall(12, 84 - d2, 12 - d1, 84 - d1), wall(28, 84 - d2, 28 + d1, 84 - d1), wall(12 - d1, 84 - d1, 12 - d1, 92 - d1),
+      wall(28 + d1, 84 - d1, 28 + d1, 92 - d1), wall(12 - d1, 92 - d1, 12, 92), wall(28 + d1, 92 - d1, 28, 92), wall(12, 92, 28, 92),
+      wall(0, 68, 16, 68), wall(24, 68, 40, 68), wall(4, 64, 20, 64), wall(20, 64, 36, 64),
+      wall(2, 60, 18, 60), wall(22, 60, 38, 60), wall(0, 56, 8, 56), wall(32, 56, 40, 56),
+      wall(0, 96, 8, 96), wall(32, 96, 40, 96), tower('repulsor', 5, 28), tower('repulsor', 14, 28),
     ],
   },
   // Wall-heavy. Nine rows in alternating patterns, a gap in the middle and gaps at both edges, built from the goal out: no straight lane at any depth.
@@ -217,17 +218,16 @@ export const STRATEGIES: readonly Strategy[] = [
       wall(4, 64, 12, 64), wall(28, 64, 36, 64), wall(0, 80, 8, 80), wall(32, 80, 40, 80),
     ],
   },
-  // Tower-heavy. Three Repulsors spread across the forward line (the core is two), two Steals in the gaps between them and one behind, and three staggered rows of short walls.
+  // Tower-heavy. "3 Repulsors spread across the forward line, backed by a row of short walls" (#123): the core is two of the Repulsors; four Steals (two in the gaps, two behind them)
+  // make up the budget, and one row of four short walls backs them, open in the middle.
   {
     id: 'watchtowers',
     name: 'Watchtowers',
     core: 2,
     pieces: [
       tower('repulsor', 3, 32), tower('repulsor', 16, 32), tower('repulsor', 9, 32),
-      tower('steal', 6, 35), tower('steal', 12, 35), tower('steal', 9, 40),
-      wall(2, 76, 10, 76), wall(14, 76, 22, 76), wall(26, 76, 34, 76),
-      wall(6, 84, 14, 84), wall(18, 84, 26, 84), wall(30, 84, 38, 84),
-      wall(2, 92, 10, 92), wall(14, 92, 22, 92), wall(26, 92, 34, 92),
+      tower('steal', 6, 35), tower('steal', 13, 35), tower('steal', 6, 39), tower('steal', 13, 39),
+      wall(0, 84, 8, 84), wall(10, 84, 18, 84), wall(22, 84, 30, 84), wall(32, 84, 40, 84),
     ],
   },
 ]

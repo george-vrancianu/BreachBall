@@ -5,7 +5,9 @@ import { kickoffSpot } from '../../sim/pitch'
 import { distToSegment, isLegal, wallSegments, structureCost } from '../../sim/wall'
 import { sliderDefault } from '../../sim/settings'
 import { rules } from '../../config/rules'
-import { piecesFor, planStrategy, STRATEGIES, strategyCards } from './strategies'
+import { piecesFor, planStrategy, STRATEGIES, strategyCards, type StrategyPiece } from './strategies'
+import type { TowerPower } from '../../sim/wall'
+import type { Point } from '../../sim/pitch'
 
 const apply = (s: SimState, inputs: ReturnType<typeof planStrategy>['inputs']) => inputs.reduce((st, i) => step(st, i, { ...c, buildTime: 0 }).state, s)
 
@@ -143,6 +145,51 @@ describe('Strategies', () => {
       expect(towerCost).toBeGreaterThanOrEqual(25)
       expect(wallUnits).toBeLessThanOrEqual(11)
     }
+  })
+
+  // The shapes issue #123 names for each Strategy, pinned where the layout is easy to get wrong.
+  const byId = (id: string) => STRATEGIES.find((st) => st.id === id)!
+  const wallsOf = (pieces: readonly StrategyPiece[]) => pieces.filter((p): p is Extract<StrategyPiece, { kind: 'wall' }> => p.kind === 'wall')
+  const towersOf = (pieces: readonly StrategyPiece[], power: TowerPower) => pieces.filter((p): p is Extract<StrategyPiece, { kind: 'tower' }> => p.kind === 'tower' && p.power === power)
+
+  it('Watchtowers is "3 Repulsors spread across the forward line, backed by a row of short walls"', () => {
+    const st = byId('watchtowers')
+    const repulsors = towersOf(st.pieces, 'repulsor')
+    expect(repulsors).toHaveLength(3)
+    const lines = new Set(repulsors.map((p) => p.at.gy))
+    expect(lines.size).toBe(1)
+    const behind = ([...lines][0] + 1) * rules.cellSize
+    // One row: every wall is a short (1-unit) horizontal wall on the same line, behind the Repulsors (nearer the goal).
+    const walls = wallsOf(st.pieces)
+    expect(new Set(walls.map((w) => w.a.y)).size).toBe(1)
+    for (const w of walls) {
+      expect(w.b.y).toBe(w.a.y)
+      expect(Math.abs(w.b.x - w.a.x)).toBeCloseTo(rules.wall.unit)
+      expect(w.a.y).toBeGreaterThan(behind)
+    }
+  })
+
+  it('Bastion\'s core is "a box with chamfered corners just outside the goal arc", closed, with a forward screen up the pitch', () => {
+    const st = byId('bastion')
+    const box = st.pieces.slice(0, st.core)
+    const walls = wallsOf(box)
+    expect(walls).toHaveLength(box.length)
+    expect(walls).toHaveLength(8)
+    // Closed: every corner is shared by exactly two walls.
+    const key = (p: Point) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`
+    const ends = new Map<string, number>()
+    for (const w of walls) for (const p of [w.a, w.b]) ends.set(key(p), (ends.get(key(p)) ?? 0) + 1)
+    expect([...ends.values()]).toEqual(Array(8).fill(2))
+    // Four straight sides and four diagonal (chamfered) corners.
+    expect(walls.filter((w) => Math.abs(w.a.x - w.b.x) > 0.01 && Math.abs(w.a.y - w.b.y) > 0.01)).toHaveLength(4)
+    // Just outside the goal arc: its nearest point is within a cell of the goal no-build zone.
+    const goal = { x: rules.pitchWidth / 2, y: rules.pitchHeight }
+    const nearest = Math.min(...walls.map((w) => distToSegment(w, goal)))
+    expect(nearest).toBeGreaterThan(rules.noBuildRadius)
+    expect(nearest).toBeLessThanOrEqual(rules.noBuildRadius + rules.cellSize)
+    // A forward screen: walls beyond the core, up the pitch from the box.
+    const top = Math.min(...walls.flatMap((w) => [w.a.y, w.b.y]))
+    expect(wallsOf(st.pieces.slice(st.core)).some((w) => Math.max(w.a.y, w.b.y) < top)).toBe(true)
   })
 
   it('applying the plan places every piece and spends what it says', () => {
