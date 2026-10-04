@@ -87,10 +87,10 @@ The match structure below is Rounds.
 - Siege: the opening build grants the configured wall points (default 10); its Rearrange turns have none.
 - A "Done" button ends your build. No timer in hot-seat (add one for P2P). In Rounds, tapping Done with nothing placed skips the phase; Siege refuses it (see Game modes).
 - Walls persist for the whole match.
-- Placement: tap the Defence circle (the Wall is selected by default; hold it to pick another Defence item), then drag on the pitch. The build piece starts where the drag starts, its end snaps live to the nearest allowed angle and whole unit, and lifting places it. A drag shorter than half a unit places nothing. Placing commits at once: Credits are spent, with a full refund if the wall is demolished the same turn. A lift on an illegal spot leaves a red, selected, unplaced piece; tapping empty pitch discards it. Towers appear under the finger, follow the drag and place on lift. There is no Confirm step.
+- Placement: tap the Defence circle (the Wall is selected by default; hold it to pick another Defence item), then drag on the pitch. The build piece starts where the drag starts, its end snaps live to the nearest allowed angle and whole unit, and lifting places it. A drag shorter than half a unit places nothing. Placing commits at once: Credits are spent, with a full refund if the wall is demolished the same turn. A lift on an illegal spot leaves a red, selected, unplaced piece; tapping empty pitch discards it. Towers appear under the finger once it moves (or on a tap), follow the drag and place on lift. There is no Confirm step.
 - Walls are segments in free coordinates at an angle from the configured set (default 0°, 45°, 90°, 135°) and a length from the configured unit set (default 1 or 2), see `docs/adr/0005-free-angle-walls.md`. One unit is 4 cells end to end, so a diagonal unit is as long on the pitch as a horizontal one.
 - Editing: tap a wall placed this turn to select it (the wall just placed is selected already); only the selected wall shows its two end handles. Because the just-placed wall is selected, its ends are handles: to chain a new wall from one of its ends, tap off first (deselect), then drag from the end. Dragging the body moves the whole wall, with either end snapping onto a nearby wall end. Dragging an end swings and resizes the wall around the other end. On touch, two fingers may take both ends: the wall's midpoint follows the fingers' midpoint and the angle and length follow the fingers. Rotate (↻ or R) turns the selected wall 45° around its start. A new drag that starts near an existing wall end snaps onto it. A second finger off a handle is ignored mid-drag; two-finger pan only works with no drag active.
-- Walls may touch end to end or in a T, but may not cross or overlap. Corners and boxes are chained walls.
+- Walls may touch end to end or in a T, but may not cross or overlap; parallel or collinear walls closer than a wall's thickness count as overlapping. Corners and boxes are chained walls.
 - Placement is illegal unless the whole wall (or tower) lies on your half, inside the pitch, outside your goal's no-build zone and outside the Centre zone (a circle of radius 3 cells around the centre spot, in the rules config).
 - Moving a wall by its ends may change its length: the Credit difference is charged or refunded, refused if unaffordable, and Rearrange refuses any length change. Demolishing it the same turn refunds what it now costs, which is the total paid.
 - Demolishing your own wall costs 1 point and refunds nothing (a piece placed this turn refunds in full). Siege's Rearrange turn refuses demolishing. You cannot demolish the opponent's walls.
@@ -164,7 +164,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 ## Power-ups (milestone 2)
 
 - Each player starts the match with 3 of each power-up. No economy. Counts are visible to both players.
-- Towers follow the wall placement rules: own half only, outside the goal no-build zones and the Centre zone, persistent across rounds, placed in the build phase by appearing under the finger, following the drag and placing on lift. They cost 0 Credits; the power-up is the cost.
+- Towers follow the wall placement rules: own half only, outside the goal no-build zones and the Centre zone, persistent across rounds, placed in the build phase by appearing under the finger once it moves (or on a tap), following the drag and placing on lift. They cost 0 Credits; the power-up is the cost.
 
 ### Breaker shot (play phase)
 
@@ -201,7 +201,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 ### Pitch markings
 
 - Halfway line always visible.
-- Grid dots at cell corners and the no-build arc (dashed, in the builder's colour) during build only.
+- Grid dots at cell corners and the no-build arc plus the Centre zone arc on the builder's half (both dashed, in the builder's colour) during build only.
 - Goal is a gap in the board with a thick line in the defending player's colour and a shallow net box behind it where a scored ball visibly lands.
 
 ### Ball
@@ -241,7 +241,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 ### HUD
 
 - React components in `src/ui` take data and callbacks and never import the sim; `Game` pushes a view up and the HUD drives it through an actions handle.
-- All in-match controls sit in one shell at the bottom of the screen and show only the active viewer: the build menu, Confirm (ball-in-hand) and the map's Stretch and Close when due; the phase row (Done in your build turn, disabled while the mode would refuse it; Repair and Rearrange for a scorer owing a defence choice); round as "ROUND 2 / 5" (Rounds only); the clock (the shot clock in play, the build window in a build turn or a pending defence choice, "-" when no clock runs); shots remaining; the phase label (Build, Rearrange or Play); the map and recenter buttons; each side's structure count or score (Siege: the remaining structure count; "?" for a hidden opponent); and the viewer's three power-up icons with counts (Breaker tappable only during your own play phase).
+- All in-match controls sit in one shell at the bottom of the screen and show only the active viewer: the Defence circle (greyed on the other player's build turn), Confirm (ball-in-hand) and the map's Stretch and Close when due; the phase row (Done in your build turn, disabled while the mode would refuse it; Repair and Rearrange for a scorer owing a defence choice); round as "ROUND 2 / 5" (Rounds only); the clock (the shot clock in play, the build window in a build turn or a pending defence choice, "-" when no clock runs); shots remaining; the phase label (Build, Rearrange or Play); the map and recenter buttons; each side's structure count or score (Siege: the remaining structure count; "?" for a hidden opponent); and the viewer's three power-up icons with counts (Breaker tappable only during your own play phase).
 - The shell sits inside the rotating stage, so the HUD turns with the flip and the active player's controls are always at the bottom of the screen.
 - Overlays (turn card, GOAL, sweeps, REVEAL, "Opponent is choosing") are their own layer, also inside the stage.
 

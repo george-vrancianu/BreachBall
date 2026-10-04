@@ -20,7 +20,7 @@ const base = {
    * `units` are the allowed lengths in units; `angles` the allowed directions in degrees (direction is modulo 180);
    * `unitCost` the Credits per unit, the same at any angle.
    */
-  wall: { unit: 4 * cellSize, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 2 } as { unit: number; units: readonly number[]; angles: readonly number[]; unitCost: number },
+  wall: { unit: 4 * cellSize, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 2, shapeTol: 0.01 } as { unit: number; units: readonly number[]; angles: readonly number[]; unitCost: number; shapeTol: number },
   /** Radius of the no-build circle around the centre spot, in world units (3 cells). */
   centreZoneRadius: 3 * cellSize,
   /** Half the drawn wall thickness; the ball cannot be placed on it. */

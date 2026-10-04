@@ -29,11 +29,9 @@ export const structuresOf = (objects: readonly Structure[], p: PlayerId): Struct
 export const maxHp = (s: StructureSpec): number => (s.kind === 'tower' ? POWER_HP[s.power] : rules.wallHp)
 
 /** The wall settings the geometry helpers read; `rules` by default, so tests and tools can pass their own. */
-export type WallRules = { /** Half a wall's thickness, world units. */ wallHalf: number; wall: { unit: number; units: readonly number[]; angles: readonly number[]; unitCost: number } }
+export type WallRules = { /** Half a wall's thickness, world units. */ wallHalf: number; wall: { unit: number; units: readonly number[]; angles: readonly number[]; unitCost: number; shapeTol: number } }
 
 const EPS = 1e-6
-/** How far a wall's length or far end may stray from the allowed sets, in world units. */
-const SHAPE_TOL = 0.01
 const toDeg = (r: number) => (r * 180) / Math.PI
 const toRad = (d: number) => (d * Math.PI) / 180
 const norm360 = (d: number) => ((d % 360) + 360) % 360
@@ -187,7 +185,7 @@ export function isDrawable(w: Pick<WallSpec, 'a' | 'b'>, r: WallRules = rules): 
     const diff = (((heading - d) % 180) + 180) % 180
     return Math.min(diff, 180 - diff)
   }
-  return r.wall.units.some((u) => Math.abs(len - u * r.wall.unit) <= SHAPE_TOL) && r.wall.angles.some((d) => len * Math.sin(toRad(offAngle(d))) <= SHAPE_TOL)
+  return r.wall.units.some((u) => Math.abs(len - u * r.wall.unit) <= r.wall.shapeTol) && r.wall.angles.some((d) => len * Math.sin(toRad(offAngle(d))) <= r.wall.shapeTol)
 }
 
 /**

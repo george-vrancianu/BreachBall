@@ -16,7 +16,7 @@ const near = (got: Point | null, want: Point) => {
 
 describe('rules', () => {
   it('a unit is four cells, one or two units long, at 0/45/90/135 degrees, 2 Credits a unit', () => {
-    expect(rules.wall).toEqual({ unit: 8, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 2 })
+    expect(rules.wall).toEqual({ unit: 8, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 2, shapeTol: 0.01 })
     expect(rules.centreZoneRadius).toBe(6)
     expect(rules.wallHp).toBe(3)
   })
@@ -78,7 +78,7 @@ describe('snapWallEnd', () => {
     expect(snapWallEnd(a, p(24, 80))).not.toBeNull()
   })
   it('follows the configured sets', () => {
-    const custom = { wallHalf: rules.wallHalf, wall: { unit: 4, units: [1, 3], angles: [0, 90], unitCost: 1 } }
+    const custom = { wallHalf: rules.wallHalf, wall: { unit: 4, units: [1, 3], angles: [0, 90], unitCost: 1, shapeTol: 0.01 } }
     near(snapWallEnd(a, p(20 + 7, 80 + 6), custom), p(32, 80)) // nearer 0 than 90 degrees; 2.3 units rounds to 3
     near(snapWallEnd(a, p(21, 80 + 10), custom), p(20, 92))
   })

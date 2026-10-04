@@ -19,3 +19,4 @@ Walls were grid pieces: a pivot vertex, a shape (Straight 4 cells or L 3+3) and 
 - Siege's timeout fallback becomes a 1-unit horizontal wall. Rearrange moves and rotates segments the same way.
 - A centre no-build circle (radius 3 cells) joins the goal no-build zone and the own-half rule.
 - Issue #81's `Straight · 2` and `L wall · 3` pills collapse to one Wall item priced per unit, and its menu opens on a hold of the Defence circle instead of a tap.
+- Legality uses `atan2`/`sin`/`hypot` within a 0.01 shape tolerance (`rules.wall.shapeTol`); engines are not guaranteed bit-identical, so a lockstep peer could in theory disagree on an input exactly at the tolerance, but snapping is client-side and the tolerance absorbs drift, so the risk is accepted.

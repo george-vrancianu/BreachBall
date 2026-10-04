@@ -246,6 +246,16 @@ describe('drawing a wall', () => {
     expect(ctl.selection).toBeUndefined()
   })
 
+  it('leaving build mode deselects a placed wall too', () => {
+    make({ ...buildState(1), objects: [{ id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 } as Structure], built: [1] })
+    ctl.build.toggle()
+    down({ x: 24, y: 80 })
+    up({ x: 24, y: 80 })
+    expect(ctl.selection).toMatchObject({ id: 1 })
+    ctl.build.toggle()
+    expect(ctl.selection).toBeUndefined()
+  })
+
   it('arms another item', () => {
     ctl.build.arm('steal')
     expect(ctl.item).toBe('steal')
@@ -592,6 +602,31 @@ describe('the press model', () => {
       expect(sent).toHaveLength(1)
       tick()
       expect(sent[1]).toEqual({ moveStructure: { player: 1, id: 1, a: { x: 20, y: 70 }, b: { x: 28, y: 70 } } })
+    })
+
+    it('rotating a placed wall into the Centre zone sends nothing and leaves it where it stood', () => {
+      const spec = { a: { x: 26, y: 62 }, b: { x: 18, y: 62 } }
+      turns({ ...older, id: 1, ...spec })
+      build()
+      down({ x: 22, y: 62 })
+      up({ x: 22, y: 62 })
+      expect(ctl.selection).toMatchObject({ id: 1 })
+      const before = ctl.selection!.spec
+      ctl.build.rotate()
+      expect(sent).toEqual([])
+      expect(ctl.selection!.spec).toEqual(before)
+    })
+
+    it('rotating a placed wall while a landing is in flight is sent when it settles', () => {
+      drag({ x: 10, y: 90 }, { x: 10 + unit, y: 90 })
+      expect(sent).toHaveLength(1)
+      down(at)
+      up(at)
+      ctl.build.rotate()
+      expect(sent).toHaveLength(1)
+      tick()
+      expect(sent).toHaveLength(2)
+      expect(sent[1]).toHaveProperty('moveStructure')
     })
 
     it('a cancelled body drag of a red unplaced piece keeps the piece where it stood', () => {

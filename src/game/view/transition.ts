@@ -35,7 +35,7 @@ export function advance(t: Transition, f: Frame): Transition {
     const ms = f.reduced ? 0 : visual.transition.flipMs
     if (ms) flip = { at: f.now, ms, from: shown, to: f.active }
     else shown = f.active
-    const hint = f.round === 1 ? (f.phase === 'Build' ? 'Pick a shape, drag it, Rotate, Confirm, then Done' : f.inHand ? 'Tap to place the ball, then Confirm' : 'Drag back from the ball to shoot; hold first for Power') : undefined
+    const hint = f.round === 1 ? (f.phase === 'Build' ? 'Tap the Defence circle, drag on your half to draw a wall, then Done' : f.inHand ? 'Tap to place the ball, then Confirm' : 'Drag back from the ball to shoot; hold first for Power') : undefined
     overlay = { kind: 'turn', at: f.now, player: f.active, text: `Player ${f.active}'s turn`, hint, ms }
     due = false
   }

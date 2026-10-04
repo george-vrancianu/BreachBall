@@ -137,7 +137,7 @@ const POWER_LABEL: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: '
 export function buildMenu(s: SimState, viewer: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection; /** A blocking hold or the map is up. */ blocked?: boolean }, a: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'>): BuildMenu | undefined {
   if (!s.match.builder) return undefined
   const mine = s.match.builder === viewer
-  // A turn that may only move pieces (Rearrange) has no placing and no demolish and no demolish.
+  // A turn that may only move pieces (Rearrange) has no placing and no demolish.
   const edit = canEdit(s)
   const sel = mine && !v.blocked ? v.selection : undefined
   // The price on the item is one unit's; a longer wall is drawn and costed live.

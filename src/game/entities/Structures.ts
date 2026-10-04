@@ -189,7 +189,7 @@ export class Structures extends Entity {
     ctx.save()
     ctx.translate(at.x, at.y)
     if (this.flipped) ctx.rotate(Math.PI)
-    ctx.font = `700 ${size}px ${visual.hud.font}`
+    ctx.font = `${visual.wall.cost.weight} ${size}px ${visual.hud.font}`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = this.pieceBlocked ? visual.wall.illegal : visual.hud.ink

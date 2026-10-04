@@ -88,7 +88,7 @@ export class InputController {
   constructor(private host: InputHost) {
     const { canvas } = host
     const on = (target: EventTarget, type: string, fn: (e: never) => void, passive?: boolean) => target.addEventListener(type, fn as EventListener, { signal: this.stop.signal, passive })
-    // Desktop keys: M map, Space recenter, R rotate, Enter confirm, Esc close the map, else drop the selection, else leave building.
+    // Desktop keys: M map, Space recenter, R rotate, Enter confirm (ball-in-hand), Esc close the map, else drop the selection, else leave building.
     on(globalThis as unknown as EventTarget, 'keydown', (e: KeyboardEvent) => this.key(e))
     on(canvas, 'wheel', (e: WheelEvent) => (e.preventDefault(), this.panBy(-e.deltaY)), false)
     on(canvas, 'pointermove', (e: PointerEvent) => this.move(e))
@@ -139,7 +139,14 @@ export class InputController {
     rotate: () => {
       // Mid-gesture the piece is still the finger's: rotating would place a second one.
       if (this.live || !this.selection?.movable) return
-      this.selection = rotated(this.selection)
+      const before = this.selection
+      const next = rotated(before)
+      if (before.id !== undefined) {
+        // A placed wall never stays displaced and unsent: an illegal turn is ignored, a turn during a landing is sent by settle().
+        if (!legal(this.host.state(), next)) return
+        this.selection = next
+        if (this.landing) return void (this.deferredOrigin = before.spec)
+      } else this.selection = next
       this.place()
     },
     cancel: () => (this.selection = undefined),
@@ -149,11 +156,11 @@ export class InputController {
     },
   }
 
-  /** Leaves build mode: the armed item and any unplaced piece go. */
+  /** Leaves build mode: the armed item and the selection go. */
   private leaveBuild(): void {
     this.cancelPress()
     this.item = undefined
-    if (this.selection?.id === undefined) this.selection = undefined
+    this.selection = undefined
   }
 
   /** The press while it is a draw, a tower or a body or end drag: the finger holds a piece. */

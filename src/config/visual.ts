@@ -70,7 +70,7 @@ export const visual = {
     dimFlashAlpha: 0.35,
     ghostAlpha: 0.5,
     /** The live Credit cost beside an unplaced build piece's midpoint: text size and distance from the midpoint (world units). */
-    cost: { size: 1.6, offset: 1.4 },
+    cost: { size: 1.6, offset: 1.4, weight: 700 },
     /** The two end handles of the selected wall: radius and stroke width in world units (a touch finger's hit radius may be larger). */
     handle: { radius: 1.1, width: 0.2, stroke: white, fill: ink },
     /** The dashed outline on this turn's pieces and the breathing one on a selection. */
@@ -141,7 +141,7 @@ export const visual = {
     font: '"Chakra Petch","Trebuchet MS",sans-serif', display: 'Bungee,Impact,sans-serif', ink, dark, panel: '#141a2a', track: '#3b4256', urgent: '#ff4d4d', urgentSeconds: 5, urgentPulse: 0.15, scrim: 'rgba(11,15,26,0.85)', scrimLight: 'rgba(11,15,26,0.7)', pressed: '#2a3350', pressedBorder: white, scoreFlipMs: 400, /** Hold on a Move point dot this long to refund all but one. */ longPressMs: 500,
     /** Hold the Defence circle this long (still: moving past `input.tapSlopPx` cancels) to open its piece column. */ holdMs: 350,
     /** The Defence circle and its hold menu (px): the primary circle and its border, the piece circles, their label pills and the gap between them; how long the circle pulses when a hold has nothing to offer, how far it swells (scale), the piece column's z-index (above the HUD rows it may open across), the font sizes of circle, piece and pill (px), and the pill's offset from its piece, side padding and border (px). */
-    defence: { circlePx: 60, borderPx: 3, itemPx: 56, pillPx: 32, gap: 10, pulseMs: 300, pulseScale: 1.18, columnZ: 10, circleFontPx: 24, itemFontPx: 20, pillFontPx: 13, pillOffsetPx: 8, pillPadPx: 12, pillBorderPx: 2 },
+    defence: { circlePx: 60, borderPx: 3, itemPx: 56, pillPx: 32, gap: 10, pulseMs: 300, pulseScale: 1.18, columnZ: 10, circleFontPx: 24, itemFontPx: 20, pillFontPx: 13, pillOffsetPx: 8, pillPadPx: 12, pillBorderPx: 2, itemBorderPx: 2, shadowPx: { y: 2, blur: 8 } },
     /** Move point dots: size and ring in px; a refund buzzes `vibration` ms, a refund that cannot happen buzzes `denied`. */
     refund: { dotPx: 12, ringPx: 2, gap: 4, vibration: 20, denied: [15, 40, 15] }, shadow: '#0008', gap: 8 },
   /** The Title screen: the dot grid's cell and dot (px), the Play and Online pills' heights, the ghost circles' size, and the widest the pills grow. */
