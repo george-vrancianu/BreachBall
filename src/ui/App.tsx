@@ -5,6 +5,7 @@ import { showConnectScreen } from '../net/connectScreen'
 import { defaultSettings, type Settings } from '../game/view/settings'
 import { DefenceBar } from './hud/DefenceBar'
 import { Shell } from './hud/Shell'
+import { SideMenu, SideMenuButton } from './hud/SideMenu'
 import { Overlay } from './overlays/Overlay'
 import { HelpScreen, MatchEndScreen, SettingsScreen, TitleScreen } from './screens/Screens'
 
@@ -58,12 +59,15 @@ export function App() {
               onDefenceToggle={() => actions().build.toggle()}
               onDefenceArm={(item) => actions().build.arm(item)}
             />
+            {/* Both sit in the stage, so they turn with the flip and open from the viewer's left. */}
+            {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} onOpen={() => actions().menu(true)} />}
+            {!screen && <SideMenu menu={view.menu} onResume={() => actions().menu(false)} onHelp={() => setScreen('help')} onRestart={() => actions().restart()} onQuit={() => (actions().quit(), setScreen('title'))} />}
           </>
         )}
       </div>
       {/* Online opens the Host/Join overlay as-is; a connection does nothing yet, online play is the next wave (specs.md). */}
       {screen === 'title' && <TitleScreen onPlay={() => setScreen('settings')} onOnline={() => showConnectScreen(() => {})} onSettings={() => setScreen('settings')} onHelp={() => setScreen('help')} />}
-      {screen === 'help' && <HelpScreen onBack={() => setScreen('title')} />}
+      {screen === 'help' && <HelpScreen onBack={() => setScreen(view?.menu.open ? undefined : 'title')} />}
       {screen === 'settings' && <SettingsScreen settings={settings} onChange={setSettings} onStart={() => (actions().start(settings), setScreen(undefined))} />}
       {screen === 'end' && view?.winner && <MatchEndScreen winner={view.winner} result={view.result} onRematch={() => (actions().rematch(), setScreen(undefined))} onMenu={() => setScreen('title')} />}
     </>

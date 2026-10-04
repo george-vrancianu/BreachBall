@@ -7,6 +7,7 @@ import { snapWallBetween, snapWallEnd, type StructureSpec } from '../../sim/wall
 import { screenDown, type Camera } from '../entities/Camera'
 import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapBody, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/defenceCircle'
 import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, type AimGesture, type GestureView } from './gesture'
+import { startsAtEdge, swipedIn } from './edgeSwipe'
 
 /** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
 export type AimView = GestureView & { pxPerUnit: number }
@@ -52,6 +53,10 @@ export type InputHost = {
   /** A flip, goal hold, turn card, reveal or REPAIRED sweep is up: the board is not the player's to act on yet. */
   blocked(): boolean
   toggleMap(open?: boolean): void
+  /** The Side menu is up: the board (pointer and keys) is not the player's to act on. */
+  menuOpen(): boolean
+  /** An edge swipe asks for the Side menu. */
+  openMenu(): void
   send(input: SimInput): void
 }
 
@@ -77,6 +82,8 @@ export class InputController {
   // The last `aiming` sent, so updates go out only when the aim changes.
   private sentAim = 'null'
   private press?: Press
+  // A press that began in the left-edge zone: it only ever opens the Side menu, and starts no pan, aim or piece drag.
+  private edge?: { id: number; from: Point }
   private draggingBall = false
   // The mouse's last canvas position, for the cursor; touch never sets it.
   private mouse?: Point
@@ -252,7 +259,13 @@ export class InputController {
 
   /** Drops a ball-in-hand placement and any half-made gesture. */
   cancelGestures(): void {
-    this.placement = this.tap = undefined
+    this.placement = undefined
+    this.dropLive()
+  }
+
+  /** Drops only the live gestures (the aim and any press, an edge press included), keeping a ball-in-hand placement. */
+  dropLive(): void {
+    this.tap = this.edge = undefined
     this.draggingBall = false
     this.cancelPress()
     this.dropAim()
@@ -355,6 +368,7 @@ export class InputController {
   }
 
   private key(e: KeyboardEvent): void {
+    if (this.host.menuOpen()) return
     const key = e.key.toLowerCase()
     if (e.code === 'Space') (e.preventDefault(), this.host.camera.recenter())
     if (key === 'm') this.host.toggleMap()
@@ -392,6 +406,11 @@ export class InputController {
   }
 
   private move(e: PointerEvent): void {
+    if (this.edge?.id === e.pointerId && !(e.buttons || e.pointerType !== 'mouse')) this.edge = undefined
+    if (this.edge?.id === e.pointerId && swipedIn(this.edge.from, { x: e.offsetX, y: e.offsetY })) {
+      this.edge = undefined
+      this.host.openMenu()
+    }
     if (this.draggingBall) this.placement = this.pxToWorld(e.offsetX, e.offsetY)
     const { press } = this
     if (press?.kind === 'twoEnd' && (press.id === e.pointerId || press.idB === e.pointerId)) {
@@ -420,6 +439,7 @@ export class InputController {
 
   /** The browser took the pointer: whatever it was drawing or dragging is abandoned, never placed. */
   private cancel(e: PointerEvent): void {
+    if (this.edge?.id === e.pointerId) this.edge = undefined
     if (this.holds(this.press, e.pointerId)) this.cancelPress()
     this.draggingBall = false
     this.tap = undefined
@@ -429,6 +449,12 @@ export class InputController {
   }
 
   private up(e: PointerEvent): void {
+    // An edge press that never swiped and stayed put is a plain tap: it goes to the board as a press and release at that spot.
+    const edge = this.edge?.id === e.pointerId ? this.edge : undefined
+    if (edge) {
+      this.edge = undefined
+      if (Math.hypot(e.offsetX - edge.from.x, e.offsetY - edge.from.y) <= visual.input.tapSlopPx) this.down(e, true)
+    }
     this.trackMouse(e)
     this.draggingBall = false
     const { press } = this
@@ -548,9 +574,17 @@ export class InputController {
     return own && { kind: 'other', sel: own }
   }
 
-  private down(e: PointerEvent): void {
+  private down(e: PointerEvent, passedThrough = false): void {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const { canvas, camera, mapCam } = this.host
+    if (this.host.menuOpen() || this.edge) return
+    // The Side menu's edge swipe works even behind a hold (it starts nothing on the board); a press there is never a pan, aim or piece drag.
+    if (!passedThrough && !this.host.mapOpen() && this.pointers.size === 0 && startsAtEdge(e.offsetX)) {
+      this.edge = { id: e.pointerId, from: { x: e.offsetX, y: e.offsetY } }
+      // Captured, so a release off the canvas still ends the press.
+      this.host.canvas.setPointerCapture?.(e.pointerId)
+      return
+    }
     // The map chip still works; everything else is ignored behind a blocking hold, so a tap there cannot carry into the next player's turn.
     if (this.host.blocked() && !this.host.mapOpen()) return
     if (this.host.mapOpen()) {

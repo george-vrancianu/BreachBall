@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import type { PlayerId } from '../../game/Game'
 import { expiryPicker, modePicker, sliderRows, type Settings } from '../../game/view/settings'
-import { ButtonRow, FONT } from '../ButtonRow'
+import { ButtonRow, FONT, ghostCircle } from '../ButtonRow'
 import { AttractHero } from './Attract'
 
 type Look = { className?: string; style?: CSSProperties; children?: ReactNode }
@@ -38,7 +38,7 @@ function GoalMouth() {
 const pill = (height: number): CSSProperties => ({ width: '100%', height, borderRadius: height / 2, cursor: 'pointer' })
 /** The outlined pill under Play, and Help's Back. */
 const secondaryPill: CSSProperties = { ...FONT, ...pill(titleScreen.onlinePx), border: `2px solid ${visual.hud.ink}`, background: visual.hud.panel, color: visual.hud.ink, fontSize: 13, letterSpacing: '0.1em' }
-const ghost: CSSProperties = { ...FONT, width: titleScreen.ghostPx, height: titleScreen.ghostPx, borderRadius: '50%', border: `2px solid ${tokens.ghostBorder}`, background: 'transparent', color: tokens.ghostGlyph, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer' }
+const ghost = ghostCircle(titleScreen.ghostPx)
 
 /** Three slider tracks with their knobs. */
 const SlidersGlyph = () => (
