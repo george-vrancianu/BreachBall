@@ -210,7 +210,7 @@ export const visual = {
       lengthPx: { base: 34, perPower: 120 },
       /**
        * The spear's length and base width (`lengthPx`, `widthPx`) scaled by tier, the arrowhead left as is: Touch's is half as long, so the Ghost's dots, which start at its tip,
-       * show more of a weak Touch shot's short roll (about 10 units); Power's as given.
+       * show more of a weak Touch shot's short roll; Power's as given.
        */
       tierScale: { Touch: 0.5, Power: 1 } satisfies Record<TierName, number>,
       /** The gap between the ball's edge and the spear's base. */
@@ -245,13 +245,13 @@ export const visual = {
      * alphas 0-1, colours from `tierColors` unless named. The scale runs from the inner cancel circle (radius `cancelPx`) out to the limit.
      */
     gauge: {
-      /** The inner cancel circle's drawn radius, where the scale band starts: larger than the gesture's `slopPx` (8) so the ball does not cover it. Drawing only: releasing within `slopPx` still cancels. */
+      /** The inner cancel circle's drawn radius, where the scale band starts: larger than the gesture's `slopPx` so the ball does not cover it. Drawing only: releasing within `slopPx` still cancels, and the power scale (and its tick rings) still starts at `slopPx`. */
       cancelPx: 12,
       /** The end labels, by the tier's curve: the scale's reading near the ball and at the limit. */
       ends: { direct: { near: 'LOW', limit: 'MAX' }, inverted: { near: 'MAX', limit: 'MIN' } } satisfies Record<Tier['curve'], { near: string; limit: string }>,
       /** The scale band's alpha at the inner circle and at the limit, by curve: strong where the tier's power is high. */
       band: { direct: [0.03, 0.3], inverted: [0.5, 0.03] } satisfies Record<Tier['curve'], readonly [number, number]>,
-      /** Dashed tick rings at these shares of the scale: alpha, line width and dash (px). */
+      /** Dashed tick rings at these shares of the power scale (from `slopPx` to the limit, so they line up with the finger): alpha, line width and dash (px). */
       ticks: { at: [0.25, 0.5, 0.75], alpha: 0.22, widthPx: 1, dashPx: [2, 5] },
       /** The faint inner cancel circle. */
       cancel: { color: ink, alpha: 0.25, widthPx: 1.5 },

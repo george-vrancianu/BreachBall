@@ -138,7 +138,7 @@ export class AimGauge extends Entity {
     const blur = Math.hypot(m.a, m.b)
     const curve = rules.shot.tiers[aim.tier].curve
     const knob = this.knob && local(this.knob)
-    const inner = this.cancelRadius! * ppu
+    const inner = visual.aim.gauge.cancelPx
     this.drawScale(ctx, radius * ppu, inner, curve, blur, local)
     if (knob && aim.pullPx !== undefined) this.drawPull(ctx, knob, Math.min(aim.pullPx, aim.radiusPx), inner, curve, scaleOfAim(aim))
     const readout = this.readout
@@ -169,7 +169,9 @@ export class AimGauge extends Entity {
     ctx.lineWidth = ticks.widthPx
     ctx.strokeStyle = withAlpha(col, ticks.alpha)
     ctx.setLineDash(ticks.dashPx)
-    for (const f of ticks.at) circle(ctx, inner + (R - inner) * f)
+    // Ticks at true shares of the power scale, which starts at the gesture's slop, not the wider drawn cancel circle.
+    const slop = visual.aim.slopPx
+    for (const f of ticks.at) circle(ctx, slop + (R - slop) * f)
     ctx.setLineDash([])
     ctx.strokeStyle = withAlpha(cancel.color, cancel.alpha)
     ctx.lineWidth = cancel.widthPx
