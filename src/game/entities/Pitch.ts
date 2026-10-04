@@ -3,58 +3,168 @@ import { visual } from '../../config/visual'
 import type { PlayerId } from '../../sim/pitch'
 import { Entity } from './Entity'
 
-/** Boards, grass, lines, goals and nets; during a build turn also the grid and the builder's no-build zone. */
+/** One goal end: its line's y, the direction into the pitch (+1 down the canvas) and the owner. P2 defends the top, P1 the bottom. */
+const ends = [
+  { y: 0, into: 1, owner: 2 },
+  { y: rules.pitchHeight, into: -1, owner: 1 },
+] as const
+
+/** The ground, markings, goal mouths and nets; during a build turn also the build-zone edge on the halfway line, in the builder's colour. */
 export class Pitch extends Entity {
   /** Whose build turn it is, if any. */
   builder?: PlayerId
 
   protected override render(ctx: CanvasRenderingContext2D): void {
-    const { pitchWidth: w, pitchHeight: h, halfHeight, board, goalLeft, goalRight, netDepth } = rules
+    const { pitchWidth: w, pitchHeight: h, halfHeight, board } = rules
     const v = visual.pitch
-    ctx.fillStyle = v.board
-    ctx.fillRect(0, -board, w, h + 2 * board)
-    ctx.fillStyle = v.pitch
-    ctx.fillRect(0, 0, w, h)
-    // Faint owner tint per half.
-    ctx.globalAlpha = v.halfTint
-    ctx.fillStyle = visual.player.colors[2]
-    ctx.fillRect(0, 0, w, halfHeight)
-    ctx.fillStyle = visual.player.colors[1]
-    ctx.fillRect(0, halfHeight, w, halfHeight)
-    ctx.globalAlpha = 1
+    const u = v.unit
+    ctx.fillStyle = v.ground
+    ctx.fillRect(-board, rules.mapTop, w + 2 * board, rules.mapHeight)
 
-    // Nets behind each goal, then the gap in the board.
-    for (const [y, dir, color] of [[0, -1, visual.player.colors[2]], [h, 1, visual.player.colors[1]]] as const) {
-      ctx.fillStyle = v.net
-      ctx.fillRect(goalLeft, dir < 0 ? y - netDepth - board : y + board, goalRight - goalLeft, netDepth)
-      ctx.fillStyle = v.pitch
-      ctx.fillRect(goalLeft, dir < 0 ? y - board : y, goalRight - goalLeft, board)
-      ctx.fillStyle = color
-      ctx.fillRect(goalLeft, y - v.goalLineWidth / 2, goalRight - goalLeft, v.goalLineWidth)
-    }
-
-    ctx.fillStyle = v.line
-    ctx.fillRect(0, halfHeight - v.halfLineWidth / 2, w, v.halfLineWidth)
-
-    if (this.builder) this.drawBuildGrid(ctx, this.builder)
-  }
-
-  private drawBuildGrid(ctx: CanvasRenderingContext2D, builder: PlayerId): void {
-    const { pitchWidth: w, pitchHeight: h, cellSize } = rules
-    const { gridDot, noBuild } = visual.pitch
-    ctx.fillStyle = visual.pitch.line
-    for (let x = 0; x <= w; x += cellSize) for (let y = 0; y <= h; y += cellSize) ctx.fillRect(x - gridDot / 2, y - gridDot / 2, gridDot, gridDot)
-    const [goalY, from] = builder === 1 ? [h, Math.PI] : [0, 0]
+    this.drawDots(ctx)
+    ctx.strokeStyle = v.line
+    ctx.lineWidth = v.outline.widthPx * u
     ctx.beginPath()
-    ctx.arc(w / 2, goalY, rules.noBuildRadius, from, from + Math.PI)
-    ctx.setLineDash([...noBuild.dash])
-    ctx.strokeStyle = visual.player.colors[builder]
-    ctx.lineWidth = noBuild.lineWidth
+    ctx.roundRect(0, 0, w, h, v.outline.radiusPx * u)
     ctx.stroke()
-    // The Centre zone: the builder's half of the circle around the centre spot (canvas y grows downwards, so player 1's high-y half is angles 0 to PI).
+    for (const end of ends) this.drawEnd(ctx, end)
+
+    // Centre line, circle, inner ring and dot.
+    const r = rules.centreZoneRadius
+    ctx.lineWidth = v.centre.widthPx * u
     ctx.beginPath()
-    ctx.arc(w / 2, h / 2, rules.centreZoneRadius, builder === 1 ? 0 : Math.PI, builder === 1 ? Math.PI : 2 * Math.PI)
+    ctx.moveTo(0, halfHeight)
+    ctx.lineTo(w, halfHeight)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(w / 2, halfHeight, r, 0, 2 * Math.PI)
+    ctx.stroke()
+    ctx.lineWidth = v.centre.innerWidthPx * u
+    ctx.setLineDash(v.centre.innerDashPx.map((d) => d * u))
+    ctx.beginPath()
+    ctx.arc(w / 2, halfHeight, r * v.centre.innerRatio, 0, 2 * Math.PI)
     ctx.stroke()
     ctx.setLineDash([])
+    ctx.fillStyle = v.line
+    ctx.beginPath()
+    ctx.arc(w / 2, halfHeight, (v.centre.dotPx / 2) * u, 0, 2 * Math.PI)
+    ctx.fill()
+
+    // Quarter marks on both sidelines.
+    ctx.lineWidth = v.quarter.widthPx * u
+    const len = v.quarter.lengthPx * u
+    for (const y of [h / 4, (3 * h) / 4]) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(len, y)
+      ctx.moveTo(w, y)
+      ctx.lineTo(w - len, y)
+      ctx.stroke()
+    }
+
+    if (this.builder) this.drawBuildEdge(ctx, this.builder)
+  }
+
+  private drawDots(ctx: CanvasRenderingContext2D): void {
+    const { pitchWidth: w, pitchHeight: h } = rules
+    const { unit: u, grid } = visual.pitch
+    const cell = grid.cellPx * u
+    const dot = grid.dotPx * u
+    ctx.fillStyle = visual.pitch.dot
+    // Centred on the pitch so the dots sit symmetrically.
+    const cols = Math.floor(w / cell)
+    const rows = Math.floor(h / cell)
+    const x0 = (w - cols * cell) / 2
+    const y0 = (h - rows * cell) / 2
+    for (let i = 0; i <= cols; i++) for (let j = 0; j <= rows; j++) ctx.fillRect(x0 + i * cell - dot / 2, y0 + j * cell - dot / 2, dot, dot)
+  }
+
+  /** Corner brackets, goal mouth and keep-out arc at one end. */
+  private drawEnd(ctx: CanvasRenderingContext2D, end: (typeof ends)[number]): void {
+    const { pitchWidth: w, goalLeft, goalRight, netDepth } = rules
+    const v = visual.pitch
+    const u = v.unit
+    const color = visual.player.colors[end.owner]
+    const { y, into } = end
+
+    // Corner brackets.
+    const { insetPx, armPx, widthPx, alpha } = v.bracket
+    const inset = insetPx * u
+    const arm = armPx * u
+    ctx.globalAlpha = alpha
+    ctx.strokeStyle = color
+    ctx.lineWidth = widthPx * u
+    for (const [x, dx] of [[inset, 1], [w - inset, -1]] as const) {
+      ctx.beginPath()
+      ctx.moveTo(x + dx * arm, y + into * inset)
+      ctx.lineTo(x, y + into * inset)
+      ctx.lineTo(x, y + into * (inset + arm))
+      ctx.stroke()
+    }
+
+    // Goal mouth behind the line: chevrons pointing into the pitch, then net lines.
+    const g = v.goal
+    const mouth = goalRight - goalLeft
+    const [cw, ch] = [g.chevronPx[0] * u, g.chevronPx[1] * u]
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(goalLeft, Math.min(y, y - into * netDepth), mouth, netDepth)
+    ctx.clip()
+    ctx.globalAlpha = g.chevronAlpha
+    ctx.lineWidth = g.chevronWidthPx * u
+    ctx.lineJoin = 'round'
+    const cols = Math.ceil(mouth / cw)
+    const rows = Math.ceil(netDepth / ch)
+    ctx.beginPath()
+    for (let i = 0; i < cols; i++)
+      for (let j = 0; j < rows; j++) {
+        const x = goalLeft + i * cw
+        // Tip toward the pitch (up for P1 at the bottom, down for P2 at the top), base further behind the line.
+        const tip = y - into * (j * ch)
+        const base = tip - into * ch
+        ctx.moveTo(x, base)
+        ctx.lineTo(x + cw / 2, tip)
+        ctx.lineTo(x + cw, base)
+      }
+    ctx.stroke()
+    ctx.globalAlpha = g.netAlpha
+    ctx.lineWidth = v.outline.widthPx * u / 3
+    ctx.beginPath()
+    for (let i = 1; i <= g.netLines; i++) {
+      const x = goalLeft + (mouth * i) / (g.netLines + 1)
+      ctx.moveTo(x, y)
+      ctx.lineTo(x, y - into * netDepth)
+    }
+    ctx.stroke()
+    ctx.restore()
+
+    // Goal line.
+    ctx.globalAlpha = 1
+    ctx.fillStyle = color
+    ctx.fillRect(goalLeft, y - (g.lineWidthPx * u) / 2, mouth, g.lineWidthPx * u)
+
+    // Keep-out arc: neutral, the builder's colour while that player builds.
+    ctx.beginPath()
+    ctx.arc(w / 2, y, rules.noBuildRadius, into > 0 ? 0 : Math.PI, into > 0 ? Math.PI : 2 * Math.PI)
+    ctx.setLineDash(v.keepOut.dashPx.map((d) => d * u))
+    ctx.strokeStyle = this.builder === end.owner ? color : v.line
+    ctx.lineWidth = v.keepOut.widthPx * u
+    ctx.stroke()
+    ctx.setLineDash([])
+  }
+
+  /** The edge of the builder's half, on the halfway line (building is allowed on the whole half). */
+  private drawBuildEdge(ctx: CanvasRenderingContext2D, builder: PlayerId): void {
+    const { buildEdge: b, unit: u } = visual.pitch
+    ctx.globalAlpha = b.alpha
+    ctx.strokeStyle = visual.player.colors[builder]
+    ctx.lineWidth = b.widthPx * u
+    ctx.setLineDash(b.dashPx.map((d) => d * u))
+    ctx.beginPath()
+    ctx.moveTo(0, rules.halfHeight)
+    ctx.lineTo(rules.pitchWidth, rules.halfHeight)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.globalAlpha = 1
   }
 }

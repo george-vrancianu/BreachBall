@@ -21,7 +21,7 @@ export function Minimap({ minimap, open, color, flipped, onToggle, style }: { mi
         {open ? (
           '✕'
         ) : (
-          <span data-testid="thumbnail" style={{ position: 'relative', width: thumbW, height: thumbH, overflow: 'hidden', background: pitch.pitch }}>
+          <span data-testid="thumbnail" style={{ position: 'relative', width: thumbW, height: thumbH, overflow: 'hidden', background: pitch.ground }}>
             <span style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: linePx, background: tokens.lines }} />
             {minimap.fog && <span data-testid="thumbnail-fog" style={band(minimap.fog, fog)} />}
             <span data-testid="thumbnail-frame" style={{ ...band(minimap.frame, frame), boxSizing: 'border-box', border: `${linePx}px solid ${visual.hud.ink}` }} />

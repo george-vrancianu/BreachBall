@@ -225,9 +225,14 @@ The third family of actions (see `GLOSSARY.md`): items that cripple the opponent
 
 ### Pitch markings
 
-- Halfway line always visible.
-- Grid dots at cell corners and the no-build arc plus the Centre zone arc on the builder's half (both dashed, in the builder's colour) during build only.
-- Goal is a gap in the board with a thick line in the defending player's colour and a shallow net box behind it where a scored ball visibly lands.
+- All sizes are authored in handoff px on a 390 px wide pitch (`visual.pitch.unit` converts to world units), so the markings scale with the pane width. Colours and sizes live in `visual.pitch`; the drawing is `game/entities/Pitch.ts`.
+- Ground `#0f1626` with a dot grid (26 px cell, 1.3 px dots `#1c2540`), centred on the pitch. Board outline: 3 px `#3b4f7a`, radius 14 px, on the pitch edge.
+- Corner brackets in the owner's colour at 50% opacity (2 px) at each end.
+- Goal mouths: a gap in the outline with a 4 px goal line in the owner's colour and the net box behind it, where a scored ball visibly lands: chevrons in the owner's colour at 35% (24x12 px, 3 px stroke, pointing into the pitch) and 7 vertical net lines at 45%.
+- Keep-out arc around each goal (the no-build radius): 2 px dashed 6/6, always drawn, neutral `#3b4f7a`; during a build it takes the builder's colour.
+- Centre line 3 px `#3b4f7a`, centre circle (the Centre zone radius) with a dashed inner ring (4/6) and a centre dot.
+- Build-zone edge: during a build only, the halfway line is overdrawn dashed 10/8, 2 px, in the builder's colour at 35%. It is only a marker; building is allowed on the whole half.
+- Quarter marks: 14 px ticks inward on both sidelines at the quarter lines, 3 px `#3b4f7a`.
 
 ### Ball
 
