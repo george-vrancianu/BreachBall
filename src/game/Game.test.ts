@@ -291,6 +291,53 @@ describe('Game', () => {
     expect(game.structures.get(99)!.isShattering).toBe(true)
   })
 
+  describe('Flip on turn', () => {
+    afterEach(() => vi.restoreAllMocks())
+    const store = new Map<string, string>()
+    beforeEach(() => {
+      store.clear()
+      vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) })
+    })
+    /** A Rounds match at its opening card, the given seat to act (some seeds open for Player 2). */
+    const opened = (seat: 1 | 2) => {
+      const onView = vi.fn()
+      vi.spyOn(performance, 'now').mockReturnValue(1000)
+      const game = make(onView)
+      for (const r of [0, 0.3, 0.6, 0.9]) {
+        vi.spyOn(Math, 'random').mockReturnValue(r)
+        game.actions.start({ ...defaultSettings, mode: 'rounds' })
+        if ((game.state.match.builder ?? game.state.possession.shooter) === seat) break
+      }
+      expect(game.state.match.builder ?? game.state.possession.shooter).toBe(seat)
+      // The opening build turn may turn the stage over its first 400 ms.
+      frame(1000)
+      vi.spyOn(performance, 'now').mockReturnValue(1500)
+      frame(1500)
+      return { game, view: () => onView.mock.lastCall![0] as HudView }
+    }
+
+    it('is off on a fresh device: the stage stays put while player 2 plays from across the table', () => {
+      const { view } = opened(2)
+      expect(view().flipOnTurn).toBe(false)
+      expect(view()).toMatchObject({ angle: 0, flipped: false })
+      expect(view().hud.active).toBe(2)
+      expect(view().overlay?.text).toBe("Player 2's turn")
+    })
+    it('turned on, player 2 is turned to the bottom', () => {
+      store.set('breachball.flipOnTurn', 'true')
+      const { view } = opened(2)
+      expect(view().flipOnTurn).toBe(true)
+      expect(view()).toMatchObject({ angle: 180, flipped: true })
+    })
+    it('the action saves the choice on the device and shows in the view', () => {
+      const { game, view } = opened(1)
+      game.actions.flipOnTurn(true)
+      frame(1000)
+      expect(store.get('breachball.flipOnTurn')).toBe('true')
+      expect(view().flipOnTurn).toBe(true)
+    })
+  })
+
   describe('Side menu', () => {
     afterEach(() => vi.restoreAllMocks())
     /** A Rounds match past its opening card, with the sim running. */

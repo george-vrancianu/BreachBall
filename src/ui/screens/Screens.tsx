@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import type { PlayerId } from '../../game/Game'
 import { expiryPicker, modePicker, sliderRows, type Settings } from '../../game/view/settings'
-import { ButtonRow, FONT, ghostCircle } from '../ButtonRow'
+import { ButtonRow, FlipToggle, FONT, ghostCircle } from '../ButtonRow'
 import { AttractHero } from './Attract'
 
 type Look = { className?: string; style?: CSSProperties; children?: ReactNode }
@@ -98,8 +98,8 @@ export function HelpScreen({ onBack, ...look }: { onBack(): void } & Look) {
   )
 }
 
-/** The mode picker, then the sliders that mode uses, then the On time out toggle, then Start. */
-export function SettingsScreen({ settings, onChange, onStart, ...look }: { settings: Settings; onChange(s: Settings): void; onStart(): void } & Look) {
+/** The mode picker, then the sliders that mode uses, then the On time out toggle, then the device's Flip on turn toggle (not part of the match), then Start. */
+export function SettingsScreen({ settings, onChange, flipOnTurn, onFlipOnTurn, onStart, ...look }: { settings: Settings; onChange(s: Settings): void; flipOnTurn: boolean; onFlipOnTurn(on: boolean): void; onStart(): void } & Look) {
   return (
     <Screen {...look}>
       <div style={{ fontSize: 28 }}>Settings</div>
@@ -116,6 +116,10 @@ export function SettingsScreen({ settings, onChange, onStart, ...look }: { setti
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
         <span>On time out</span>
         <ButtonRow specs={expiryPicker(settings.expiry, (expiry) => onChange({ ...settings, expiry }))} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: 'min(80vw,320px)' }}>
+        <FlipToggle on={flipOnTurn} onChange={onFlipOnTurn} />
+        <span style={{ color: tokens.muted, fontSize: 12, textTransform: 'none', textAlign: 'center' }}>Turns the screen to the next player in hot-seat. Saved on this device.</span>
       </div>
       <ButtonRow specs={[{ label: 'Start', onClick: onStart }]} />
       {look.children}

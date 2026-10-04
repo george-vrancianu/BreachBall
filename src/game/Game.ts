@@ -25,8 +25,9 @@ import { minimapOf, type MinimapView } from './view/minimap'
 import { offenceCircle, type OffenceActions, type OffenceCircle } from './view/offenceCircle'
 import { phaseButtons } from './view/phaseButtons'
 import { pausesSim, settingRows, type SideMenuView } from './view/sideMenu'
+import { loadFlipOnTurn, saveFlipOnTurn } from './deviceSettings'
 import { subterfugeCircle, type SubterfugeCircle } from './view/subterfugeCircle'
-import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
+import { acrossTable, advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
 
 export type { PlayerId, PowerUp, SubterfugeItem }
 
@@ -44,6 +45,8 @@ export type HudView = {
   angle: number
   /** Player 2 is at the bottom of the screen. */
   flipped: boolean
+  /** The Flip on turn device setting (hot-seat only; online ignores it). */
+  flipOnTurn: boolean
   /** The ball-in-hand Confirm button is up. */
   confirm: boolean
   mapOpen: boolean
@@ -76,6 +79,8 @@ export type GameActions = {
   quit(): void
   /** Tap on the turn card. */
   dismiss(): void
+  /** Flip on turn: a device setting, saved on this device. Takes effect at the next handover. */
+  flipOnTurn(on: boolean): void
   build: BuildActions
 }
 
@@ -119,6 +124,7 @@ export class Game implements Sink {
   private input: InputController
   private ctx: CanvasRenderingContext2D
   private transition = newTransition(1)
+  private flipOnTurn = loadFlipOnTurn()
   private lastBuilder: SimState['match']['builder'] | undefined
   private mapOpen = false
   private menuOpen = false
@@ -179,6 +185,7 @@ export class Game implements Sink {
         this.config = defaultConfig
         this.newMatch()
       },
+      flipOnTurn: (on) => ((this.flipOnTurn = on), saveFlipOnTurn(on)),
       dismiss: () => (this.transition = dismiss(this.transition, performance.now())),
       build: this.input.build,
     }
@@ -199,8 +206,11 @@ export class Game implements Sink {
   /** Whether the board ignores input: behind a blocking hold or the Side menu, online or not. */
   private inputBlocked = () => blocking(this.transition) || this.menuOpen
 
+  /** Whether this device turns the stage at a handover: hot-seat only, and only when the player has Flip on turn on. */
+  private flips = () => hotSeat() && this.flipOnTurn
+
   /** Whoever builds, else whoever has the device: online it would be the peer's own seat. */
-  private viewer = (): PlayerId => this.state.match.builder ?? this.transition.shown
+  private viewer = (): PlayerId => this.state.match.builder ?? this.transition.hudSeat
 
   /** The camera the pitch is drawn through: the whole-pitch map while it is open or during the reveal hold. */
   private viewCam = (): Camera => (this.mapOpen || revealing(this.transition) ? this.mapCam : this.camera)
@@ -237,7 +247,7 @@ export class Game implements Sink {
     for (const e of [this.camera, this.structures, this.ball, this.aim]) e.reset()
     this.input.resetBuild()
     this.menuOpen = false
-    this.transition = newTransition(s.possession.shooter)
+    this.transition = newTransition(s.possession.shooter, this.flips())
     this.camera.recenter()
     this.camera.y = s.ball.pos.y
     this.lastBuilder = undefined
@@ -276,7 +286,7 @@ export class Game implements Sink {
 
   private announce(events: SimEvent[]): void {
     const { state } = this
-    this.transition = advance(this.transition, { handover: true, active: whoActs(state), round: roundOf(state.match) ?? undefined, inHand: state.possession.inHand, phase: buildPhase(state.match), opening: openingBuild(state.match), events, now: this.now, reduced: reducedMotion() })
+    this.transition = advance(this.transition, { handover: true, flip: this.flips(), active: whoActs(state), round: roundOf(state.match) ?? undefined, inHand: state.possession.inHand, phase: buildPhase(state.match), opening: openingBuild(state.match), events, now: this.now, reduced: reducedMotion() })
   }
 
   private frame = (now: number): void => {
@@ -295,7 +305,8 @@ export class Game implements Sink {
     const { state, transition, camera } = this
     this.fitCamera()
     const flipping = !!transition.flip && now - transition.flip.at >= transition.flip.ms / 2
-    const target = anchorY(state.ball.pos.y, transition.shown, camera.visibleHeight)
+    // The seat across the table (stage not turned for it) shoots down the screen, so the ball is held near the top instead.
+    const target = anchorY(state.ball.pos.y, transition.shown, camera.visibleHeight, !acrossTable(transition))
     if (!state.match.builder && (flipping || (transition.overlay?.kind === 'turn' && !transition.flip))) (camera.y = target), camera.recenter()
     this.input.edgeScroll(dt)
     this.input.tickAim()
@@ -367,13 +378,14 @@ export class Game implements Sink {
     const { inHand } = state.possession
     const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, destroyed: this.destroyed }),
+      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, destroyed: this.destroyed }),
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),
       flipped: transition.shown === 2,
+      flipOnTurn: this.flipOnTurn,
       confirm: inHand && !builder && !state.match.choosing && !blocked,
       mapOpen: this.mapOpen,
       menu: { open: this.menuOpen, hotSeat: hotSeat(), settings: settingRows(this.config) },

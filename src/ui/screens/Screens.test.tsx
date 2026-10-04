@@ -32,13 +32,13 @@ it('help explains the game and goes back', () => {
 
 it('settings: the mode picker and sliders report changes, and Start fires', () => {
   const [change, start] = [vi.fn(), vi.fn()]
-  const { rerender } = render(<SettingsScreen settings={defaultSettings} onChange={change} onStart={start} />)
+  const { rerender } = render(<SettingsScreen settings={defaultSettings} onChange={change} flipOnTurn={false} onFlipOnTurn={() => {}} onStart={start} />)
   expect(screen.getByText('Siege').getAttribute('aria-pressed')).toBe('true')
   expect(screen.queryByLabelText(/rounds/i)).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Rounds' }))
   expect(change).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'rounds' }))
   const settings = { ...defaultSettings, mode: 'rounds' as const }
-  rerender(<SettingsScreen settings={settings} onChange={change} onStart={start} />)
+  rerender(<SettingsScreen settings={settings} onChange={change} flipOnTurn={false} onFlipOnTurn={() => {}} onStart={start} />)
   const rounds = screen.getByLabelText(/rounds/i) as HTMLInputElement
   fireEvent.change(rounds, { target: { value: rounds.max } })
   expect(change).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'rounds', rounds: Number(rounds.max) }))
@@ -46,10 +46,19 @@ it('settings: the mode picker and sliders report changes, and Start fires', () =
   expect(start).toHaveBeenCalled()
 })
 
+it('settings: the Flip on turn device toggle shows its state and reports the flip', () => {
+  const flip = vi.fn()
+  render(<SettingsScreen settings={defaultSettings} onChange={() => {}} flipOnTurn={false} onFlipOnTurn={flip} onStart={() => {}} />)
+  const toggle = screen.getByRole('button', { name: 'Flip on turn: Off' })
+  expect(toggle.getAttribute('aria-pressed')).toBe('false')
+  fireEvent.click(toggle)
+  expect(flip).toHaveBeenCalledWith(true)
+})
+
 it('settings: the On time out toggle shows in both modes and reports the choice', () => {
   for (const mode of ['siege', 'rounds'] as const) {
     const change = vi.fn()
-    render(<SettingsScreen settings={{ ...defaultSettings, mode }} onChange={change} onStart={() => {}} />)
+    render(<SettingsScreen settings={{ ...defaultSettings, mode }} onChange={change} flipOnTurn={false} onFlipOnTurn={() => {}} onStart={() => {}} />)
     expect(screen.getByText('On time out')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Shoot' }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: 'Burn' }).getAttribute('aria-pressed')).toBe('false')

@@ -54,6 +54,12 @@ describe('anchor', () => {
   })
 })
 
+describe('anchor across the table', () => {
+  it('with the stage not turned for a seat-2 shooter, holds the ball 30% down so the pitch ahead (down the screen) shows', () => {
+    expect(anchorY(30, 1, 80, false)).toBe(46)
+  })
+})
+
 describe('anchored follow on a 400 x 900 phone (78 units shown)', () => {
   /** Where the ball sits down the screen of the bottom seat (0 top, 1 bottom) once the camera has settled on it. */
   const settled = (ballY: number) => {

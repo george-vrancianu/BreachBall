@@ -54,8 +54,8 @@ export const screenDown = (seat: PlayerId): 1 | -1 => (seat === 1 ? 1 : -1)
 /** The HUD band of `px` canvas px, kept clear at the bottom of `seat`'s screen (the top of the canvas when the stage is turned). */
 export const hudReserve = (seat: PlayerId, px: number): Reserve => (screenDown(seat) > 0 ? { top: 0, bottom: px } : { top: px, bottom: 0 })
 
-/** The camera centre that holds the ball `visual.camera.anchor` of the way down the screen of `seat` at the bottom. */
-export const anchorY = (ballY: number, seat: PlayerId, visibleHeight: number): number => ballY - screenDown(seat) * (visual.camera.anchor - 0.5) * visibleHeight
+/** The camera centre that holds the ball `visual.camera.anchor` of the way down the screen of `seat` at the bottom, leaving the pitch ahead in view. `shootsUp` false: the shooter plays from across the table (Flip on turn off), so the pitch ahead is down the screen and the ball is held the same distance from the top instead. */
+export const anchorY = (ballY: number, seat: PlayerId, visibleHeight: number, shootsUp = true): number => ballY - screenDown(seat) * ((shootsUp ? visual.camera.anchor : 1 - visual.camera.anchor) - 0.5) * visibleHeight
 
 /** World y range of the opponent's half left out for a blind viewer sitting at `seat`: boards and net included, up to the halfway line. */
 export const fogOf = (seat: PlayerId): { top: number; bottom: number } => (seat === 1 ? { top: rules.mapTop, bottom: rules.halfHeight } : { top: rules.halfHeight, bottom: rules.mapTop + rules.mapHeight })
