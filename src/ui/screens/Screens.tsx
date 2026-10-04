@@ -119,7 +119,7 @@ export function SettingsScreen({ settings, onChange, tabletop, onTabletop, onSta
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: 'min(80vw,320px)' }}>
         <TabletopToggle on={tabletop} onChange={onTabletop} />
-        <span style={{ color: tokens.muted, fontSize: 12, textTransform: 'none', textAlign: 'center' }}>Turns the screen to the next player in hot-seat. Saved on this device.</span>
+        <span style={{ color: tokens.muted, fontSize: 12, textTransform: 'none', textAlign: 'center' }}>Turns the controls to the player whose turn it is; off turns the whole screen. Saved on this device.</span>
       </div>
       <ButtonRow specs={[{ label: 'Start', onClick: onStart }]} />
       {look.children}
