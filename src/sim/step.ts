@@ -100,9 +100,9 @@ export type SimEvent =
   | { type: 'refused' }
   /** `from` is the ball's position at launch. */
   | { type: 'shot-fired'; player: PlayerId; from: Point; dir: Point; power: number; tier: number; breaker?: boolean; /** The Charged ball's factor, when the shot used one. */ charge?: number }
-  /** A shot came to rest in the Boost ring or Bullseye: the ball is Charged by `factor` until its next shot or move. */
   /** The ball entered the Bullseye from outside during `player`'s shot, earning them `credits` (Rounds). */
-  | { type: 'bullseye'; player: PlayerId; credits: number }
+  | { type: 'bullseye-credited'; player: PlayerId; credits: number }
+  /** A shot came to rest in the Boost ring or Bullseye: the ball is Charged by `factor` until its next shot or move. */
   | { type: 'charged'; zone: BoostZone; factor: number; at: Point }
   | { type: 'possession-changed'; shooter: PlayerId; inHand: boolean }
   /** The shooter traded `count` Move points for Credits. */
@@ -427,10 +427,12 @@ export function step(
   const rolled = rollBall(ball, objects, config, breaker, possession.shooter)
   events.push(...rolled.events)
   // Entering the Bullseye from outside pays the shooter once per shot, however the shot ends; the swept segment keeps a fast ball from skipping it.
+  // The straight start-to-end segment is exact: walls and towers sit more than `centreZoneRadius` from the centre and a ball moves at most `maxSpeed * charge / tickHz` per tick, so no bounce can happen near the Bullseye within one tick.
+  // The `possession.live` guard is defensive.
   if (possession.live && !bullseyePaid && mode.hasCredits(match) && bullseyeEntered(ball.pos, rolled.ball.pos)) {
     bullseyePaid = true
     credits = { ...credits, [possession.shooter]: credits[possession.shooter] + rules.bullseyeCredits }
-    events.push({ type: 'bullseye', player: possession.shooter, credits: rules.bullseyeCredits })
+    events.push({ type: 'bullseye-credited', player: possession.shooter, credits: rules.bullseyeCredits })
   }
   let landed = rolled.ball
   const stolen = rolled.events.find((e) => e.type === 'steal-triggered')

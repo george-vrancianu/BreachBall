@@ -15,7 +15,7 @@ function recorder() {
     {
       get: (_t, k: string) => {
         if (k === 'setLineDash') return (d: number[]) => void (dash = d)
-        if (['stroke', 'fill', 'fillRect', 'arc', 'fillText'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
+        if (['stroke', 'fill', 'fillRect', 'arc', 'fillText', 'translate'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
         return state[k] ?? (() => {})
       },
       set: (_t, k: string, v) => ((state[k] = v), true),
@@ -164,28 +164,67 @@ describe('Boost ring and Bullseye', () => {
   })
 })
 
-describe('Bullseye pass-through', () => {
-  const { pass } = visual.pitch.boost
+describe('Bullseye credit', () => {
+  const { credit } = visual.pitch.boost
+  const bullseyeFlash = (p: Pitch) => {
+    const { ctx, calls } = recorder()
+    p.draw(ctx)
+    return calls.filter((c) => c.fn === 'arc' && c.args[2] === rules.boost.bullseye.radius)[0].alpha as number
+  }
+  /** The y the "+Credits" label is drawn at, or undefined when none is. */
+  const labelY = (p: Pitch) => {
+    const { ctx, calls } = recorder()
+    p.draw(ctx)
+    const i = calls.findIndex((c) => c.fn === 'fillText' && String(c.args[0]).startsWith('+'))
+    return i < 0 ? undefined : (calls[i - 1].args[1] as number)
+  }
+
   it('flashes the Bullseye and floats the Credits up in the shooter\'s colour, for its time', () => {
     const p = new Pitch()
-    p.pass(2, 2)
-    expect(p.passCount).toBe(1)
+    p.credit(2, 2)
+    expect(p.creditCount).toBe(1)
     const { ctx, calls } = recorder()
     p.draw(ctx)
-    expect(calls.filter((c) => c.fn === 'arc' && c.args[2] === rules.boost.bullseye.radius)[0].alpha).toBe(pass.flashAlpha)
+    expect(calls.filter((c) => c.fn === 'arc' && c.args[2] === rules.boost.bullseye.radius)[0].alpha).toBe(credit.flashAlpha)
     expect(calls.filter((c) => c.fn === 'fillText').map((c) => [c.args[0], c.fillStyle])).toContainEqual(['+2', visual.player.colors[2]])
-    p.update((pass.ms - 1) / 1000)
-    expect(p.passCount).toBe(1)
+    p.update((credit.ms - 1) / 1000)
+    expect(p.creditCount).toBe(1)
     p.update(0.002)
-    expect(p.passCount).toBe(0)
+    expect(p.creditCount).toBe(0)
   })
-  it('under reduced motion keeps the flash but floats nothing', () => {
+  it('fades the flash over its time', () => {
+    const p = new Pitch()
+    p.credit(1, 2)
+    p.update(credit.ms / 2000)
+    expect(bullseyeFlash(p)).toBeLessThan(credit.flashAlpha)
+    expect(bullseyeFlash(p)).toBeGreaterThan(visual.pitch.boost.alpha)
+  })
+  it('floats the label up the screen: toward -y for Player 1, +y for Player 2 whose canvas is rotated', () => {
+    for (const [flipped, sign] of [[false, -1], [true, 1]] as const) {
+      const p = new Pitch()
+      p.flipped = flipped
+      p.credit(1, 2)
+      const start = labelY(p)!
+      p.update(credit.ms / 2000)
+      expect(Math.sign(labelY(p)! - start)).toBe(sign)
+      expect(Math.sign(start - rules.halfHeight)).toBe(sign)
+    }
+  })
+  it('clears the pending credits on reset', () => {
+    const p = new Pitch()
+    p.credit(1, 2)
+    p.reset()
+    expect(p.creditCount).toBe(0)
+    expect(bullseyeFlash(p)).toBe(visual.pitch.boost.alpha)
+    expect(labelY(p)).toBeUndefined()
+  })
+  it('under reduced motion keeps the flash (fading) but floats nothing', () => {
     const p = new Pitch()
     p.reduced = true
-    p.pass(1, 2)
-    const { ctx, calls } = recorder()
-    p.draw(ctx)
-    expect(calls.filter((c) => c.fn === 'arc' && c.args[2] === rules.boost.bullseye.radius)[0].alpha).toBe(pass.flashAlpha)
-    expect(calls.filter((c) => c.fn === 'fillText' && String(c.args[0]).startsWith('+'))).toEqual([])
+    p.credit(1, 2)
+    expect(bullseyeFlash(p)).toBe(credit.flashAlpha)
+    p.update(credit.ms / 2000)
+    expect(bullseyeFlash(p)).toBeLessThan(credit.flashAlpha)
+    expect(labelY(p)).toBeUndefined()
   })
 })

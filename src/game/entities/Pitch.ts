@@ -30,21 +30,31 @@ export class Pitch extends Entity {
   /** Reduced motion: no pulse. */
   reduced = false
   private arrivals: { zone: BoostZone; born: number }[] = []
-  private passes: { player: PlayerId; credits: number; born: number }[] = []
+  private credits: { player: PlayerId; credits: number; born: number }[] = []
 
   /** A shot came to rest in a zone: it flashes and a ring grows out from it for `visual.pitch.boost.arrive.ms`. */
   arrive(zone: BoostZone): void {
     this.arrivals.push({ zone, born: this.clock })
   }
 
-  /** The ball entered the Bullseye from outside and earned `player` `credits`: the Bullseye flashes and a "+credits" in their colour floats up from it for `visual.pitch.boost.pass.ms`. */
-  pass(player: PlayerId, credits: number): void {
-    this.passes.push({ player, credits, born: this.clock })
+  /** The ball entered the Bullseye from outside and earned `player` `credits`: the Bullseye flashes and a "+credits" in their colour floats up from it for `visual.pitch.boost.credit.ms`. */
+  credit(player: PlayerId, credits: number): void {
+    this.credits.push({ player, credits, born: this.clock })
   }
 
-  /** Pass-throughs still animating. */
-  get passCount(): number {
-    return this.passes.length
+  /** Credit animations still running. */
+  get creditCount(): number {
+    return this.credits.length
+  }
+
+  /** The alpha of something born at `born` that flashes at `from` and fades out over `ms`. */
+  private fade(from: number, born: number, ms: number): number {
+    return from * (1 - (this.clock - born) / ms)
+  }
+
+  /** Whether something born at `born` is still animating for `ms`. */
+  private alive(born: number, ms: number): boolean {
+    return this.clock - born < ms
   }
 
   /** Arrivals still animating. */
@@ -55,15 +65,15 @@ export class Pitch extends Entity {
   /** A new match: no arrivals, no charge. */
   reset(): void {
     this.arrivals = []
-    this.passes = []
+    this.credits = []
     this.charge = 1
     this.chargeZone = null
   }
 
   override update(dt: number): void {
     super.update(dt)
-    this.arrivals = this.arrivals.filter((a) => this.clock - a.born < visual.pitch.boost.arrive.ms)
-    this.passes = this.passes.filter((p) => this.clock - p.born < visual.pitch.boost.pass.ms)
+    this.arrivals = this.arrivals.filter((a) => this.alive(a.born, visual.pitch.boost.arrive.ms))
+    this.credits = this.credits.filter((c) => this.alive(c.born, visual.pitch.boost.credit.ms))
   }
 
   protected override render(ctx: CanvasRenderingContext2D): void {
@@ -104,7 +114,7 @@ export class Pitch extends Entity {
 
     this.drawBoostLabels(ctx)
     this.drawArrivals(ctx)
-    this.drawPasses(ctx)
+    this.drawCredits(ctx)
 
     // Quarter marks on both sidelines.
     ctx.lineWidth = v.quarter.widthPx * u
@@ -123,12 +133,12 @@ export class Pitch extends Entity {
 
   /** The alpha of the `zone` tint: steady, pulsing slowly (none under reduced motion), stronger while it holds a Charged ball, flashing on an arrival. */
   private zoneAlpha(zone: BoostZone): number {
-    const { alpha, litAlpha, pulse, arrive, pass } = visual.pitch.boost
+    const { alpha, litAlpha, pulse, arrive, credit } = visual.pitch.boost
     const swing = this.reduced ? 0 : pulse.alphaSwing * Math.sin((2 * Math.PI * this.clock) / pulse.periodMs)
     const lit = isCharged(this.charge) && this.chargeZone === zone
-    const flash = this.arrivals.reduce((a, r) => (r.zone === zone ? Math.max(a, arrive.flashAlpha * (1 - (this.clock - r.born) / arrive.ms)) : a), 0)
-    const passed = zone === 'bullseye' ? this.passes.reduce((a, p) => Math.max(a, pass.flashAlpha * (1 - (this.clock - p.born) / pass.ms)), 0) : 0
-    return Math.max(lit ? litAlpha : alpha + swing, flash, passed)
+    const flash = this.arrivals.reduce((a, r) => (r.zone === zone ? Math.max(a, this.fade(arrive.flashAlpha, r.born, arrive.ms)) : a), 0)
+    const credited = zone === 'bullseye' ? this.credits.reduce((a, c) => Math.max(a, this.fade(credit.flashAlpha, c.born, credit.ms)), 0) : 0
+    return Math.max(lit ? litAlpha : alpha + swing, flash, credited)
   }
 
   /** The Boost ring's disc, then the Bullseye's over it, each tinted its own colour. */
@@ -171,14 +181,15 @@ export class Pitch extends Entity {
     ctx.globalAlpha = 1
   }
 
-  /** Each pass-through's "+Credits", rising from the Bullseye in the shooter's colour and fading; none under reduced motion (the flash stays). */
-  private drawPasses(ctx: CanvasRenderingContext2D): void {
+  /** Each credit's "+Credits", rising from the Bullseye in the shooter's colour and fading (up the screen, so down the canvas for Player 2); none under reduced motion (the flash stays). */
+  private drawCredits(ctx: CanvasRenderingContext2D): void {
     if (this.reduced) return
-    const { pass } = visual.pitch.boost
+    const { credit } = visual.pitch.boost
     const at = centreSpot()
-    for (const p of this.passes) {
-      const t = (this.clock - p.born) / pass.ms
-      drawLabel(ctx, `+${p.credits}`, { x: at.x, y: at.y - rules.boost.bullseye.radius - pass.rise * t }, { size: pass.px * visual.pitch.unit, weight: pass.weight, color: visual.player.colors[p.player], alpha: 1 - t, flipped: this.flipped })
+    const dir = this.flipped ? 1 : -1
+    for (const c of this.credits) {
+      const t = (this.clock - c.born) / credit.ms
+      drawLabel(ctx, `+${c.credits}`, { x: at.x, y: at.y + dir * (rules.boost.bullseye.radius + credit.rise * t) }, { size: credit.px * visual.pitch.unit, weight: credit.weight, color: visual.player.colors[c.player], alpha: 1 - t, flipped: this.flipped })
     }
   }
 

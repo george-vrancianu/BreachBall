@@ -75,8 +75,8 @@ export const visual = {
       alpha: 0.1, litAlpha: 0.3,
       pulse: { periodMs: 3000, alphaSwing: 0.04 },
       arrive: { ms: 700, grow: 0.6, widthPx: 3, flashAlpha: 0.4 },
-      /** The Bullseye pass-through: the zone flashes and a "+Credits" in the shooter's colour floats up `rise` world units, over `ms`. Reduced motion keeps the flash and drops the float. */
-      pass: { ms: 900, flashAlpha: 0.6, rise: 5, px: 16, weight: 800 },
+      /** The Bullseye Credit: the zone flashes and a "+Credits" in the shooter's colour floats up `rise` world units, over `ms`. Reduced motion keeps the flash and drops the float. */
+      credit: { ms: 900, flashAlpha: 0.6, rise: 5, px: 16, weight: 800 },
       label: { px: 12, alpha: 0.7, weight: 700, ringAt: 0.75, bullseyeAt: 0.55 },
     },
     /** The build-zone edge on the halfway line, drawn during a build in the builder's colour. */

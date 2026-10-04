@@ -12,7 +12,7 @@ import { feedbackFor } from './feedback'
 /** The entities an event batch can reach. Events stop here: entities only see these method calls. */
 export type Targets = { camera: Camera; structures: Structures; ball: Ball; aim: Aim; pitch: Pitch; vibrate: (pattern: number | number[]) => void }
 
-/** Maps a tick's sim events to entity methods: `hit`, `shatter`, `pulse`, `steal`, `shake`, `splash`, `burst`, `pass` (the ball entered the Bullseye, which flashes under reduced motion too), `arrive` and `pop` (a shot came to rest Charged, dropped under reduced motion), `launch`. `objects` is the state after the tick. */
+/** Maps a tick's sim events to entity methods: `hit`, `shatter`, `pulse`, `steal`, `shake`, `splash`, `burst`, `credit` (the ball entered the Bullseye, which flashes under reduced motion too), `arrive` and `pop` (a shot came to rest Charged, dropped under reduced motion), `launch`. `objects` is the state after the tick. */
 export function routeEvents(events: SimEvent[], t: Targets, objects: Structure[], reduced: boolean): void {
   const fb = feedbackFor(events, objects, reduced)
   for (const f of fb.flashes) t.structures.hit(f.wall, f.dim)
@@ -29,7 +29,7 @@ export function routeEvents(events: SimEvent[], t: Targets, objects: Structure[]
     } else if (ev.type === 'shot-fired') {
       t.aim.splash(ev.from, ev.tier, ev.power)
       if (ev.charge) t.ball.launch()
-    } else if (ev.type === 'bullseye') t.pitch.pass(ev.player, ev.credits)
+    } else if (ev.type === 'bullseye-credited') t.pitch.credit(ev.player, ev.credits)
     else if (ev.type === 'charged' && !reduced) (t.pitch.arrive(ev.zone), t.ball.pop())
   }
 }

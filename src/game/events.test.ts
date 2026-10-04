@@ -35,8 +35,8 @@ describe('routeEvents', () => {
   it('a Bullseye pass-through flashes the zone and floats the Credits, also under reduced motion', () => {
     for (const reduced of [false, true]) {
       const w = setup([])
-      w.route([{ type: 'bullseye', player: 1, credits: 2 }], [], reduced)
-      expect(w.pitch.passCount).toBe(1)
+      w.route([{ type: 'bullseye-credited', player: 1, credits: 2 }], [], reduced)
+      expect(w.pitch.creditCount).toBe(1)
     }
   })
 
