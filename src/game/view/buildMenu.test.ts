@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
-import { buildState } from '../../sim/testkit'
+import { buildState, hseg } from '../../sim/testkit'
 import type { WallSpec } from '../../sim/wall'
-import { buildMenu, commit, landed, edgeScrollDy, legal, pick, rotated, spawn, type BuildActions } from './buildMenu'
+import { anchorOf, buildMenu, commit, landed, movedTo, edgeScrollDy, legal, pick, rotated, spawn, type BuildActions } from './buildMenu'
 
 const noop = () => {}
 const actions: BuildActions = { toggle: noop, spawn: noop, confirm: noop, cancel: noop, rotate: noop, remove: noop }
-const wall: WallSpec = { kind: 'wall', owner: 1, shape: 'straight', rotation: 0, at: { gx: 10, gy: 40 } }
+const wall: WallSpec = { kind: 'wall', owner: 1, ...hseg(10, 40) }
 const placed = (): SimState => step(buildState(1), { placeWall: wall }, c).state
 const labels = (s: SimState, v: Parameters<typeof buildMenu>[2]) => {
   const m = buildMenu(s, 1, v, actions)!
@@ -15,9 +15,19 @@ const labels = (s: SimState, v: Parameters<typeof buildMenu>[2]) => {
 
 describe('spawn', () => {
   it('lands at the view centre, clamped to the owner\'s half', () => {
-    expect(spawn('L', 1, 80).spec.at).toEqual({ gx: 10, gy: 40 })
-    expect(spawn('L', 1, 10).spec.at.gy).toBe(27)
+    expect(spawn('wall', 1, 80).spec).toEqual({ kind: 'wall', owner: 1, ...hseg(10, 40) })
+    expect(spawn('wall', 1, 10).spec).toMatchObject({ a: { y: 54 }, b: { y: 54 } })
     expect(spawn('steal', 2, 100).spec).toEqual({ kind: 'tower', owner: 2, power: 'steal', at: { gx: 10, gy: 26 } })
+  })
+})
+
+describe('dragging', () => {
+  it('slides a wall freely, both ends together, and snaps a tower to the grid', () => {
+    expect(movedTo(wall, { x: 21.3, y: 81.7 })).toEqual({ ...wall, a: { x: 21.3, y: 81.7 }, b: { x: 29.3, y: 81.7 } })
+    expect(anchorOf(wall)).toEqual(wall.a)
+    const t = spawn('steal', 1, 80).spec
+    expect(movedTo(t, { x: 21.3, y: 81.7 })).toMatchObject({ at: { gx: 11, gy: 41 } })
+    expect(anchorOf(t)).toEqual({ x: 20, y: 80 })
   })
 })
 
@@ -34,20 +44,20 @@ describe('pick', () => {
 describe('selection', () => {
   it('moving is free; a new piece must be affordable', () => {
     const s = { ...placed(), credits: { 1: 0, 2: 0 } }
-    const spec = { ...wall, at: { gx: 4, gy: 40 } }
+    const spec = { ...wall, ...hseg(4, 40) }
     expect(legal(s, { spec, id: 1, movable: true })).toBe(true)
     expect(legal(s, { spec, movable: true })).toBe(false)
   })
   it('✓ places a new piece or moves a structure; nothing for an older one', () => {
     expect(commit({ spec: wall, movable: true })).toEqual({ placeWall: wall })
-    expect(commit({ spec: rotated({ spec: wall, movable: true }).spec, id: 1, movable: true })).toEqual({ moveStructure: { player: 1, id: 1, at: wall.at, rotation: 1 } })
+    expect(commit({ spec: rotated({ spec: wall, movable: true }).spec, id: 1, movable: true })).toEqual({ moveStructure: { player: 1, id: 1, a: wall.a, b: expect.objectContaining({ x: expect.closeTo(wall.a.x + 8 * Math.SQRT1_2), y: expect.closeTo(wall.a.y + 8 * Math.SQRT1_2) }) } })
     expect(commit({ spec: wall, id: 1, movable: false })).toBeUndefined()
   })
 })
 
 describe('build menu', () => {
   it('lists pieces with costs and stock when nothing is selected', () => {
-    expect(labels(buildState(1), { open: true })).toEqual(['Straight 2', 'L 3', 'Repulsor ×3', 'Steal ×3'])
+    expect(labels(buildState(1), { open: true })).toEqual(['Wall · 2/unit', 'Repulsor ×3', 'Steal ×3'])
   })
   it('a new wall gets Rotate, cancel and confirm; a new tower no Rotate', () => {
     expect(labels(buildState(1), { open: false, selection: { spec: wall, movable: true } })).toEqual(['↻', '✕', '✓'])
@@ -84,9 +94,9 @@ describe('landing', () => {
     expect(landed(buildState(1), { spec: wall, movable: true })).toBe(false)
     expect(landed(s, { spec: wall, movable: true })).toBe(true)
     expect(landed({ ...s, built: [] }, { spec: wall, movable: true })).toBe(false)
-    const moved = { spec: { ...wall, at: { gx: 4, gy: 40 } }, id: 1, movable: true }
+    const moved = { spec: { ...wall, ...hseg(4, 40) }, id: 1, movable: true }
     expect(landed(s, moved)).toBe(false)
-    expect(landed(step(s, { moveStructure: { player: 1, id: 1, at: moved.spec.at, rotation: 0 } }, c).state, moved)).toBe(true)
+    expect(landed(step(s, { moveStructure: { player: 1, id: 1, a: moved.spec.a, b: moved.spec.b } }, c).state, moved)).toBe(true)
     expect(landed(s, rotated({ spec: wall, id: 1, movable: true }))).toBe(false)
   })
   it('✓ waits while a confirmed piece is landing', () => {

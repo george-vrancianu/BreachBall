@@ -290,6 +290,6 @@ To test once implemented:
 - Point-generating tower and a tower that throws the ball in a chosen direction.
 - Earned power-ups (one per goal) if fixed allotments make matches feel samey.
 - Pickups spawned on the pitch.
-- Diagonal walls and additional shapes.
+- Wall shapes beyond straight segments (curves, free angles and lengths).
 - Realtime simultaneous play.
 - Pinch zoom, frame interpolation on high-refresh screens, sound.

@@ -4,6 +4,7 @@ import { defaultSettings } from '../sim/settings'
 import { LocalDriver, type Driver } from './driver'
 import type { Structure } from '../sim/wall'
 import { Game, type HudView } from './Game'
+import { hseg } from '../sim/testkit'
 
 // No DOM in the test run: a canvas that is an EventTarget, a window that is one, a context that swallows every call.
 class FakeCanvas extends EventTarget {
@@ -177,7 +178,7 @@ describe('Game', () => {
     expect(calls).toEqual(['start'])
     frame(performance.now())
     expect(calls).toContain('update')
-    game.actions.build.spawn('straight')
+    game.actions.build.spawn('wall')
     game.actions.build.confirm()
     expect(calls).toContain('send placeWall')
     game.destroy()
@@ -185,7 +186,7 @@ describe('Game', () => {
 
   it('routes a tick\'s destroy events before syncing structures, so a destroyed wall shatters instead of being dropped', () => {
     const game = make()
-    const wall: Structure = { id: 99, kind: 'wall', owner: 1, shape: 'straight', rotation: 0, at: { gx: 10, gy: 40 }, hp: 3 }
+    const wall: Structure = { id: 99, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 }
     game.apply({ ...game.state, objects: [wall] }, [])
     expect(game.structures.count).toBe(1)
     game.apply({ ...game.state, objects: [] }, [{ type: 'wall-destroyed', wall: { ...wall, hp: 0 }, at: { x: 20, y: 40 } }])

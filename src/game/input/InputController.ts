@@ -3,9 +3,8 @@ import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
 import { canArm, canPlaceBall } from '../../sim/possession'
 import type { Aiming, SimConfig, SimInput, SimState } from '../../sim/step'
-import { vertexToWorld } from '../../sim/wall'
 import { screenDown, type Camera } from '../entities/Camera'
-import { commit, edgeScrollDy, landed, legal, onPiece, pick, rotated, spawn, type BuildActions, type Piece, type Selection } from '../view/buildMenu'
+import { anchorOf, commit, edgeScrollDy, landed, legal, movedTo, onPiece, pick, rotated, spawn, type BuildActions, type Piece, type Selection } from '../view/buildMenu'
 import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, type AimGesture, type GestureView } from './gesture'
 
 /** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
@@ -184,13 +183,13 @@ export class InputController {
     this.dragTo(this.drag.px, this.drag.py)
   }
 
-  // Drags keep the grab point under the finger and snap the anchor to the grid.
+  // Drags keep the grab point under the finger; a wall slides freely, a tower snaps to the grid.
   private dragTo(px: number, py: number): void {
     const { drag, selection } = this
     if (!drag || !selection) return
     const p = this.pxToWorld(px, py)
     this.drag = { ...drag, px, py, moved: drag.moved || Math.hypot(px - drag.from.x, py - drag.from.y) > visual.input.dragSlopPx }
-    this.selection = { ...selection, spec: { ...selection.spec, at: { gx: Math.round((p.x - drag.offset.x) / rules.cellSize), gy: Math.round((p.y - drag.offset.y) / rules.cellSize) } } }
+    this.selection = { ...selection, spec: movedTo(selection.spec, { x: p.x - drag.offset.x, y: p.y - drag.offset.y }) }
   }
 
   private panBy(dyPx: number): void {
@@ -269,7 +268,7 @@ export class InputController {
       if (!this.selection) this.selection = pick(state, builder, at, tolerance)
       const sel = this.selection
       if (sel?.movable && onPiece(sel.spec, at, tolerance)) {
-        const anchor = vertexToWorld(sel.spec.at)
+        const anchor = anchorOf(sel.spec)
         this.drag = { offset: { x: at.x - anchor.x, y: at.y - anchor.y }, px: e.offsetX, py: e.offsetY, id: e.pointerId, from: { x: e.offsetX, y: e.offsetY }, moved: false }
         canvas.setPointerCapture(e.pointerId)
       } else this.panOnly = true
