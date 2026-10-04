@@ -3,10 +3,10 @@ import type { PlayerId } from '../../sim/pitch'
 import { opponent, whoActs } from '../../sim/possession'
 import { canCast, canSubterfuge, SUBTERFUGE, type SimState, type SubterfugeItem } from '../../sim/step'
 
-/** One Subterfuge item in the circle's column: `when` is what its pill says about when it lands; `disabled` greys it (no Credits, one already queued, or not built yet, `soon`). */
+/** One Subterfuge item in the circle's column: `name` is the short name on its dock tile and `badge` its Credit price; `when` is what its pill says about when it lands; `disabled` greys it (no Credits, one already queued, or not built yet, `soon`). */
 export type SubterfugeSpec =
-  | { item: SubterfugeItem; label: string; when: string; disabled: boolean; soon?: false }
-  | { item: SoonSlot; label: string; when: string; disabled: true; soon: true }
+  | { item: SubterfugeItem; label: string; name: string; badge: string; when: string; disabled: boolean; soon?: false }
+  | { item: SoonSlot; label: string; name: string; when: string; disabled: true; soon: true }
 
 /** The column's placeholders for items not built yet. */
 export type SoonSlot = 'soon1' | 'soon2'
@@ -26,9 +26,9 @@ export function subterfugeCircle(s: SimState, viewer: PlayerId, v: { /** A block
   })
   return {
     items: [
-      { item: 'jam', label: `Jam · ${SUBTERFUGE.jam.cost}`, when: 'next possession', disabled: !canCast(s, viewer, 'jam') },
-      { item: 'soon1', label: 'Soon', when: '', disabled: true, soon: true },
-      { item: 'soon2', label: 'Soon', when: '', disabled: true, soon: true },
+      { item: 'jam', label: `Jam · ${SUBTERFUGE.jam.cost}`, name: 'Jam', badge: String(SUBTERFUGE.jam.cost), when: 'next possession', disabled: !canCast(s, viewer, 'jam') },
+      { item: 'soon1', label: 'Soon', name: 'Soon', when: '', disabled: true, soon: true },
+      { item: 'soon2', label: 'Soon', name: 'Soon', when: '', disabled: true, soon: true },
     ],
     // Outside the viewer's own turn (or with this turn's Subterfuge already bought) the circle opens greyed out.
     available: whoActs(s) === viewer && v.mine(viewer) && !v.blocked && canSubterfuge(s, viewer),

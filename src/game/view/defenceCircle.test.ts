@@ -12,8 +12,8 @@ const noop = () => {}
 const actions: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'> = { cancel: noop, rotate: noop, remove: noop }
 const wall: WallSpec = { kind: 'wall', owner: 1, ...hseg(10, 40) }
 const placed = (): SimState => step(buildState(1), { placeWall: wall }, c).state
-const labels = (s: SimState, v: Partial<Parameters<typeof defenceCircle>[2]>) => {
-  return menuOf(s, 1, v, actions).selection?.buttons.map((b) => b.label)
+const controls = (s: SimState, v: Partial<Parameters<typeof defenceCircle>[2]>) => {
+  return menuOf(s, 1, v, actions).selection?.buttons.map((b) => b.action)
 }
 
 describe('towerAt', () => {
@@ -176,12 +176,16 @@ describe('Defence circle', () => {
     expect(m.selection).toBeUndefined()
   })
   it('a new wall gets Rotate and cancel; a new tower only cancel', () => {
-    expect(labels(buildState(1), { selection: { spec: wall, movable: true } })).toEqual(['↻', '✕'])
-    expect(labels(buildState(1), { selection: { spec: towerAt('steal', 1, { x: 20, y: 80 }), movable: true } })).toEqual(['✕'])
+    expect(controls(buildState(1), { selection: { spec: wall, movable: true } })).toEqual(['rotate', 'deselect'])
+    expect(controls(buildState(1), { selection: { spec: towerAt('steal', 1, { x: 20, y: 80 }), movable: true } })).toEqual(['deselect'])
   })
   it('a placed structure also gets the bin; an older one only bin and cancel', () => {
-    expect(labels(placed(), { selection: { spec: wall, id: 1, movable: true } })).toEqual(['🗑', '↻', '✕'])
-    expect(labels(placed(), { selection: { spec: wall, id: 1, movable: false } })).toEqual(['🗑', '✕'])
+    expect(controls(placed(), { selection: { spec: wall, id: 1, movable: true } })).toEqual(['demolish', 'rotate', 'deselect'])
+    expect(controls(placed(), { selection: { spec: wall, id: 1, movable: false } })).toEqual(['demolish', 'deselect'])
+  })
+  it('names each control by what it does', () => {
+    const m = menuOf(placed(), 1, { selection: { spec: wall, id: 1, movable: true } }, actions)
+    expect(m.selection?.buttons.map((b) => [b.action, b.label])).toEqual([['demolish', 'Demolish'], ['rotate', 'Rotate'], ['deselect', 'Deselect']])
   })
 })
 
@@ -262,6 +266,6 @@ describe('rearrange turn', () => {
     expect(menuOf(s, 1, {}, actions)).toMatchObject({ available: false, building: false })
     const sel = pick(s, 1, { x: 21, y: 80.5 }, 1)!
     expect(sel.movable).toBe(true)
-    expect(labels(s, { selection: sel })).toEqual(['↻', '✕'])
+    expect(controls(s, { selection: sel })).toEqual(['rotate', 'deselect'])
   })
 })
