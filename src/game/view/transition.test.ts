@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { visual } from '../../config/visual'
-import { advance, angle, blocking, choosingNotice, goalBall, handedOver, hudAngle, newTransition, overlayView, reorient, revealing, type Frame, type Transition } from './transition'
+import { advance, angle, blocking, choosingNotice, facing, goalBall, handedOver, seatAngle, newTransition, overlayView, reorient, revealing, type Frame, type Transition } from './transition'
 
 const base: Frame = { tabletop: false, active: 1, phase: 'Play', events: [], now: 0 }
 /** A new match with Tabletop mode off: the stage turns at each handover. */
@@ -243,7 +243,7 @@ describe('Tabletop mode on (hot-seat, the default)', () => {
     expect([t.shown, t.hudSeat]).toEqual([1, 2])
     expect(overlayView(t, 0)).toBeUndefined()
   })
-  it('turning it off mid-match applies at the next handover, not before', () => {
+  it('advance alone: turning it off mid-match takes effect at the next handover', () => {
     let t = settled(true)
     t = go(t, { now: 1100, tabletop: false })
     expect(t.flip).toBeUndefined()
@@ -251,7 +251,7 @@ describe('Tabletop mode on (hot-seat, the default)', () => {
     t = go(t, { now: 2000, active: 2, tabletop: false })
     expect(t.flip).toMatchObject({ from: 1, to: 2 })
   })
-  it('turning it on while the stage is turned applies at the next handover, which turns back once', () => {
+  it('advance alone: turning it on while the stage is turned takes effect at the next handover, which turns back once', () => {
     let t = go(settled(false), { now: 2000, active: 2 })
     t = go(t, { now: 2400, active: 2 })
     expect(t.shown).toBe(2)
@@ -271,11 +271,21 @@ describe('orientation of the layers', () => {
   it('turns the HUD to the HUD seat in tabletop, and with the stage otherwise', () => {
     const tabletop = go(go(newTransition(1, true), { tabletop: true, active: 2 }), { tabletop: true, active: 2, now: 400 })
     expect([tabletop.shown, tabletop.hudSeat]).toEqual([1, 2])
-    expect(hudAngle(tabletop)).toBe(180)
+    expect(seatAngle(tabletop)).toBe(180)
     const flipped = go(go(fresh(1), { active: 2 }), { active: 2, now: 400 })
     expect([flipped.shown, flipped.hudSeat]).toEqual([2, 2])
-    expect(hudAngle(flipped)).toBe(180)
-    expect(hudAngle(fresh(1))).toBe(0)
+    expect(seatAngle(flipped)).toBe(180)
+    expect(seatAngle(fresh(1))).toBe(0)
+  })
+})
+
+describe('facing', () => {
+  const across: Transition = { shown: 1, hudSeat: 2 }
+  it('hot-seat follows the HUD seat, so Player 2 kicking off is laid out for seat 2', () => {
+    expect(facing(across, true)).toBe(2)
+  })
+  it('online stays on the bottom seat even when Player 2 has the turn: online is unaffected by Tabletop mode', () => {
+    expect(facing(across, false)).toBe(1)
   })
 })
 
