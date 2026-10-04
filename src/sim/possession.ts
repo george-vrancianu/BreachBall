@@ -7,10 +7,6 @@ import type { Structure } from './wall'
 /** `live`: a shot has been fired and the ball has not come to rest yet. */
 export type Possession = { shooter: PlayerId; shots: number; inHand: boolean; live: boolean }
 
-/** The Breaker icon works only for the shooter's own play phase, before the shot, with one left. */
-export const canArm = (s: SimState, p: PlayerId): boolean =>
-  !s.match.builder && s.possession.shooter === p && !s.possession.inHand && !s.possession.live && s.players[p].inventory.breaker > 0
-
 /** Who is expected to act: the builder during a build turn, else whoever owes a defence choice, else the shooter. */
 export const whoActs = (s: SimState): PlayerId => s.match.builder ?? s.match.choosing ?? s.possession.shooter
 

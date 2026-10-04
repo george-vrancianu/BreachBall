@@ -163,13 +163,14 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 
 ## Power-ups (milestone 2)
 
-- Each player starts the match with 3 of each power-up. No economy. Counts are visible to both players.
+- Towers (Repulsor, Steal): each player starts the match with 3 of each. Counts are visible to both players. The Breaker is not stocked in Rounds: it is bought with Credits (below). Siege has no Credits economy and keeps 3 Breakers each.
 - Towers follow the wall placement rules: own half only, outside the goal no-build zones and the Centre zone, persistent across rounds, placed in the build phase by appearing under the finger once it moves (or on a tap), following the drag and placing on lift. They cost 0 Credits; the power-up is the cost.
 
 ### Breaker shot (play phase)
 
-- Tap the Breaker icon to arm, then shoot as normal (any tier). A cancelled aim disarms without consuming it.
-- Consumed when the Shot fires (also when the shot clock fires it), whether or not the ball hits anything.
+- The Offence circle (⚡, first of the two circles in the bottom row, beside the Defence circle) opens a column: `Breaker · 2` (its price in Credits, `rules.breakerCost`) and one locked "Overdrive · soon" item. Tap the circle to open or close the column; tap the Breaker to arm it (tap it again to disarm), then shoot as normal (any tier). Outside your own possession (the other seat's possession, a build turn, a pending defence choice) the circle is greyed and the column still opens, with every item greyed.
+- Arming is refused when the Credits are short, and the Breaker greys out in the column. Nothing is charged for arming: the 2 Credits are charged when the Shot fires (also when the shot clock fires it), whether or not the ball hits anything. A cancelled aim disarms with nothing charged. The sim refuses an armed shot the shooter cannot pay for.
+- Siege has no Credits economy, so its Breaker keeps today's rules: a stock of 3 each, one consumed when the Shot fires, and the column's item reads `Breaker · N left`.
 - The ball destroys the first wall or tower it touches, including your own, then continues at full speed.
 - A Steal tower hit by a Breaker is destroyed without triggering.
 - The Breaker and the Splash are separate mechanics: a Power shot with Breaker armed still splashes as usual.
@@ -223,7 +224,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 - Destruction: the wall splits into cell-sized fragments that fly from the impact point, spin and fade over 400 ms.
 - Repulsor: square with two concentric rings. On fire the rings burst outward, the tower glows for 300 ms and the ball's trail brightens for 0.5 s. Drawn dimmed once spent for the shot.
 - Steal: square with a vortex glyph. On trigger the ball shrinks into the tower center over 300 ms and vanishes, then the tower collapses like a destroyed wall.
-- Breaker armed: HUD icon highlighted and a pulsing outline on the ball in the shooter's colour. On break, double particles, no speed loss.
+- Breaker armed: the Offence circle fills with the shooter's colour, and a pulsing outline on the ball in the shooter's colour. On break, double particles, no speed loss.
 
 ### Placement previews and buttons
 
@@ -241,7 +242,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 ### HUD
 
 - React components in `src/ui` take data and callbacks and never import the sim; `Game` pushes a view up and the HUD drives it through an actions handle.
-- All in-match controls sit in one shell at the bottom of the screen and show only the active viewer: the Defence circle (greyed on the other player's build turn), Confirm (ball-in-hand) and the map's Stretch and Close when due; the phase row (Done in your build turn, disabled while the mode would refuse it or a build piece is unplaced; Repair and Rearrange for a scorer owing a defence choice); round as "ROUND 2 / 5" (Rounds only); the clock (the shot clock in play, the build window in a build turn or a pending defence choice, "-" when no clock runs); shots remaining; the phase label (Build, Rearrange or Play; "Placing wall", "Placing Repulsor" or "Placing Steal" while a build piece is drawn or unplaced); the map and recenter buttons; each side's structure count or score (Siege: the remaining structure count; "?" for a hidden opponent); and the viewer's three power-up icons with counts (Breaker tappable only during your own play phase; dimmed to outlines while the Defence circle's piece column is open).
+- All in-match controls sit in one shell at the bottom of the screen and show only the active viewer: the Offence circle (greyed outside your own possession; filled while the Breaker is armed) and the Defence circle (greyed on the other player's build turn), Confirm (ball-in-hand) and the map's Stretch and Close when due; the phase row (Done in your build turn, disabled while the mode would refuse it or a build piece is unplaced; Repair and Rearrange for a scorer owing a defence choice); round as "ROUND 2 / 5" (Rounds only); the clock (the shot clock in play, the build window in a build turn or a pending defence choice, "-" when no clock runs); shots remaining; the phase label (Build, Rearrange or Play; "Placing wall", "Placing Repulsor" or "Placing Steal" while a build piece is drawn or unplaced); the map and recenter buttons; each side's structure count or score (Siege: the remaining structure count; "?" for a hidden opponent); and the viewer's two tower power-up icons (Repulsor, Steal) with counts, dimmed to outlines while either circle's column is open.
 - The shell sits inside the rotating stage, so the HUD turns with the flip and the active player's controls are always at the bottom of the screen.
 - Overlays (turn card, GOAL, sweeps, REVEAL, "Opponent is choosing") are their own layer, also inside the stage.
 
