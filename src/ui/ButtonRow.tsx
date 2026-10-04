@@ -4,6 +4,9 @@ import type { ButtonSpec } from '../game/view/hudModel'
 
 export const FONT: CSSProperties = { font: `700 14px ${visual.hud.font}`, textTransform: 'uppercase', fontVariantNumeric: 'tabular-nums' }
 
+/** A ghost circle button: a `px` circle with a ghost border and glyph, no fill. The Title screen's Settings and Help, and the in-match ☰. */
+export const ghostCircle = (px: number): CSSProperties => ({ ...FONT, width: px, height: px, borderRadius: '50%', border: `2px solid ${visual.tokens.ghostBorder}`, background: 'transparent', color: visual.tokens.ghostGlyph, fontSize: visual.sideMenu.glyphPx, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer' })
+
 type Look = { className?: string; style?: CSSProperties; children?: ReactNode }
 
 /** One button of the flat style; `pressed` marks a toggle that is on. */

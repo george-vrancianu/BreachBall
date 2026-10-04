@@ -15,7 +15,7 @@ class FakeCanvas extends EventTarget {
   clientWidth = 400
   clientHeight = 640
   style = { cursor: '' }
-  setPointerCapture() {}
+  setPointerCapture(_id?: number) {}
 }
 
 let canvas: FakeCanvas
@@ -25,9 +25,11 @@ let sent: SimInput[]
 let pending: SimInput[]
 let ctl: InputController
 let keydown: (e: unknown) => void
+let menu: { open: boolean; opened: number }
 
 const make = (s: SimState, mine: (p: PlayerId) => boolean = () => true) => {
   state = s
+  menu = { open: false, opened: 0 }
   sent = []
   pending = []
   canvas = new FakeCanvas()
@@ -43,6 +45,8 @@ const make = (s: SimState, mine: (p: PlayerId) => boolean = () => true) => {
     mapOpen: () => false,
     blocked: () => false,
     toggleMap() {},
+    menuOpen: () => menu.open,
+    openMenu: () => void (menu.opened++),
     send: (i) => void (sent.push(i), pending.push(i)),
   })
 }
@@ -1224,6 +1228,133 @@ describe('the press model', () => {
       drag(at, { x: 24, y: 70 })
       expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 20, y: 70 }, b: { x: 28, y: 70 } } }])
     })
+  })
+})
+
+describe('the Side menu edge swipe', () => {
+  /** Nobody builds: the shooter either has the ball in hand or can aim. */
+  const playing = (inHand: boolean): SimState => {
+    const s = initialState(1, c)
+    return { ...s, match: { ...s.match, builder: null, choosing: null }, possession: { ...s.possession, inHand } }
+  }
+  // Canvas-local px, as the viewer sees them: the stage turns with the flip, so the left edge is always x = 0.
+  const at = (type: string, x: number, y: number, id = 1, extra: object = {}) => canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: x, offsetY: y, clientX: x, clientY: y, pointerId: id, pointerType: 'touch', button: 0, ...extra }))
+
+  it('opens on a swipe in from the left edge', () => {
+    at('pointerdown', 5, 300)
+    at('pointermove', 20, 300)
+    expect(menu.opened).toBe(0)
+    at('pointermove', 60, 305)
+    at('pointerup', 60, 305)
+    expect(menu.opened).toBe(1)
+  })
+
+  it('does not open from a press further in, or a vertical drag along the edge', () => {
+    at('pointerdown', 40, 300)
+    at('pointermove', 120, 300)
+    at('pointerup', 120, 300)
+    at('pointerdown', 5, 300)
+    at('pointermove', 8, 400)
+    at('pointerup', 8, 400)
+    expect(menu.opened).toBe(0)
+  })
+
+  it('does not pan the camera', () => {
+    const y = camera.y
+    at('pointerdown', 5, 300)
+    at('pointermove', 30, 400)
+    at('pointermove', 60, 420)
+    at('pointerup', 60, 420)
+    expect(camera.y).toBe(y)
+  })
+
+  it('does not start a piece drag in a build turn', () => {
+    ctl.build.toggle()
+    at('pointerdown', 5, 300)
+    at('pointermove', 30, 300)
+    at('pointermove', 90, 300)
+    at('pointerup', 90, 300)
+    expect(ctl.selection).toBeUndefined()
+    expect(sent).toEqual([])
+  })
+
+  it('does not start an aim, even on the ball', () => {
+    make(initialState(1, c))
+    const ball = camera.toCanvas(canvas as unknown as HTMLCanvasElement, state.ball.pos)
+    // Put the ball under the edge zone by panning is not needed: a press at x = 5 can only be an aim if the ball is there, so check the gesture never forms.
+    at('pointerdown', 5, ball.y)
+    at('pointermove', 30, ball.y)
+    at('pointermove', 90, ball.y)
+    expect(ctl.aimView()).toBeUndefined()
+    at('pointerup', 90, ball.y)
+    expect(sent).toEqual([])
+  })
+
+  it('ignores a second finger while the edge press is down', () => {
+    const y = camera.y
+    at('pointerdown', 5, 300)
+    at('pointerdown', 200, 300, 2)
+    at('pointermove', 200, 400, 2)
+    expect(camera.y).toBe(y)
+  })
+
+  it('ignores the board while the menu is open: no edge press, no keys', () => {
+    ctl.build.toggle()
+    drag({ x: 20, y: 60 }, { x: 20, y: 60 - unit })
+    expect(ctl.selection).toBeDefined()
+    menu.open = true
+    at('pointerdown', 5, 300)
+    at('pointermove', 90, 300)
+    expect(menu.opened).toBe(0)
+    key('escape')
+    expect(ctl.selection).toBeDefined()
+  })
+
+  it('a cancelled edge press never opens it', () => {
+    at('pointerdown', 5, 300)
+    at('pointercancel', 5, 300)
+    at('pointermove', 90, 300)
+    expect(menu.opened).toBe(0)
+  })
+
+  it('a mouse released off the canvas leaves no stuck press: later presses work and hovering inward opens nothing', () => {
+    // The press is captured, so the release off the canvas is still delivered to it; and even if it were lost, a move with no button held ends it.
+    at('pointerdown', 5, 300, 1, { pointerType: 'mouse', buttons: 1 })
+    at('pointermove', 20, 300, 1, { pointerType: 'mouse', buttons: 0 })
+    at('pointermove', 90, 300, 1, { pointerType: 'mouse', buttons: 0 })
+    expect(menu.opened).toBe(0)
+    ctl.build.toggle()
+    drag({ x: 20, y: 60 }, { x: 20, y: 60 - unit })
+    expect(ctl.selection).toBeDefined()
+  })
+
+  it('captures the pointer on an edge press', () => {
+    const captured: number[] = []
+    canvas.setPointerCapture = (id: number) => void captured.push(id)
+    at('pointerdown', 5, 300, 7)
+    expect(captured).toEqual([7])
+  })
+
+  it('a tap in the edge strip with no swipe reaches the board as a normal press', () => {
+    make(playing(true))
+    at('pointerdown', 6, 300)
+    at('pointerup', 6, 300)
+    expect(menu.opened).toBe(0)
+    expect(ctl.placement).toBeDefined()
+  })
+
+  it('dropLive drops the aim and keeps a ball-in-hand placement; cancelGestures drops both', () => {
+    make(playing(false))
+    const ball = camera.toCanvas(canvas as unknown as HTMLCanvasElement, state.ball.pos)
+    at('pointerdown', ball.x, ball.y)
+    ctl.tickAim()
+    expect(ctl.aimView()).toBeDefined()
+    ctl.placement = { x: 1, y: 2 }
+    ctl.dropLive()
+    expect(ctl.aimView()).toBeUndefined()
+    expect(ctl.placement).toEqual({ x: 1, y: 2 })
+    ctl.cancelGestures()
+    expect(ctl.placement).toBeUndefined()
   })
 })
 
