@@ -184,7 +184,7 @@ describe('drawing a wall', () => {
     expect(sent).toEqual([])
     ctl.build.rotate()
     ctl.build.rotate()
-    expect(sent).toHaveLength(1)
+    expect(sent).toEqual([{ placeWall: { kind: 'wall', owner: 1, a: { x: 20, y: 62 }, b: { x: 28, y: 62 } } }])
   })
 
   it('discards an unplaced piece on a tap on empty pitch', () => {
@@ -279,6 +279,65 @@ describe('towers', () => {
   })
 })
 
+describe('drawing details', () => {
+  beforeEach(() => ctl.build.toggle())
+
+  it('a draw of exactly half a unit places a one-unit wall', () => {
+    drag({ x: 10, y: 80 }, { x: 10 + unit / 2, y: 80 })
+    expect(sent).toEqual([{ placeWall: { kind: 'wall', owner: 1, a: { x: 10, y: 80 }, b: { x: 10 + unit, y: 80 } } }])
+  })
+
+  it('toggling Build mid-draw sends nothing and ends the draw', () => {
+    down({ x: 10, y: 80 })
+    move({ x: 10 + unit, y: 80 })
+    ctl.build.toggle()
+    up({ x: 10 + unit, y: 80 })
+    expect(sent).toEqual([])
+    expect(ctl.selection).toBeUndefined()
+    move({ x: 10 + 2 * unit, y: 80 })
+    expect(ctl.selection).toBeUndefined()
+  })
+
+  it('a refused landing clears and leaves no selection', () => {
+    drag({ x: 10, y: 80 }, { x: 10 + unit, y: 80 })
+    expect(ctl.landing).toBeDefined()
+    ctl.settle(state, true)
+    expect(ctl.landing).toBeUndefined()
+    expect(ctl.selection).toBeUndefined()
+  })
+
+  it('edge scroll while drawing moves the end without a pointer move', () => {
+    down({ x: 10, y: 90 })
+    move({ x: 10, y: 90 + unit })
+    const before = (ctl.selection!.spec as { b: Point }).b
+    // Park the pointer in the lower edge band of the view, off the builder's visible half edge.
+    const view = camera.view(canvas as unknown as HTMLCanvasElement)
+    const bottom = camera.y + view.visibleHeight / 2
+    const at = { x: 10, y: bottom - 0.5 }
+    move(at)
+    camera.pan(-5)
+    const y = camera.y
+    ctl.edgeScroll(0.1)
+    expect(camera.y).not.toBe(y)
+    expect((ctl.selection?.spec as { b: Point } | undefined)?.b).not.toEqual(before)
+  })
+
+  it('rotating a placed wall in a Rearrange turn emits one move with the rotated end', () => {
+    const siege = { ...c, mode: 'siege' as const }
+    const base = initialState(1, siege)
+    make({ ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: [{ id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 } as Structure], built: [1] })
+    down({ x: 24, y: 80 })
+    up({ x: 24, y: 80 })
+    expect(ctl.selection).toMatchObject({ id: 1 })
+    ctl.build.rotate()
+    expect(sent).toHaveLength(1)
+    const m = (sent[0] as { moveStructure: { a: Point; b: Point } }).moveStructure
+    expect(m.a).toEqual({ x: 20, y: 80 })
+    expect(m.b.x).toBeCloseTo(20 + unit / Math.SQRT2)
+    expect(m.b.y).toBeCloseTo(80 + unit / Math.SQRT2)
+  })
+})
+
 describe('tower stock', () => {
   it('arm ignores a tower with no stock', () => {
     make(emptied(buildState(1), 1, 'steal'))
@@ -298,6 +357,18 @@ describe('tower stock', () => {
     expect(sent).toHaveLength(1)
     tick()
     expect(ctl.item).toBe('wall')
+  })
+
+  it('an illegal tower, then a drag to a legal cell, places it there', () => {
+    ctl.build.toggle()
+    ctl.build.arm('steal')
+    down({ x: 20, y: 40 })
+    up({ x: 20, y: 40 })
+    expect(sent).toEqual([])
+    down({ x: 20, y: 40 })
+    move({ x: 20.9, y: 80.9 })
+    up({ x: 20.9, y: 80.9 })
+    expect(sent).toEqual([{ placeWall: { kind: 'tower', owner: 1, power: 'steal', at: { gx: 10, gy: 40 } } }])
   })
 
   it('a cancelled tower press leaves nothing', () => {

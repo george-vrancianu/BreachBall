@@ -3,7 +3,7 @@ import { visual } from '../../config/visual'
 import { defaultConfig } from '../../sim/step'
 import { playState, hseg } from '../../sim/testkit'
 import type { Structure } from '../../sim/wall'
-import { Structures } from './Structures'
+import { costLabelAt, Structures } from './Structures'
 import { Tower } from './Tower'
 import { Wall } from './Wall'
 
@@ -141,5 +141,18 @@ describe('Structures reset', () => {
     s.sync([tower(1)])
     expect(s.get(1)).toBeInstanceOf(Tower)
     expect(s.particleCount).toBe(0)
+  })
+})
+
+describe('costLabelAt', () => {
+  const w = { kind: 'wall' as const, owner: 1 as const, a: { x: 10, y: 80 }, b: { x: 18, y: 80 } }
+  it('sits off the wall along its normal, on the other side when flipped', () => {
+    expect(costLabelAt(w, 1.4, false)).toEqual({ x: 14, y: 81.4 })
+    expect(costLabelAt(w, 1.4, true)).toEqual({ x: 14, y: 78.6 })
+  })
+  it('follows a vertical wall\'s normal', () => {
+    const p = costLabelAt({ ...w, b: { x: 10, y: 88 } }, 1, false)
+    expect(p.x).toBeCloseTo(9)
+    expect(p.y).toBeCloseTo(84)
   })
 })

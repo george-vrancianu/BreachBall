@@ -273,8 +273,8 @@ export class Game implements Sink {
     const { shooter } = state.possession
     const sel = input.selection
     structures.ghost = mapOpen || !sel?.movable ? undefined : sel.spec
-    structures.costLabel = !mapOpen && !!sel?.movable && sel.id === undefined
-    structures.ghostBlocked = !!sel && !legal(state, sel)
+    structures.costLabel = !mapOpen && !!sel?.movable && sel.id === undefined && sel.spec.kind === 'wall'
+    structures.pieceBlocked = !!sel && !legal(state, sel)
     structures.flipped = this.transition.shown === 2
     structures.landing = mapOpen ? undefined : input.landing?.spec
     structures.hidden = mapOpen ? [] : [sel?.movable ? sel.id : undefined, input.landing?.id].filter((id) => id !== undefined)

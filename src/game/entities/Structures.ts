@@ -3,11 +3,20 @@ import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
 import { splashDamage, splashOf } from '../../sim/splash'
 import type { SimConfig, SimState } from '../../sim/step'
-import { isLegal, structureCost, type Structure, type StructureSpec } from '../../sim/wall'
+import { structureCost, type Structure, type StructureSpec } from '../../sim/wall'
 import { Entity } from './Entity'
 import { Fixture, type FixtureData } from './Fixture'
 import { Tower } from './Tower'
 import { Wall } from './Wall'
+
+/** Where the Credit cost reads: `offset` off a wall's midpoint along its unit normal, turned half a revolution with the canvas when it is `flipped`. A tower has no Credit cost, so it sits at its cell's centre. */
+export function costLabelAt(spec: StructureSpec, offset: number, flipped: boolean): Point {
+  if (spec.kind === 'tower') return { x: (spec.at.gx + 0.5) * rules.cellSize, y: (spec.at.gy + 0.5) * rules.cellSize }
+  const [dx, dy] = [spec.b.x - spec.a.x, spec.b.y - spec.a.y]
+  const len = Math.hypot(dx, dy) || 1
+  const sign = flipped ? -1 : 1
+  return { x: (spec.a.x + spec.b.x) / 2 - (sign * offset * dy) / len, y: (spec.a.y + spec.b.y) / 2 + (sign * offset * dx) / len }
+}
 
 type Particle = { at: Point; vel: Point; color: string; born: number }
 
@@ -19,13 +28,13 @@ const make = (d: FixtureData): Fixture => (d.kind === 'tower' ? new Tower(d) : n
  * What flies above the ball and aim (fragments, particles, landing, ghost) is drawn by `fx`, which the game adds to the camera after them.
  */
 export class Structures extends Entity {
-  /** The piece being dragged and a confirmed piece not yet in the sim, drawn half-transparent. */
+  /** The piece being dragged and a placed piece not yet in the sim (the landing one), drawn half-transparent. */
   ghost?: StructureSpec
   landing?: StructureSpec
-  /** The build piece is new (unplaced or being drawn): its Credit cost shows beside its midpoint. */
+  /** The build piece is a new wall (unplaced or being drawn): its Credit cost shows beside its midpoint. Towers spend stock, not Credits, so show none. */
   costLabel = false
   /** The build piece fails the full legality check (the Credit balance too), which the ghost's own geometry check cannot see. */
-  ghostBlocked = false
+  pieceBlocked = false
   /** The canvas is turned for the other seat (hot-seat flip): text is turned back to read upright. */
   flipped = false
   /** Ids stood in for by the ghost or landing piece. */
@@ -95,7 +104,7 @@ export class Structures extends Entity {
     for (const [id, f] of this.fixtures) this.drop(id, f)
     this.particles = []
     this.ghost = this.landing = this.selected = undefined
-    this.costLabel = this.ghostBlocked = false
+    this.costLabel = this.pieceBlocked = false
     this.hidden = []
     this.movable = []
     this.preview = new Map()
@@ -147,7 +156,7 @@ export class Structures extends Entity {
     ctx.restore()
   }
 
-  /** The confirmed piece on its way to the sim, then the one being dragged. */
+  /** The landing piece (placed, on its way to the sim), then the one being dragged. */
   drawPieces(ctx: CanvasRenderingContext2D): void {
     if (this.landing) this.drawGhost(ctx, this.landing, false)
     if (this.ghost) this.drawGhost(ctx, this.ghost, true)
@@ -157,15 +166,15 @@ export class Structures extends Entity {
   /** The piece's Credit cost beside its midpoint, red where it cannot be placed. */
   private drawCost(ctx: CanvasRenderingContext2D, spec: StructureSpec): void {
     const { size, offset } = visual.wall.cost
-    const mid = spec.kind === 'wall' ? { x: (spec.a.x + spec.b.x) / 2, y: (spec.a.y + spec.b.y) / 2 } : { x: (spec.at.gx + 0.5) * rules.cellSize, y: (spec.at.gy + 0.5) * rules.cellSize }
+    const at = costLabelAt(spec, offset, this.flipped)
     ctx.save()
-    ctx.translate(mid.x, mid.y)
+    ctx.translate(at.x, at.y)
     if (this.flipped) ctx.rotate(Math.PI)
     ctx.font = `700 ${size}px ${visual.hud.font}`
-    ctx.textAlign = 'left'
+    ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = this.ghostBlocked ? visual.wall.illegal : visual.hud.ink
-    ctx.fillText(String(structureCost(spec)), offset, 0)
+    ctx.fillStyle = this.pieceBlocked ? visual.wall.illegal : visual.hud.ink
+    ctx.fillText(String(structureCost(spec)), 0, 0)
     ctx.restore()
   }
 
@@ -174,13 +183,8 @@ export class Structures extends Entity {
     f.clock = this.clock
     f.alpha = visual.wall.ghostAlpha
     f.selected = selected
-    if (selected && (this.ghostBlocked || !isLegal(spec, this.standing()))) f.tint = visual.wall.illegal
+    if (selected && this.pieceBlocked) f.tint = visual.wall.illegal
     f.draw(ctx)
-  }
-
-  /** The structures a ghost has to fit among: everything in the sim except what it stands in for. */
-  private standing(): StructureSpec[] {
-    return [...this.fixtures].filter(([id, f]) => !this.hidden.includes(id) && !f.isShattering).map(([, f]) => f.data)
   }
 }
 

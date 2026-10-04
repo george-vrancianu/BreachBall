@@ -28,8 +28,11 @@ export function snapStart(s: Pick<SimState, 'objects'>, at: Point, radius: numbe
   return best ? { x: best.p.x, y: best.p.y } : at
 }
 
-/** The tower build piece under `at` (grid-snapped, as a drag holds it). */
-export const towerAt = (power: TowerPower, owner: PlayerId, at: Point): StructureSpec => movedTo({ kind: 'tower', owner, power, at: { gx: 0, gy: 0 } }, at)
+/** The tower build piece on the cell that contains `at`, so the piece is under the finger. */
+export const towerAt = (power: TowerPower, owner: PlayerId, at: Point): StructureSpec => ({ kind: 'tower', owner, power, at: { gx: Math.floor(at.x / rules.cellSize), gy: Math.floor(at.y / rules.cellSize) } })
+
+/** Where a fresh tower drag holds the piece: its cell's centre, so `movedTo` (which rounds the corner) keeps the cell under the finger. */
+export const towerGrab: Point = { x: rules.cellSize / 2, y: rules.cellSize / 2 }
 
 /** Whether `at` lands on `spec`, within `tolerance` world units of its segments. */
 export const onPiece = (spec: StructureSpec, at: Point, tolerance: number) => nearestOnWall(spec, at).dist <= tolerance
@@ -73,10 +76,6 @@ const near = (p: Point, q: Point) => Math.hypot(p.x - q.x, p.y - q.y) < 1e-6
 const sameSpec = (a: StructureSpec, b: StructureSpec) =>
   a.kind === b.kind && a.owner === b.owner && (a.kind === 'tower' ? (b as typeof a).power === a.power && a.at.gx === (b as typeof a).at.gx && a.at.gy === (b as typeof a).at.gy : near(a.a, (b as typeof a).a) && near(a.b, (b as typeof a).b))
 
-/** A confirmed selection has reached the sim: the new piece stands among this turn's, or the moved one stands where it was put. */
-export const landed = (s: SimState, sel: Selection): boolean =>
-  s.objects.some((o) => (sel.id === undefined ? s.built.includes(o.id) : o.id === sel.id) && sameSpec(o, sel.spec))
-
 /** The sim input a lift sends: place a new piece or move a structure. Undefined when there is nothing to send. */
 export function commit(sel: Selection): SimInput | undefined {
   const { spec, id } = sel
@@ -92,7 +91,7 @@ export function landedAs(s: SimState, sel: Selection): Selection | undefined {
 }
 
 /** What the build menu shows: the closed or open icon, or the selection's controls. */
-export type BuildMenu = { kind: 'menu'; open: boolean; /** The armed item while building. */ item?: Item; items: ButtonSpec[] } | { kind: 'selected'; buttons: ButtonSpec[] }
+export type BuildMenu = { kind: 'menu'; open: boolean; items: ButtonSpec[] } | { kind: 'selected'; buttons: ButtonSpec[] }
 
 export type BuildActions = { toggle(): void; arm(item: Item): void; cancel(): void; rotate(): void; remove(): void }
 
@@ -113,7 +112,6 @@ export function buildMenu(s: SimState, b: PlayerId, v: { /** The armed item; und
     return {
       kind: 'menu',
       open: v.item !== undefined,
-      item: v.item,
       items: [
         { label: `Wall · ${rules.wall.unitCost}/unit`, disabled: itemDisabled(s, b, 'wall'), pressed: v.item === 'wall', onClick: () => a.arm('wall') },
         ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => ({ label: `${POWER_LABEL[power]} ×${s.players[b].inventory[power]}`, disabled: itemDisabled(s, b, power), pressed: v.item === power, onClick: () => a.arm(power) })),

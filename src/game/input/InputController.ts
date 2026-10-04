@@ -5,7 +5,7 @@ import { canArm, canPlaceBall } from '../../sim/possession'
 import { canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
 import { snapWallEnd } from '../../sim/wall'
 import { screenDown, type Camera } from '../entities/Camera'
-import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapStart, towerAt, type BuildActions, type Item, type Selection } from '../view/buildMenu'
+import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/buildMenu'
 import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, type AimGesture, type GestureView } from './gesture'
 
 /** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
@@ -359,7 +359,7 @@ export class InputController {
         if (this.item === 'wall') this.draw = { a: snapStart(state, at, visual.input.snapPx / this.pxPerUnit), px: from.x, py: from.y, id: e.pointerId, from, moved: false }
         else if (!discarded) {
           this.selection = { spec: towerAt(this.item, builder, at), movable: true }
-          this.drag = { offset: { x: 0, y: 0 }, px: from.x, py: from.y, id: e.pointerId, from, moved: false, fresh: true }
+          this.drag = { offset: towerGrab, px: from.x, py: from.y, id: e.pointerId, from, moved: false, fresh: true }
         }
       } else this.panOnly = true
       return

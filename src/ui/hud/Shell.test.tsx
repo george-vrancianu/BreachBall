@@ -145,7 +145,7 @@ describe('Shell', () => {
     rerender(<Shell {...props()} menu={{ kind: 'menu', open: true, items: [{ label: 'Straight', onClick: pick }] }} onBuildToggle={toggle} />)
     fireEvent.click(screen.getByText('Straight'))
     expect(pick).toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Close build menu' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Leave building' })).toBeTruthy()
   })
 
   it('names the demolish glyph button', () => {

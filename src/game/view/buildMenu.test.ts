@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
 import { buildState, emptied, hseg } from '../../sim/testkit'
 import type { WallSpec } from '../../sim/wall'
-import { anchorOf, buildMenu, commit, landed, movedTo, edgeScrollDy, legal, pick, rotated, snapStart, towerAt, type BuildActions } from './buildMenu'
+import { anchorOf, buildMenu, commit, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapStart, towerAt, type BuildActions } from './buildMenu'
 
 const noop = () => {}
 const actions: BuildActions = { toggle: noop, arm: noop, cancel: noop, rotate: noop, remove: noop }
@@ -14,8 +14,9 @@ const labels = (s: SimState, v: Parameters<typeof buildMenu>[2]) => {
 }
 
 describe('towerAt', () => {
-  it('puts a tower on the grid vertex nearest the finger', () => {
+  it('puts a tower on the cell that contains the finger', () => {
     expect(towerAt('steal', 2, { x: 20.4, y: 52.3 })).toEqual({ kind: 'tower', owner: 2, power: 'steal', at: { gx: 10, gy: 26 } })
+    expect(towerAt('steal', 1, { x: 21.9, y: 81.9 })).toMatchObject({ at: { gx: 10, gy: 40 } })
   })
 })
 
@@ -104,13 +105,13 @@ describe('edge scroll', () => {
 describe('landing', () => {
   it('a new piece lands once it stands among this turn\'s, a move once it stands where it was put', () => {
     const s = placed()
-    expect(landed(buildState(1), { spec: wall, movable: true })).toBe(false)
-    expect(landed(s, { spec: wall, movable: true })).toBe(true)
-    expect(landed({ ...s, built: [] }, { spec: wall, movable: true })).toBe(false)
+    expect(!!landedAs(buildState(1), { spec: wall, movable: true })).toBe(false)
+    expect(!!landedAs(s, { spec: wall, movable: true })).toBe(true)
+    expect(!!landedAs({ ...s, built: [] }, { spec: wall, movable: true })).toBe(false)
     const moved = { spec: { ...wall, ...hseg(4, 40) }, id: 1, movable: true }
-    expect(landed(s, moved)).toBe(false)
-    expect(landed(step(s, { moveStructure: { player: 1, id: 1, a: moved.spec.a, b: moved.spec.b } }, c).state, moved)).toBe(true)
-    expect(landed(s, rotated({ spec: wall, id: 1, movable: true }))).toBe(false)
+    expect(!!landedAs(s, moved)).toBe(false)
+    expect(!!landedAs(step(s, { moveStructure: { player: 1, id: 1, a: moved.spec.a, b: moved.spec.b } }, c).state, moved)).toBe(true)
+    expect(!!landedAs(s, rotated({ spec: wall, id: 1, movable: true }))).toBe(false)
   })
 })
 

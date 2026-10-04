@@ -257,7 +257,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 - No sound in v1. The event list exists so an audio layer can subscribe later without touching the renderer.
 - Haptics through the Vibration API where supported: short pulse on firing a shot scaled by power, double pulse on goal, short buzz when the hold reaches Power.
 - Reduced-motion preference disables screen shake, particles, the flip rotation (instant cut with the overlay) and haptics. The hold ring drops its pulse but keeps its colour change. Functional visuals such as the Ghost and placement previews stay.
-- Desktop keys: M map, Space recenter, R rotate, Enter confirm (ball-in-hand), Esc close map or deselect the wall. The mouse grabs one wall end at a time, with a grab cursor over a handle.
+- Desktop keys: M map, Space recenter, R rotate, Enter confirm (ball-in-hand), Esc close map, else deselect the wall, else leave building. The mouse grabs one wall end at a time, with a grab cursor over a handle.
 - App icon: a white ball with a cyan-to-orange shockwave ring on the pitch colour, one SVG source exported to the required PNG sizes. Splash is the dark background with the title.
 
 ## P2P (milestone 3)

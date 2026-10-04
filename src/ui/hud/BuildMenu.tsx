@@ -31,7 +31,7 @@ export function BuildMenu({ menu, onToggle, className, style, children }: { menu
   return (
     <div className={className} style={row}>
       {menu.open && menu.items.map((s) => <Button key={s.label} spec={s} style={{ minHeight: 44, borderRadius: 22 }} />)}
-      <button aria-label={menu.open ? 'Close build menu' : 'Build'} onClick={onToggle} style={ROUND}>{menu.open ? '✕' : WALL}</button>
+      <button aria-label={menu.open ? 'Leave building' : 'Build'} onClick={onToggle} style={ROUND}>{menu.open ? '✕' : WALL}</button>
       {children}
     </div>
   )
