@@ -78,6 +78,8 @@ export class InputController {
   private sentAim = 'null'
   private press?: Press
   private draggingBall = false
+  // The mouse's last canvas position, for the cursor; touch never sets it.
+  private mouse?: Point
   private tap?: Point
   // Every finger down, for two-finger pan. The gesture's own pointer is `press.id`.
   private pointers = new Map<number, Point>()
@@ -240,6 +242,7 @@ export class InputController {
   /** The build turn changed hands or ended: a new piece is gone, a moved one never left its spot in the sim. */
   resetBuild(): void {
     this.selection = this.landing = this.press = this.item = this.deferredOrigin = undefined
+    this.refreshCursor()
   }
 
   /** While dragging or drawing near the top or bottom tenth of the view, scroll toward any of the builder's half that is off screen. */
@@ -335,6 +338,7 @@ export class InputController {
     else if (key === 'escape') this.host.mapOpen() ? this.host.toggleMap(false) : this.live ? this.cancelPress() : this.selection ? (this.selection = undefined) : ((this.placement = undefined), this.leaveBuild())
     else if (key === 'r') this.build.rotate()
     else if (key === 'enter' && !this.host.state().match.builder) this.confirmBall()
+    this.refreshCursor()
   }
 
   /** Abandons the press without committing: a placed structure goes back to where it stood (still selected), a draw, fresh tower or unplaced piece goes. */
@@ -345,6 +349,22 @@ export class InputController {
     if (live && 'origin' in live && selection) this.selection = { ...selection, spec: live.origin }
     else if (live) this.selection = undefined
     this.press = undefined
+  }
+
+  /** Mouse cursor: a grab hand over a handle of the selected wall, a closed one while an end or the body is dragged, else the default. */
+  private refreshCursor(): void {
+    const { canvas } = this.host
+    const { press, mouse } = this
+    if (!mouse) return
+    const builder = this.host.state().match.builder
+    const held = press?.kind === 'end' || press?.kind === 'body'
+    const over = !press || press.kind === 'pending'
+    const cursor = held ? 'grabbing' : over && builder && !this.host.blocked() && !this.host.mapOpen() && this.handleAt(this.pxToWorld(mouse.x, mouse.y)) ? 'grab' : ''
+    if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor
+  }
+
+  private trackMouse(e: PointerEvent): void {
+    if (e.pointerType === 'mouse') this.mouse = { x: e.offsetX, y: e.offsetY }
   }
 
   private move(e: PointerEvent): void {
@@ -366,6 +386,8 @@ export class InputController {
       if (this.pointers.size > 1) this.live || this.panBy(dy / this.pointers.size)
       else if (this.press?.kind === 'pan') this.panBy(dy)
     }
+    this.trackMouse(e)
+    this.refreshCursor()
     if (this.aim?.id === e.pointerId) {
       this.aim.gesture = aimMove(this.aim.gesture, { x: e.offsetX, y: e.offsetY }, performance.now())
       this.sendAiming(aimOf(this.aim.gesture))
@@ -378,10 +400,12 @@ export class InputController {
     this.draggingBall = false
     this.tap = undefined
     this.release(e)
+    this.refreshCursor()
     if (this.aim?.id === e.pointerId) this.dropAim()
   }
 
   private up(e: PointerEvent): void {
+    this.trackMouse(e)
     this.draggingBall = false
     const { press } = this
     if (press?.kind === 'twoEnd' && this.holds(press, e.pointerId)) this.dropFinger(press, e.pointerId)
@@ -389,6 +413,7 @@ export class InputController {
     if (this.tap && Math.hypot(e.clientX - this.tap.x, e.clientY - this.tap.y) <= visual.input.tapSlopPx) this.placement = this.pxToWorld(e.offsetX, e.offsetY)
     this.tap = undefined
     this.release(e)
+    this.refreshCursor()
     if (this.aim?.id !== e.pointerId) return
     const { gesture, player } = this.aim
     const result = aimRelease(aimMove(gesture, { x: e.offsetX, y: e.offsetY }, performance.now()))

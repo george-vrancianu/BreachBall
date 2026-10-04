@@ -14,6 +14,7 @@ class FakeCanvas extends EventTarget {
   height = 640
   clientWidth = 400
   clientHeight = 640
+  style = { cursor: '' }
   setPointerCapture() {}
 }
 
@@ -723,6 +724,44 @@ describe('the press model', () => {
       move({ x: 28, y: 90 })
       expect(ctl.selection).toMatchObject({ id: 1 })
       expect((ctl.selection!.spec as { a: Point }).a).toEqual(a0)
+    })
+
+    describe('the mouse cursor', () => {
+      const cursor = () => (canvas as unknown as { style: { cursor: string } }).style.cursor
+
+      it('is a grab hand over a handle and clears elsewhere', () => {
+        move({ x: 28.5, y: 80 })
+        expect(cursor()).toBe('grab')
+        move({ x: 24, y: 80 })
+        expect(cursor()).toBe('')
+        move({ x: 20, y: 80.5 })
+        expect(cursor()).toBe('grab')
+        move({ x: 20, y: 95 })
+        expect(cursor()).toBe('')
+      })
+
+      it('is a closed hand during an end drag or a body drag, then the default again', () => {
+        down(b0)
+        move({ x: 36, y: 80 })
+        expect(cursor()).toBe('grabbing')
+        key('Escape')
+        expect(cursor()).toBe('')
+        down({ x: 24, y: 80 })
+        move({ x: 24, y: 75 })
+        expect(cursor()).toBe('grabbing')
+        up({ x: 24, y: 75 })
+        expect(cursor()).toBe('')
+      })
+
+      it('stays default with nothing selected, and for touch', () => {
+        key('Escape')
+        move(b0)
+        expect(cursor()).toBe('')
+        down(at)
+        up(at)
+        touch('pointermove', b0)
+        expect(cursor()).toBe('')
+      })
     })
 
     describe('two fingers, one on each end', () => {
