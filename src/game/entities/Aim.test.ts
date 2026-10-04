@@ -44,7 +44,14 @@ describe('Aim Ghost', () => {
   // Down the open middle of the pitch, 88 units from the far board: no shot here bounces before its reach runs out.
   const open = shooting({ x: 20, y: 20 })
   const down = { x: 0, y: 1 }
-  const reachOf = (tier: number, power: number, ghost = rules.shot.tiers[tier].ghost, state = open) => lengthOf(ghostOf(ghost, { tier, dir: down, power }, state)!)
+  /** How far the Ghost runs past the Comet's tip: the path from the ball, less the stretch under the Comet. */
+  const reachOf = (tier: number, power: number, ghost = rules.shot.tiers[tier].ghost, state = open, pxPerUnit = 10) => {
+    const a = new Aim()
+    a.sync(state, defaultConfig)
+    a.aim = { tier, ghost, dir: down, power, pxPerUnit }
+    const { tip } = a.comet!
+    return lengthOf(a.ghost!) - Math.hypot(tip.x - state.ball.pos.x, tip.y - state.ball.pos.y)
+  }
 
   it('redraws the path when the charge changes, not from a stale cache', () => {
     const state = shooting()
@@ -78,14 +85,18 @@ describe('Aim Ghost', () => {
     expect(reachOf(1, 0.75, ghost)).toBeCloseTo(20)
     expect(reachOf(1, 1, ghost)).toBeCloseTo(30)
   })
-  it('reaches further for Touch than for Power at the same relative pull', () => {
-    for (const t of [0, 0.5, 1]) {
-      const powerAt = (tier: number) => {
-        const [lo, hi] = rules.shot.tiers[tier].power
-        return lo * (1 - t) + hi * t
-      }
-      expect(reachOf(0, powerAt(0))).toBeGreaterThan(reachOf(1, powerAt(1)))
-    }
+  it('reaches as far past the Comet\'s tip at any zoom: the weakest Power shot shows 8 units on a 390 px phone', () => {
+    // A 390 px wide phone shows the 40-unit pitch at 9.75 px a unit; zoomed in, the Comet covers fewer units.
+    expect(reachOf(1, 0.5, undefined, open, 9.75)).toBeCloseTo(8)
+    expect(reachOf(1, 0.5, undefined, open, 30)).toBeCloseTo(8)
+  })
+  it('counts a bounce under the Comet toward its cap', () => {
+    // 3 units below the end board: a Power shot bounces off it well inside its Comet, and its 1-bounce cap ends the Ghost there.
+    const a = new Aim()
+    a.sync(shooting({ x: 10, y: 4 }), defaultConfig)
+    a.aim = { tier: 1, ghost: rules.shot.tiers[1].ghost, dir: { x: 0, y: -1 }, power: 1, pxPerUnit: 10 }
+    expect(a.ghostBounces).toHaveLength(1)
+    expect(a.ghostDots).toEqual([])
   })
   it('reaches as far from a Charged ball as from a plain one', () => {
     const charged: SimState = { ...open, charge: { zone: 'bullseye', factor: rules.boost.bullseye.factor } }
@@ -101,7 +112,7 @@ describe('Aim Ghost', () => {
 
 describe('Aim Ghost dots', () => {
   const ball = { pos: { x: 20, y: 20 }, vel: { x: 0, y: 0 }, rolled: 0 }
-  // A Power aim straight down the open pitch, its Ghost 20 units long.
+  // A Power aim straight down the open pitch, its Ghost reaching 20 units past the Comet's tip.
   const aiming = (power = 0.75) => {
     const a = new Aim()
     a.sync({ ...playState(), possession: { shooter: 1, shots: 3, inHand: false, live: false }, ball }, defaultConfig)
@@ -116,14 +127,12 @@ describe('Aim Ghost dots', () => {
     const dots = a.ghostDots
     expect(dots[0].at.y).toBeGreaterThanOrEqual(tip.y)
     expect(dots[0].at.y).toBeLessThan(tip.y + gap)
-    expect(dots.at(-1)!.at.y).toBeLessThanOrEqual(40)
+    expect(dots.at(-1)!.at.y).toBeLessThanOrEqual(tip.y + 20)
+    expect(dots.at(-1)!.at.y).toBeGreaterThan(tip.y + 20 - gap)
     expect(dots[1].at.y - dots[0].at.y).toBeCloseTo(gap)
   })
-  it('still reaches from the ball, so a longer Comet leaves fewer dots', () => {
-    const near = aiming(0.5).ghostDots
-    const far = aiming(1).ghostDots
-    expect(far.at(-1)!.at.y).toBeLessThanOrEqual(40)
-    expect(far.length).toBeLessThan(near.length)
+  it('shows as many dots behind a longer Comet: the reach runs from its tip', () => {
+    expect(aiming(1).ghostDots).toHaveLength(aiming(0.5).ghostDots.length)
   })
   it('fades and shrinks toward the end', () => {
     const dots = aiming().ghostDots

@@ -34,9 +34,9 @@ function acrossTiers(power: number): number {
 
 /**
  * The Comet as drawn, world units: the spear from `base` (just past the ball's edge) to `end`, then the arrowhead to `tip`, all along `dir`;
- * `length` from the ball's edge to `end`, `width` the spear's half-width at its base, `color` its tier's (grey while cancel-armed).
+ * `span` from the ball's centre to `tip`, `length` from the ball's edge to `end`, `width` the spear's half-width at its base, `color` its tier's (grey while cancel-armed).
  */
-export type Comet = { dir: Point; base: Point; end: Point; tip: Point; length: number; width: number; color: string }
+export type Comet = { dir: Point; base: Point; end: Point; tip: Point; span: number; length: number; width: number; color: string }
 
 /** A splash tier's Splash preview: a dashed ring of `radius` (world units) around the ball at `at`, in `color`. */
 export type SplashPreview = { at: Point; radius: number; color: string }
@@ -98,11 +98,13 @@ export class Aim extends Entity {
     const r = config.ballRadius
     const at = (d: number) => this.alongAim(dir, d)
     const len = (lengthPx.base + lengthPx.perPower * acrossTiers(power)) / pxPerUnit
+    const span = r + len + head.lengthPx / pxPerUnit
     return {
       dir,
       base: at(r + gapPx / pxPerUnit),
       end: at(r + len),
-      tip: at(r + len + head.lengthPx / pxPerUnit),
+      tip: at(span),
+      span,
       length: len,
       width: (widthPx.base + widthPx.perPower * withinTier(tier, power)) / pxPerUnit,
       color: aimColor,
@@ -136,21 +138,24 @@ export class Aim extends Entity {
     return splash ? { at: state.ball.pos, radius: splash.radius, color: tierColor(aim.tier) } : undefined
   }
 
-  /** The prediction for the aim in progress, as far as its tier's Ghost reaches; redone only when the aim or what it depends on changes. */
+  /**
+   * The prediction for the aim in progress, from the ball through the stretch under the Comet and then as far as its tier's Ghost
+   * reaches past the Comet's tip; bounces under the Comet count toward the cap. Redone only when the aim or what it depends on changes.
+   */
   private get path(): Path | undefined {
-    const { aim, state, config } = this
-    if (!aim?.dir || aim.power === undefined || !state || !config) return undefined
+    const { aim, state, config, comet } = this
+    if (!aim?.dir || aim.power === undefined || !state || !config || !comet) return undefined
     const { tier, dir, power, ghost } = aim
-    const key = JSON.stringify([tier, dir, power, ghost, state.ball.pos, state.possession.shooter, state.charge])
+    const key = JSON.stringify([tier, dir, power, ghost, comet.span, state.ball.pos, state.possession.shooter, state.charge])
     const p = this.predicted
     if (p?.key === key && p.objects === state.objects) return p.path
-    const limit = { maxBounces: ghost.maxBounces, maxLength: reachOf(tier, power, ghost) }
+    const limit = { maxBounces: ghost.maxBounces, maxLength: comet.span + reachOf(tier, power, ghost) }
     const path = predictPath(state, { player: state.possession.shooter, tier, dir, power }, config, limit)
     this.predicted = { key, objects: state.objects, path }
     return path
   }
 
-  /** The Ghost: the ball's predicted path from the ball, up to its tier's bounce cap or reach for this power. None before the drag. */
+  /** The Ghost: the ball's predicted path from the ball, up to its tier's bounce cap or its reach for this power past the Comet's tip. None before the drag. */
   get ghost(): Point[] | undefined {
     return this.path?.points
   }
@@ -162,8 +167,7 @@ export class Aim extends Entity {
 
   /**
    * The Ghost as drawn: dots `visual.aim.ghost.dots.gap` apart from the Comet's tip to the path's end, shrinking and fading
-   * toward the end, drifting forward with the clock (faster with more power). Larger for a Charged ball. The reach is still
-   * measured from the ball, so a longer Comet covers more of it rather than showing more of the path.
+   * toward the end, drifting forward with the clock (faster with more power). Larger for a Charged ball.
    */
   get ghostDots(): GhostDot[] {
     const { path, aim, comet } = this
@@ -177,13 +181,13 @@ export class Aim extends Entity {
     const out: GhostDot[] = []
     // `from` is how far along the path segment `i` starts.
     let [i, from] = [0, 0]
-    // The path starts at the ball's centre; the dots start at the Comet's tip.
-    const start = Math.hypot(comet.tip.x - points[0].x, comet.tip.y - points[0].y)
+    // The path starts at the ball's centre; the dots start at the Comet's tip and fade over the rest.
+    const start = comet.span
     for (let d = start + offset; d < total; d += dots.gap) {
       while (i < lengths.length - 1 && from + lengths[i] < d) from += lengths[i++]
       const [a, b] = [points[i], points[i + 1]]
       const t = lengths[i] ? (d - from) / lengths[i] : 0
-      const f = d / total
+      const f = (d - start) / (total - start)
       out.push({
         at: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t },
         radius: scale * (dots.radius[0] + (dots.radius[1] - dots.radius[0]) * f),

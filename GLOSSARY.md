@@ -13,11 +13,11 @@ The kind of Shot, picked by how long the shooter holds still on the ball before 
 _Avoid_: Mode, level, charge
 
 **Ghost**:
-The ball's predicted path, drawn while aiming a Shot in its Tier's colour as drifting, fading dots from the Comet's tip, showing where it will go. Its reach is measured from the ball. Each Tier caps it at a number of bounces (off structures or boards) and a reach that grows with the shot's power: Touch shows up to 3 bounces and far, Power 1 bounce and a short stub. A goal ends it. Only this is the Ghost: the translucent ball-in-hand disc is the placement, and the translucent piece dragged in a build turn is the build piece.
+The ball's predicted path, drawn while aiming a Shot in its Tier's colour as drifting, fading dots from the Comet's tip, showing where it will go. Each Tier caps it at a number of bounces (off structures or boards, those under the Comet included) and a reach past the Comet's tip that grows with the shot's power: Touch shows up to 3 bounces and far, Power 1 bounce and a short stub. A goal ends it. Only this is the Ghost: the translucent ball-in-hand disc is the placement, and the translucent piece dragged in a build turn is the build piece.
 _Avoid_: Preview, arrow, trajectory; "ghost" for the ball-in-hand placement or the build piece
 
 **Comet**:
-The direction indicator while aiming a Shot: a glowing spear with an arrowhead from the ball's edge along the shot, in its Tier's colour, longer with more power, chevrons running along it. It shows only the direction and strength; the Ghost, which starts at its tip, shows where the ball will go.
+The direction indicator while aiming a Shot: a glowing spear with an arrowhead from the ball's edge along the shot, in its Tier's colour, longer with more power, chevrons running along it. It shows only the direction and strength; the Ghost starts at its tip, its reach measured from there, and shows where the ball will go.
 _Avoid_: Trajectory, Ghost, arrow
 
 **Splash**:

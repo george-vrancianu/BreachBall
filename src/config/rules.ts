@@ -65,8 +65,8 @@ export type Tier = {
   /** Final power range, 0-1 of maxSpeed. */
   power: readonly [number, number]
   /**
-   * How far the Ghost reaches: it stops at `maxBounces` hits on a structure or board, or after `reach` world units of path,
-   * whichever comes first. `reach` runs from `min` for the tier's weakest shot to `max` for its strongest, by where the
+   * How far the Ghost reaches: it stops at `maxBounces` hits on a structure or board (those under the Comet count too), or
+   * after `reach` world units of path past the Comet's tip, whichever comes first. `reach` runs from `min` for the tier's weakest shot to `max` for its strongest, by where the
    * power sits in `power`. A Charged ball's reach is the same.
    */
   ghost: { maxBounces: number; reach: readonly [min: number, max: number] }
