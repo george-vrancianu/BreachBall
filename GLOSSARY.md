@@ -235,3 +235,15 @@ _Avoid_: Inner ring, inner circle
 **Charged**:
 A ball resting in the Boost ring or Bullseye because a shot came to rest there. The next shot fired from it, by whoever holds possession and in either Tier, has its speed multiplied (×1.5 or ×2, no cap), and the Ghost shows that. A burned shot keeps the charge; a hand-over or restart moves the ball and loses it.
 _Avoid_: Boosted, powered
+
+**Pallet**:
+A neutral rotating bat that is part of the map: it is not built, has no owner and cannot be damaged. It spins in place all the time. During a live shot, a ball inside its Activation ring is tracked and swatted head-on, and the exit depends on where the arm strikes and how fast it swings. The game mode decides where Pallets go; by default there are two on the halfway line, one near each side board. Between shots the arm spins but does not collide (ADR-0009).
+_Avoid_: Palette, bat, deflector, flipper
+
+**Activation ring**:
+The circle around a Pallet's pivot inside which it tracks the ball. It is drawn as a faint dashed ring that brightens while tracking, and it is a no-build zone, ball-in-hand included. While aiming, the Ghost treats the Pallet arm as frozen at its current angle and ends at the arm or where it leaves the ring.
+_Avoid_: Pallet radius, range
+
+**Palleted ball**:
+A ball a Pallet has just swatted. It carries 2 pierces: each Wall segment or tower it touches, either player's, breaks or is destroyed outright and uses up one pierce, and the ball keeps its speed. A destroyed Repulsor or Steal does not fire. Bouncing off the boards keeps the pierces. The state ends when both are spent or the ball comes to rest, and a new swat resets it to 2. Not the same as Charged.
+_Avoid_: Charged, swatted, super ball
