@@ -265,6 +265,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
   const safeEdge = `max(${dock.padPx}px, env(safe-area-inset-bottom))`
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
+      {/* Assumes the build dock always comes with a balance. */}
       {building && strategies && m.balance && <StrategyTray cards={strategies} color={color} unit={m.balance.unit} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `${dock.trayPadPx.y}px ${dock.padPx}px` }} />}
       {defence?.selection && <SelectionBar buttons={defence.selection.buttons} />}
       {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(dock.primary.iconPx)} />}
@@ -295,6 +296,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
               trailing={
                 <div style={{ display: 'flex', alignItems: 'center', gap: dock.wideGapPx }}>
                   <ShotPips left={m.shotsLeft} max={m.shotsMax} color={color} />
+                  {/* Assumes refunds always come with a balance. */}
                   {m.refundRate !== null && m.balance && <RefundButton rate={m.refundRate} unit={m.balance.unit} left={m.shotsLeft} refundable={m.refundable} color={color} onRefund={onRefund} />}
                 </div>
               }

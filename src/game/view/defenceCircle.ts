@@ -119,7 +119,7 @@ export function landedAs(s: SimState, sel: Selection): Selection | undefined {
 /** One Defence piece in the piece column: `disabled` greys it (no Credits, or no stock in Siege; Cannon is not built yet, `soon`), `pressed` marks the armed one. */
 export type ItemSpec = { item: Item | 'cannon'; label: string; /** The short name on its dock tile. */ name: string; /** The tile's corner badge: the price in Credits (a wall's per unit), or what is left of a Siege tower's stock. */ badge?: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
-/** What the Defence circle shows (nothing when no build turn is running): whether the viewer is building, the pieces to offer, whether they can build now (else the circle is greyed), and the controls of the selected structure. */
+/** What the build dock shows (nothing when no build turn is running): whether the viewer is building, the pieces to offer, whether they can build now (else the pieces are disabled), and the controls of the selected structure. */
 export type DefenceCircle = { building: boolean; item?: Item; items: ItemSpec[]; available: boolean; selection?: { buttons: SelectionButton[] } }
 
 /** What a selection control does: demolish the structure, rotate the wall, or let go of the selection. */

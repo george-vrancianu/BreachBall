@@ -15,7 +15,7 @@ const hud = (over: Partial<HudModel> = {}): HudModel => ({
   defenceBar: { 1: { count: '3', segments: [true, true, true] }, 2: { count: '?', segments: [] } },
   resourceBar: null,
   active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, score: null, phase: 'Play',
-  dock: 'play', balance: over.refundRate ? { amount: 5, unit: 'CR' } : null, refundRate: null, ...over,
+  dock: 'play', balance: null, refundRate: null, ...over,
 })
 const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', name: 'Breaker', badge: '2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', name: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
 const items = (over: Record<string, Partial<ItemSpec>> = {}): ItemSpec[] => [
@@ -170,7 +170,7 @@ describe('Shell', () => {
     const refund = () => screen.getByRole('button', { name: 'Refund a shot for 2 Credits' })
 
     it('aligns the abilities left (Build, Powerup, Subterfuge) and the shots and Refund right', () => {
-      render(<Shell {...props()} hud={hud({ refundRate: 2 })} subterfuge={{ available: true, queued: [], items: [] }} />)
+      render(<Shell {...props()} hud={hud({ refundRate: 2, balance: { amount: 5, unit: 'CR' } })} subterfuge={{ available: true, queued: [], items: [] }} />)
       const build = screen.getByRole('button', { name: 'Build' })
       const power = screen.getByRole('button', { name: /^Offence/ })
       const trick = screen.getByRole('button', { name: 'Subterfuge' })
@@ -179,7 +179,7 @@ describe('Shell', () => {
     })
 
     it('makes the three ability tiles one width, whatever their labels', () => {
-      render(<Shell {...props()} hud={hud({ refundRate: 2 })} subterfuge={{ available: true, queued: [], items: [] }} />)
+      render(<Shell {...props()} hud={hud({ refundRate: 2, balance: { amount: 5, unit: 'CR' } })} subterfuge={{ available: true, queued: [], items: [] }} />)
       const widths = [screen.getByRole('button', { name: 'Build' }), screen.getByRole('button', { name: /^Offence/ }), screen.getByRole('button', { name: 'Subterfuge' })].map((b) => b.style.width)
       expect(widths).toEqual(Array(3).fill(`${visual.hud.dock.abilityPx}px`))
     })
@@ -195,10 +195,10 @@ describe('Shell', () => {
 
     it('an in-play build: Build opens (build mode), the other abilities fold away and the pieces take the row until Build is tapped again', () => {
       const p = props()
-      const { rerender } = render(<Shell {...p} hud={hud({ refundRate: 2 })} defence={defence({ building: false, item: undefined })} />)
+      const { rerender } = render(<Shell {...p} hud={hud({ refundRate: 2, balance: { amount: 5, unit: 'CR' } })} defence={defence({ building: false, item: undefined })} />)
       fireEvent.click(screen.getByRole('button', { name: 'Build' }))
       expect(p.onDefenceToggle).toHaveBeenCalledTimes(1)
-      rerender(<Shell {...p} hud={hud({ refundRate: 2 })} defence={defence()} />)
+      rerender(<Shell {...p} hud={hud({ refundRate: 2, balance: { amount: 5, unit: 'CR' } })} defence={defence()} />)
       expect(screen.getByRole('button', { name: 'Leave building' }).getAttribute('aria-expanded')).toBe('true')
       fireEvent.click(screen.getByRole('button', { name: 'Repulsor · 3' }))
       expect(p.onDefenceArm).toHaveBeenCalledWith('repulsor')
@@ -247,7 +247,7 @@ describe('Shell', () => {
 
     it('a tap on Refund refunds one Move point', () => {
       const p = props()
-      render(<Shell {...p} hud={hud({ refundRate: 2, refundable: true, shotsLeft: 3 })} />)
+      render(<Shell {...p} hud={hud({ refundRate: 2, balance: { amount: 5, unit: 'CR' }, refundable: true, shotsLeft: 3 })} />)
       fireEvent.pointerDown(refund())
       fireEvent.pointerUp(refund())
       expect(p.onRefund).toHaveBeenCalledWith(1)
@@ -256,7 +256,7 @@ describe('Shell', () => {
     it('a long-press refunds all but one, showing pressed while held', () => {
       vi.useFakeTimers()
       const p = props()
-      render(<Shell {...p} hud={hud({ refundRate: 2, refundable: true, shotsLeft: 3 })} />)
+      render(<Shell {...p} hud={hud({ refundRate: 2, balance: { amount: 5, unit: 'CR' }, refundable: true, shotsLeft: 3 })} />)
       fireEvent.pointerDown(refund())
       expect(refund().getAttribute('aria-pressed')).toBe('true')
       act(() => void vi.advanceTimersByTime(visual.hud.longPressMs))
@@ -269,7 +269,7 @@ describe('Shell', () => {
     it('a long-press on the last Move point reports a refund of none', () => {
       vi.useFakeTimers()
       const p = props()
-      render(<Shell {...p} hud={hud({ refundRate: 2, refundable: true, shotsLeft: 1 })} />)
+      render(<Shell {...p} hud={hud({ refundRate: 2, balance: { amount: 5, unit: 'CR' }, refundable: true, shotsLeft: 1 })} />)
       fireEvent.pointerDown(refund())
       act(() => void vi.advanceTimersByTime(visual.hud.longPressMs))
       expect(p.onRefund).toHaveBeenCalledWith(0)
@@ -278,9 +278,9 @@ describe('Shell', () => {
     it('a long-press does not fire after the Move points change mid-hold', () => {
       vi.useFakeTimers()
       const p = props()
-      const { rerender } = render(<Shell {...p} hud={hud({ refundRate: 2, refundable: true, shotsLeft: 3 })} />)
+      const { rerender } = render(<Shell {...p} hud={hud({ refundRate: 2, balance: { amount: 5, unit: 'CR' }, refundable: true, shotsLeft: 3 })} />)
       fireEvent.pointerDown(refund())
-      rerender(<Shell {...p} hud={hud({ refundRate: 2, refundable: true, shotsLeft: 2 })} />)
+      rerender(<Shell {...p} hud={hud({ refundRate: 2, balance: { amount: 5, unit: 'CR' }, refundable: true, shotsLeft: 2 })} />)
       act(() => void vi.advanceTimersByTime(visual.hud.longPressMs))
       fireEvent.pointerUp(refund())
       expect(p.onRefund).not.toHaveBeenCalled()
@@ -288,7 +288,7 @@ describe('Shell', () => {
 
     it('is greyed and refunds nothing when a refund is not allowed', () => {
       const p = props()
-      render(<Shell {...p} hud={hud({ refundRate: 2, refundable: false })} />)
+      render(<Shell {...p} hud={hud({ refundRate: 2, balance: { amount: 5, unit: 'CR' }, refundable: false })} />)
       expect(refund().getAttribute('aria-disabled')).toBe('true')
       fireEvent.pointerDown(refund())
       fireEvent.pointerUp(refund())
