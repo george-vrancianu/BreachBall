@@ -37,7 +37,7 @@ describe('predictPath', () => {
     const hit = contactOf(stepUntil(s, up, (_, ev) => !!contactOf(ev)).events)!
     expect(hit.type).toBe('ball-hit-wall')
     expect(p.points.at(-1)).toEqual(hit.at)
-    expect(p.contacts).toEqual([hit.at])
+    expect(p.contacts).toEqual([{ at: hit.at, kind: 'wall' }])
   })
 
   it('counts maxBounces bounces off boards', () => {
@@ -45,9 +45,10 @@ describe('predictPath', () => {
     const p = predictPath(s, { ...up, dir: { x: -0.6, y: -0.8 }, tier: 1, power: 1 }, c, { maxBounces: 2, maxLength: Infinity })
     // Off the left board (x = 0), then the end board (y = 0), less the ball's radius.
     expect(p.contacts).toHaveLength(2)
-    expect(p.contacts[0].x).toBeCloseTo(1)
-    expect(p.contacts[1].y).toBeCloseTo(1)
-    expect(p.points.at(-1)).toEqual(p.contacts[1])
+    expect(p.contacts.map((b) => b.kind)).toEqual(['board', 'board'])
+    expect(p.contacts[0].at.x).toBeCloseTo(1)
+    expect(p.contacts[1].at.y).toBeCloseTo(1)
+    expect(p.points.at(-1)).toEqual(p.contacts[1].at)
   })
 
   it('ends early where the stepped ball comes to rest, before its caps', () => {
@@ -76,7 +77,7 @@ describe('predictPath', () => {
     const full = predictPath(at({ x: 10, y: 20 }), up, c, { maxBounces: 1, maxLength: Infinity })
     const p = predictPath(at({ x: 10, y: 20 }), up, c, { maxBounces: 3, maxLength: lengthOf(full.points) })
     expect(p.contacts).toEqual(full.contacts)
-    expect(p.points.at(-1)!.y).toBeCloseTo(full.contacts[0].y)
+    expect(p.points.at(-1)!.y).toBeCloseTo(full.contacts[0].at.y)
   })
   it('ends at the goal, before its caps', () => {
     const s = at({ x: 20, y: 10 })

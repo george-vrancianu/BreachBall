@@ -4,8 +4,11 @@ import { step, type SimConfig, type SimInput, type SimState } from './step'
 /** How far a prediction may go: up to `maxBounces` hits on a structure or board, and no more than `maxLength` world units of path. */
 export type Limit = { maxBounces: number; maxLength: number }
 
-/** The ball's predicted path from its launch position, and the points where it touched a structure or board. */
-export type Path = { points: Point[]; contacts: Point[] }
+/** Where a predicted path touched something: `wall` for a structure, `board` for a board. */
+export type Contact = { at: Point; kind: 'wall' | 'board' }
+
+/** The ball's predicted path from its launch position, and where it touched a structure or board. */
+export type Path = { points: Point[]; contacts: Contact[] }
 
 /** Seconds of play a prediction may cover, a safeguard against a ball that never settles. */
 const capSeconds = 60
@@ -17,7 +20,7 @@ const capSeconds = 60
  */
 export function predictPath(state: SimState, shot: NonNullable<SimInput['shot']>, config: SimConfig, { maxBounces, maxLength }: Limit): Path {
   const points: Point[] = [state.ball.pos]
-  const contacts: Point[] = []
+  const contacts: Contact[] = []
   let left = maxLength
   /** Extends the path toward `p`, cut where the length runs out; whether it reached `p`. */
   const extendTo = (p: Point): boolean => {
@@ -42,7 +45,7 @@ export function predictPath(state: SimState, shot: NonNullable<SimInput['shot']>
       }
       if (e.type !== 'ball-hit-wall' && e.type !== 'ball-hit-board') continue
       if (!extendTo(e.at)) return { points, contacts }
-      contacts.push(e.at)
+      contacts.push({ at: e.at, kind: e.type === 'ball-hit-wall' ? 'wall' : 'board' })
       if (contacts.length >= maxBounces) return { points, contacts }
     }
     if (!extendTo(r.state.ball.pos) || !r.state.possession.live) break

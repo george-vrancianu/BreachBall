@@ -1,7 +1,7 @@
 import { rules, type Tier } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { Charge, Point } from '../../sim/pitch'
-import { predictPath, type Path } from '../../sim/predict'
+import { predictPath, type Contact, type Path } from '../../sim/predict'
 import { splashOf } from '../../sim/splash'
 import type { SimConfig, SimState } from '../../sim/step'
 import type { GestureView } from '../input/gesture'
@@ -77,9 +77,12 @@ export class Aim extends Entity {
     return this.path?.points
   }
 
-  /** Where the Ghost bounces off a structure or board, each marked with a ring. */
-  get ghostBounces(): Point[] {
-    return this.path?.contacts ?? []
+  /** Where the Ghost bounces, each marked with a ring: ink off a structure, the tier's colour off a board, grey while cancel is armed. */
+  get ghostBounces(): (Contact & { color: string })[] {
+    const { path, aim } = this
+    if (!path || !aim) return []
+    const ring = (kind: Contact['kind']) => (aim.cancel ? visual.aim.cancel.color : kind === 'wall' ? visual.aim.ghost.bounce.wallColor : tierColor(aim.tier))
+    return path.contacts.map((c) => ({ ...c, color: ring(c.kind) }))
   }
 
   /**
@@ -155,7 +158,8 @@ export class Aim extends Entity {
       const { radius, width, alpha } = visual.aim.ghost.bounce
       ctx.globalAlpha = alpha
       ctx.lineWidth = width
-      for (const at of this.ghostBounces) {
+      for (const { at, color } of this.ghostBounces) {
+        ctx.strokeStyle = color
         ctx.beginPath()
         ctx.arc(at.x, at.y, radius, 0, Math.PI * 2)
         ctx.stroke()

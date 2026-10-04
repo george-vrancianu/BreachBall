@@ -5,7 +5,7 @@ import { defaultConfig, step, type SimState } from '../../sim/step'
 import { buildState, playState, hseg } from '../../sim/testkit'
 import type { Point } from '../../sim/pitch'
 import type { WallSpec } from '../../sim/wall'
-import { Aim, type AimLine } from './Aim'
+import { Aim, tierColor, type AimLine } from './Aim'
 
 const wall: WallSpec = { kind: 'wall', owner: 1, ...hseg(10, 40) }
 const placed = () => step(buildState(1), { placeWall: wall }, defaultConfig).state
@@ -68,7 +68,17 @@ describe('Aim Ghost', () => {
     a.aim = { tier: 1, ghost: { ...far, maxBounces: 2 }, dir: { x: -0.6, y: -0.8 }, power: 1 }
     expect(a.ghost!.at(-1)!.y).toBeCloseTo(1)
     expect(a.ghostBounces).toHaveLength(2)
-    expect(a.ghostBounces[0].x).toBeCloseTo(1)
+    expect(a.ghostBounces[0].at.x).toBeCloseTo(1)
+  })
+  it('rings a wall bounce in ink and a board bounce in the tier\'s colour, both grey while cancel is armed', () => {
+    // Off the left board, then up into a wall across x 6-14 at y = 20.
+    const walled = step(buildState(2), { placeWall: { kind: 'wall', owner: 2, ...hseg(3, 10) } }, defaultConfig).state
+    const a = new Aim()
+    a.sync({ ...shooting({ x: 10, y: 40 }), objects: walled.objects }, defaultConfig)
+    a.aim = { tier: 1, ghost: { ...far, maxBounces: 2 }, dir: { x: -0.6, y: -0.8 }, power: 1 }
+    expect(a.ghostBounces.map((b) => [b.kind, b.color])).toEqual([['board', tierColor(1)], ['wall', visual.aim.ghost.bounce.wallColor]])
+    a.aim = { ...a.aim, cancel: true }
+    expect(a.ghostBounces.map((b) => b.color)).toEqual([visual.aim.cancel.color, visual.aim.cancel.color])
   })
   it('reaches from its min to its max by where the power sits in the tier\'s range', () => {
     // Power runs 0.5-1: its weakest shot reaches 10 units, the middle 20, its strongest 30.

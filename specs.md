@@ -254,7 +254,7 @@ A Charged ball wears a pulsing glow ring and a "×1.5" / "×2" badge that pops i
 ### Aim and Shot
 
 - While holding still on the ball: a ring around it fills towards Power in the tier's colour (Touch green, Power red). Reaching Power pulses it for 300 ms and gives a short vibration.
-- While aiming: a faint ring shows the tier's control radius, and the Ghost is drawn in the tier's colour as dots from the ball's edge that shrink and fade toward its end and drift forward, faster with more power, with a small ring at each bounce (`visual.aim.ghost`; the look is `comet()` → "Predicted path" in `docs/prototypes/shot-aim-prototype.html`). While cancel-armed the Ghost turns grey and an ✕ sits on the ball.
+- While aiming: a faint ring shows the tier's control radius, and the Ghost is drawn in the tier's colour as dots from the ball's edge that shrink and fade toward its end and drift forward, faster with more power, with a small ring at each bounce, ink off a structure and the tier's colour off a board (`visual.aim.ghost`; the look is `comet()` → "Predicted path" in `docs/prototypes/shot-aim-prototype.html`). While cancel-armed the Ghost turns grey and an ✕ sits on the ball.
 - While a Power aim is held, structures the Splash would reach are tinted red, own structures darker red, so own-wall damage is always a visible choice.
 - On a Power shot, a Splash ring expands to the Splash radius over 250 ms and fades. Any shot of at least 30% power shakes the screen with amplitude scaled by power (max about 4 px, 200 ms).
 
