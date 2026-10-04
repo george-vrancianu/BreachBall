@@ -84,7 +84,7 @@ export class Pitch extends Entity {
   private drawEnd(ctx: CanvasRenderingContext2D, end: (typeof ends)[number]): void {
     this.drawBrackets(ctx, end)
     this.drawGoalMouth(ctx, end)
-    this.drawNoBuildArc(ctx, end)
+    this.drawKeepOutArc(ctx, end)
   }
 
   /** The owner's corner brackets, with rounded elbows. */
@@ -153,7 +153,7 @@ export class Pitch extends Entity {
   }
 
   /** The keep-out arc, the drawn edge of the goal no-build zone: neutral, the builder's colour while that player builds. */
-  private drawNoBuildArc(ctx: CanvasRenderingContext2D, { y, into, owner }: (typeof ends)[number]): void {
+  private drawKeepOutArc(ctx: CanvasRenderingContext2D, { y, into, owner }: (typeof ends)[number]): void {
     const { keepOut } = visual.pitch
     ctx.beginPath()
     ctx.arc(rules.pitchWidth / 2, y, rules.noBuildRadius, into > 0 ? 0 : Math.PI, into > 0 ? Math.PI : 2 * Math.PI)
