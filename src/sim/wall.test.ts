@@ -176,6 +176,11 @@ describe('segments touching, crossing and overlapping', () => {
     expect(wallsOverlap(w, wall(1, p(4, 80), p(4, 88)))).toBe(false) // a T
     expect(wallsOverlap(w, wall(1, p(4, 76), p(4, 84)))).toBe(true) // crossing
   })
+  it('wallsOverlap takes the wall thickness from the rules it is given', () => {
+    const [w, close] = [wall(1, p(0, 80), p(8, 80)), wall(1, p(0, 80.5), p(8, 80.5))]
+    expect(wallsOverlap(w, close)).toBe(true)
+    expect(wallsOverlap(w, close, undefined, { ...rules, wallHalf: 0.2 })).toBe(false)
+  })
   it('wallsOverlap reads the same as not touching', () => {
     expect(wallsOverlap(wall(1, p(0, 0), p(8, 0)), wall(1, p(4, -4), p(4, 4)))).toBe(true)
     expect(wallsOverlap(wall(1, p(0, 0), p(8, 0)), wall(1, p(8, 0), p(16, 0)))).toBe(false)

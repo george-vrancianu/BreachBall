@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { canEdit, defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
 import { buildState, emptied, hseg } from '../../sim/testkit'
 import type { WallSpec } from '../../sim/wall'
-import { anchorOf, buildMenu, commit, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapStart, towerAt, type BuildActions } from './buildMenu'
+import { anchorOf, buildMenu, commit, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapBody, snapStart, towerAt, type BuildActions } from './buildMenu'
 
 const noop = () => {}
 const actions: BuildActions = { toggle: noop, arm: noop, cancel: noop, rotate: noop, remove: noop }
@@ -27,6 +27,37 @@ describe('snapStart', () => {
     expect(snapStart(s, { x: 20.5, y: 80 }, 1)).toStrictEqual(end)
     expect(snapStart(s, { x: 20.5, y: 80 }, 1)).not.toBe(end)
     expect(snapStart(s, { x: 25, y: 80 }, 1)).toEqual({ x: 25, y: 80 })
+  })
+})
+
+describe('snapBody', () => {
+  const w: WallSpec = { kind: 'wall', owner: 1, a: { x: 20.123, y: 80.456 }, b: { x: 28.123, y: 80.456 } }
+  const other = (id: number, a: { x: number; y: number }, b: { x: number; y: number }) => ({ id, kind: 'wall' as const, owner: 2 as const, hp: 3, a, b })
+  it('the nearest candidate wins, whichever end of the dragged wall it meets', () => {
+    const far = other(2, { x: 20.6, y: 80.456 }, { x: 20.6, y: 90 })
+    const near = other(3, { x: 28.3, y: 80.456 }, { x: 36, y: 80.456 })
+    const snapped = snapBody(w, [far, near], undefined, 1)
+    expect(snapped.b).toEqual({ x: 28.3, y: 80.456 })
+    expect(snapped.a.x).toBeCloseTo(20.3, 12)
+  })
+  it('copies the target exactly and carries the other end by the same offset', () => {
+    const target = { x: 12.5, y: 79.9 }
+    const snapped = snapBody(w, [other(2, { x: 0, y: 70 }, target)], undefined, 20)
+    const ends = [snapped.a, snapped.b]
+    expect(ends).toContainEqual(target)
+    expect(snapped.a).toEqual(target)
+    expect(Math.abs(snapped.b.x - (target.x + (w.b.x - w.a.x)))).toBeLessThan(1e-12)
+    expect(Math.abs(snapped.b.y - (target.y + (w.b.y - w.a.y)))).toBeLessThan(1e-12)
+  })
+  it('ignores the wall\'s own ends by selfId, and counts every wall without one', () => {
+    const itself = { id: 1, kind: 'wall' as const, owner: 1 as const, hp: 3, a: w.a, b: w.b }
+    expect(snapBody(w, [itself], 1, 1)).toBe(w)
+    const nudged = other(1, { x: 20.5, y: 80.456 }, { x: 28.5, y: 80.456 })
+    expect(snapBody(w, [nudged], undefined, 1).a).toEqual({ x: 20.5, y: 80.456 })
+    expect(snapBody(w, [nudged], 1, 1)).toBe(w)
+  })
+  it('returns the wall itself when nothing is in radius', () => {
+    expect(snapBody(w, [other(2, { x: 50, y: 50 }, { x: 58, y: 50 })], undefined, 1)).toBe(w)
   })
 })
 
