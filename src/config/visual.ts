@@ -206,11 +206,16 @@ export const visual = {
      * Screen px throughout (divided by the aim's `pxPerUnit`), so it looks the same at any zoom; `glowBlur` aside. The Ghost's dots start at its tip. Cancel-armed, it is all in the cancel grey but its chevrons.
      */
     comet: {
-      /** The spear's length, from the ball's edge to the arrowhead: `base + perPower * power`, the power normalised from the weakest tier's lowest to the strongest's highest. */
+      /** The spear's length, from the ball's edge to the arrowhead: `base + perPower * power`, the power normalised from the weakest tier's lowest to the strongest's highest; times the tier's `tierScale`. */
       lengthPx: { base: 34, perPower: 120 },
+      /**
+       * The spear's length and base width (`lengthPx`, `widthPx`) scaled by tier, the arrowhead left as is: Touch's is half as long, so the Ghost's dots, which start at its tip,
+       * show more of a weak Touch shot's short roll (about 10 units); Power's as given.
+       */
+      tierScale: { Touch: 0.5, Power: 1 } satisfies Record<TierName, number>,
       /** The gap between the ball's edge and the spear's base. */
       gapPx: 2,
-      /** The spear's half-width at its base: `base + perPower * power`, the power taken across its own tier's range (0 at the bottom, 1 at the top). */
+      /** The spear's half-width at its base: `base + perPower * power`, the power taken across its own tier's range (0 at the bottom, 1 at the top); times the tier's `tierScale`. */
       widthPx: { base: 9, perPower: 5 },
       /** The spear's sides curve in through a point `at` of its length, `width` of its base half-width from the centre line. */
       bend: { at: 0.6, width: 0.5 },
