@@ -9,6 +9,9 @@ export const modePicker = (current: Settings['mode'], pick: (mode: Settings['mod
 /** The "On time out" segmented toggle: Shoot fires the held aim on expiry, Burn wastes the shot. */
 export const expiryPicker = (current: Settings['expiry'], pick: (expiry: Settings['expiry']) => void): ButtonSpec[] => EXPIRIES.map(({ expiry, label }) => ({ label, pressed: expiry === current, onClick: () => pick(expiry) }))
 
+/** The Flip on turn toggle, a device setting: pressed when the hot-seat stage turns at each handover. Same button in the Side menu and on the settings screen. */
+export const flipToggle = (on: boolean, set: (on: boolean) => void): ButtonSpec => ({ label: `Flip on turn: ${on ? 'On' : 'Off'}`, pressed: on, onClick: () => set(!on) })
+
 export type SliderKey = Exclude<keyof Settings, 'mode' | 'expiry'>
 export type SliderRow = { key: SliderKey; label: string; min: number; max: number; value: number }
 

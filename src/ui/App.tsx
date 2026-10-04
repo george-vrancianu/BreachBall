@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { LocalDriver } from '../game/driver'
 import { Game, type HudView } from '../game/Game'
 import { showConnectScreen } from '../net/connectScreen'
-import { defaultSettings, type Settings } from '../game/view/settings'
+import { defaultSettings, flipToggle, type Settings } from '../game/view/settings'
 import { DefenceBar } from './hud/DefenceBar'
 import { Shell } from './hud/Shell'
 import { SideMenu, SideMenuButton } from './hud/SideMenu'
 import { Overlay } from './overlays/Overlay'
+import { Button } from './ButtonRow'
 import { HelpScreen, MatchEndScreen, SettingsScreen, TitleScreen } from './screens/Screens'
 
 type Screen = 'title' | 'settings' | 'help' | 'end' | undefined
@@ -61,14 +62,16 @@ export function App() {
             />
             {/* Both sit in the stage, so they turn with the flip and open from the viewer's left. */}
             {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} onOpen={() => actions().menu(true)} />}
-            {!screen && <SideMenu menu={view.menu} onResume={() => actions().menu(false)} onHelp={() => setScreen('help')} onRestart={() => actions().restart()} onQuit={() => (actions().quit(), setScreen('title'))} />}
+            {!screen && <SideMenu menu={view.menu} onResume={() => actions().menu(false)} onHelp={() => setScreen('help')} onRestart={() => actions().restart()} onQuit={() => (actions().quit(), setScreen('title'))}>
+              {view.menu.hotSeat && <Button spec={flipToggle(view.flipOnTurn, (on) => actions().flipOnTurn(on))} style={{ width: '100%' }} />}
+            </SideMenu>}
           </>
         )}
       </div>
       {/* Online opens the Host/Join overlay as-is; a connection does nothing yet, online play is the next wave (specs.md). */}
       {screen === 'title' && <TitleScreen onPlay={() => setScreen('settings')} onOnline={() => showConnectScreen(() => {})} onSettings={() => setScreen('settings')} onHelp={() => setScreen('help')} />}
       {screen === 'help' && <HelpScreen onBack={() => setScreen(view?.menu.open ? undefined : 'title')} />}
-      {screen === 'settings' && <SettingsScreen settings={settings} onChange={setSettings} onStart={() => (actions().start(settings), setScreen(undefined))} />}
+      {screen === 'settings' && <SettingsScreen settings={settings} onChange={setSettings} flipOnTurn={view?.flipOnTurn ?? false} onFlipOnTurn={(on) => actions().flipOnTurn(on)} onStart={() => (actions().start(settings), setScreen(undefined))} />}
       {screen === 'end' && view?.winner && <MatchEndScreen winner={view.winner} result={view.result} onRematch={() => (actions().rematch(), setScreen(undefined))} onMenu={() => setScreen('title')} />}
     </>
   )

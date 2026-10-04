@@ -211,3 +211,58 @@ describe('opponent is choosing notice', () => {
     expect(overlayView(t, 10, { player: 1, text: 'x' })?.kind).toBe('turn')
   })
 })
+
+describe('flip off (hot-seat, the default)', () => {
+  const dismissed = (flip: boolean) => dismiss(go(go(newTransition(1, flip), { flip }), { flip, now: 1000 }), 1000)
+  it('never rotates: the opponent plays from across the table, behind a turn card', () => {
+    let t = dismissed(false)
+    t = go(t, { now: 2000, active: 2, flip: false })
+    expect(t.flip).toBeUndefined()
+    expect(angle(t, 2000)).toBe(0)
+    expect(t.shown).toBe(1)
+    expect(t.turn).toBe(2)
+    expect(overlayView(t, 2000)?.text).toBe("Player 2's turn")
+    expect(overlayView(t, 2000)!.opacity).toBe(1)
+    expect(blocking(t)).toBe(true)
+  })
+  it('opens a match for player 2 with the board still at the bottom', () => {
+    const t = go(newTransition(2, false), { active: 2, flip: false })
+    expect(angle(t, 0)).toBe(0)
+    expect([t.shown, t.turn]).toEqual([1, 2])
+    expect(overlayView(t, 0)?.text).toBe("Player 2's turn")
+  })
+  it('turning it on mid-match applies at the next handover, not before', () => {
+    let t = dismissed(false)
+    t = go(t, { now: 1100, flip: true })
+    expect(t.flip).toBeUndefined()
+    expect(angle(t, 1100)).toBe(0)
+    t = go(t, { now: 2000, active: 2, flip: true })
+    expect(t.flip).toMatchObject({ from: 1, to: 2 })
+  })
+  it('turning it off while turned applies at the next handover, which turns back once', () => {
+    let t = go(dismissed(true), { now: 2000, active: 2 })
+    t = go(t, { now: 2400, active: 2 })
+    t = dismiss(t, 3400)
+    expect(t.shown).toBe(2)
+    t = go(t, { now: 3500, active: 2, flip: false })
+    expect(t.flip).toBeUndefined()
+    t = go(t, { now: 4000, active: 1, flip: false })
+    expect(t.flip).toMatchObject({ from: 2, to: 1 })
+  })
+  it('a flip under way is not changed by the toggle', () => {
+    let t = go(dismissed(true), { now: 2000, active: 2 })
+    t = go(t, { now: 2100, active: 2, flip: false })
+    expect(t.flip).toMatchObject({ from: 1, to: 2 })
+  })
+})
+
+describe('online', () => {
+  it('ignores the toggle: no flip and no turn card, whichever way it is set', () => {
+    for (const flip of [true, false]) {
+      const t = go(go(newTransition(1), { handover: false, flip }), { handover: false, flip, now: 2000, active: 2 })
+      expect(t.flip).toBeUndefined()
+      expect(t.overlay).toBeUndefined()
+      expect(t.shown).toBe(1)
+    }
+  })
+})

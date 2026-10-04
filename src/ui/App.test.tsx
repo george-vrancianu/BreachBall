@@ -5,13 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import type { GameActions, HudView } from '../game/Game'
 
 // Game needs a real canvas; the seam under test is how App creates, feeds and drives it.
-const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, refundable: false, score: null, phase: 'Play' }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
-const games = vi.hoisted(() => [] as { destroyed: boolean; onView: (v: HudView) => void; actions: { [K in 'start' | 'rematch' | 'map' | 'menu' | 'restart' | 'quit']: Mock<GameActions[K]> } }[])
+const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, flipOnTurn: false, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, refundable: false, score: null, phase: 'Play' }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
+const games = vi.hoisted(() => [] as { destroyed: boolean; onView: (v: HudView) => void; actions: { [K in 'start' | 'rematch' | 'map' | 'menu' | 'restart' | 'quit' | 'flipOnTurn']: Mock<GameActions[K]> } }[])
 vi.mock('../game/Game', () => ({
   Game: class {
     destroyed = false
     // Like the real Game, starting a match pushes its (winnerless) view at once.
-    actions = { start: vi.fn(() => this.onView(freshView())), rematch: vi.fn(() => this.onView(freshView())), map: vi.fn(), menu: vi.fn(), restart: vi.fn(), quit: vi.fn() }
+    actions = { start: vi.fn(() => this.onView(freshView())), rematch: vi.fn(() => this.onView(freshView())), map: vi.fn(), menu: vi.fn(), restart: vi.fn(), quit: vi.fn(), flipOnTurn: vi.fn() }
     constructor(_canvas: HTMLCanvasElement, _driver: unknown, public onView: (v: HudView) => void) {
       games.push(this)
     }
@@ -97,6 +97,13 @@ it('draws the overlay under the shell, so the controls stay tappable during a ca
   expect(games[0]!.actions.map).toHaveBeenCalled()
 })
 
+it('the settings screen holds the Flip on turn toggle, off on a fresh device', () => {
+  render(<App />)
+  fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Flip on turn: Off' }))
+  expect(games[0]!.actions.flipOnTurn).toHaveBeenCalledWith(true)
+})
+
 it('the Title screen opens the connect overlay, settings, and help and back', () => {
   render(<App />)
   fireEvent.click(screen.getByRole('button', { name: 'Online' }))
@@ -160,6 +167,21 @@ describe('Side menu', () => {
     fireEvent.click(screen.getByRole('button', { name: /Quit to title/ }))
     expect(game.actions.quit).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy()
+  })
+
+  it('holds the Flip on turn toggle, which shows its state and sets the device setting', () => {
+    const game = inMatch({ open: true })
+    const toggle = screen.getByRole('button', { name: 'Flip on turn: Off' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(toggle)
+    expect(game.actions.flipOnTurn).toHaveBeenCalledWith(true)
+    act(() => game.onView(view({ flipOnTurn: true, menu: { ...freshView().menu, open: true } })))
+    expect(screen.getByRole('button', { name: 'Flip on turn: On' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('has no Flip on turn toggle online, which ignores it', () => {
+    inMatch({ open: true, hotSeat: false })
+    expect(screen.queryByRole('button', { name: /Flip on turn/ })).toBeNull()
   })
 
   it('Help opens the how-to page and Back returns to the open menu, not the Title', () => {
