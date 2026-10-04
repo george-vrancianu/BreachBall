@@ -13,15 +13,15 @@ export type AimView = GestureView & { pxPerUnit: number }
 
 /**
  * The one press in progress, decided progressively. It starts `pending` (nothing has changed yet) and becomes a gesture once the pointer
- * travels past `dragSlopPx`; a lift while still pending is a tap.
- * - `pending`: `hit` is what lay under the finger on press: the selected structure's body, an unselected own structure, or nothing.
+ * travels past the drag slop; a lift while still pending is a tap.
+ * - `pending`: `hit` is what lay under the finger on press: the selected structure's body, an unselected own structure, or nothing. A finger needs `tapSlopPx` to leave a tap, a mouse only `dragSlopPx`.
  * - `body`: translating the selected, movable structure; `origin` is where it stood on press, restored if it cannot be committed.
  * - `draw`: drawing a wall from `a`. `tower`: a fresh tower under the finger. Both are held by `offset` for `bodyTo`.
  * - `pan`: the camera follows the finger.
  * `px`/`py` are the pointer's last canvas position (for edge scrolling).
  */
 type Press =
-  | { kind: 'pending'; id: number; startPx: Point; startWorld: Point; hit?: { sel: Selection; selected: boolean } }
+  | { kind: 'pending'; id: number; startPx: Point; startWorld: Point; pointerType: string; hit?: { sel: Selection } }
   | { kind: 'body'; id: number; origin: StructureSpec; offset: Point; px: number; py: number }
   | { kind: 'draw'; id: number; a: Point; px: number; py: number }
   | { kind: 'tower'; id: number; offset: Point; px: number; py: number }
@@ -54,6 +54,8 @@ export class InputController {
   landing?: Selection
   // Ticks the landing has been in flight, so a dropped input cannot block the turn for good.
   private landingTicks = 0
+  // Where a placed structure stood when its body drag was lifted during a landing: it is sent (or restored) once the landing clears.
+  private deferredOrigin?: StructureSpec
   /** The Defence item armed for drawing: set while in build mode (Rounds, Siege opening), never in a Rearrange turn. */
   item?: Item
   /** Ball-in-hand: where the shooter has put the ball, before Confirm. */
@@ -109,7 +111,7 @@ export class InputController {
   }
 
   // Build turn: arm an item, then draw (wall) or press (tower) on the pitch; lifting places the piece if it is legal, else it stays red and unplaced.
-  // Pressing one of this turn's structures selects it; an older one is only selected, to demolish it.
+  // Tapping one of the builder's structures selects it (on lift, so a drag that starts on it is not a tap); an older one is only selected, to demolish it.
   build: BuildActions = {
     toggle: () => {
       if (this.item) this.leaveBuild()
@@ -199,6 +201,13 @@ export class InputController {
       // A piece lifted while the landing was in flight could not be sent then: send it now.
       else if (this.selection?.id === undefined && !this.live) this.place()
     }
+    if (this.deferredOrigin && !this.landing && !this.live) {
+      // A moved structure lifted while a landing was in flight: send it now if it stands legal, else it goes back.
+      const origin = this.deferredOrigin
+      this.deferredOrigin = undefined
+      const { selection } = this
+      if (selection) legal(state, selection) ? this.place() : (this.selection = { ...selection, spec: origin })
+    }
     // The last of an armed tower's stock is down: fall back to the wall.
     const builder = state.match.builder
     if (this.item && this.item !== 'wall' && builder && state.players[builder].inventory[this.item] <= 0) this.item = 'wall'
@@ -221,7 +230,7 @@ export class InputController {
 
   /** The build turn changed hands or ended: a new piece is gone, a moved one never left its spot in the sim. */
   resetBuild(): void {
-    this.selection = this.landing = this.press = this.item = undefined
+    this.selection = this.landing = this.press = this.item = this.deferredOrigin = undefined
   }
 
   /** While dragging or drawing near the top or bottom tenth of the view, scroll toward any of the builder's half that is off screen. */
@@ -279,7 +288,8 @@ export class InputController {
   private cancelPress(): void {
     const live = this.live
     const { selection } = this
-    if (live?.kind === 'body' && selection?.id !== undefined) this.selection = { ...selection, spec: live.origin }
+    this.deferredOrigin = undefined
+    if (live?.kind === 'body' && selection) this.selection = { ...selection, spec: live.origin }
     else if (live) this.selection = undefined
     this.press = undefined
   }
@@ -342,12 +352,12 @@ export class InputController {
 
   /** The press moved past the drag slop: it becomes what the armed item and the press point say. */
   private promote(press: Extract<Press, { kind: 'pending' }>, px: number, py: number): void {
-    if (Math.hypot(px - press.startPx.x, py - press.startPx.y) <= visual.input.dragSlopPx) return
+    if (Math.hypot(px - press.startPx.x, py - press.startPx.y) <= (press.pointerType === 'mouse' ? visual.input.dragSlopPx : visual.input.tapSlopPx)) return
     const state = this.host.state()
     const builder = state.match.builder
     const { selection, item } = this
     const [id, at] = [press.id, press.startWorld]
-    if (builder && selection?.movable && press.hit?.selected) {
+    if (builder && selection?.movable && press.hit && press.hit.sel === selection) {
       const anchor = anchorOf(selection.spec)
       this.press = { kind: 'body', id, origin: selection.spec, offset: { x: at.x - anchor.x, y: at.y - anchor.y }, px, py }
     } else if (builder && item === 'wall') {
@@ -372,7 +382,8 @@ export class InputController {
     if (press.kind !== 'body') return press.kind === 'pan' ? undefined : this.place()
     // A placed structure never stays displaced and uncommitted: it moves if the sim will take it, else it goes back.
     if (selection?.id === undefined) return this.place()
-    if (this.landing || !legal(this.host.state(), selection)) this.selection = { ...selection, spec: press.origin }
+    if (this.landing) this.deferredOrigin = press.origin
+    else if (!legal(this.host.state(), selection)) this.selection = { ...selection, spec: press.origin }
     else this.place()
   }
 
@@ -381,7 +392,7 @@ export class InputController {
     const builder = this.host.state().match.builder
     const { hit } = press
     if (!builder) return
-    if (hit?.selected) return
+    if (hit && hit.sel === this.selection) return
     if (hit) return void (this.selection = hit.sel)
     const unplaced = this.selection?.id === undefined && !!this.selection
     this.selection = undefined
@@ -393,12 +404,12 @@ export class InputController {
   }
 
   /** What lies under a press: the selected structure's body (a 22px touch target), else another of the builder's own, else nothing. */
-  private hitAt(state: SimState, builder: PlayerId, at: Point): { sel: Selection; selected: boolean } | undefined {
+  private hitAt(state: SimState, builder: PlayerId, at: Point): { sel: Selection } | undefined {
     const tolerance = Math.max(rules.cellSize / 2, visual.input.touchTargetPx / this.pxPerUnit)
     const { selection } = this
-    if (selection && onPiece(selection.spec, at, tolerance)) return { sel: selection, selected: true }
+    if (selection && onPiece(selection.spec, at, tolerance)) return { sel: selection }
     const own = pick(state, builder, at, tolerance)
-    return own && { sel: own, selected: false }
+    return own && { sel: own }
   }
 
   private down(e: PointerEvent): void {
@@ -425,7 +436,7 @@ export class InputController {
     if (builder) {
       // Nothing changes on the press: what is under the finger decides on the move or the lift.
       const at = this.pxToWorld(e.offsetX, e.offsetY)
-      this.press = { kind: 'pending', id: e.pointerId, startPx: { x: e.offsetX, y: e.offsetY }, startWorld: at, hit: this.hitAt(state, builder, at) }
+      this.press = { kind: 'pending', id: e.pointerId, startPx: { x: e.offsetX, y: e.offsetY }, startWorld: at, pointerType: e.pointerType, hit: this.hitAt(state, builder, at) }
       canvas.setPointerCapture(e.pointerId)
       return
     }

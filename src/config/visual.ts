@@ -131,7 +131,7 @@ export const visual = {
     /** `tier`: the short buzz on reaching a higher tier while holding. */
     vibration: { shotBase: 10, shotPerPower: 40, goal: [60, 40, 60], tier: 30 },
   },
-  input: { tapSlopPx: 12, dragSlopPx: 6, /** A wall drawn from within this many screen px of a wall end starts exactly on it. */ snapPx: 16, edgeScrollSpeed: 30, edgeBand: 0.1, touchTargetPx: 22, /** A landing still unseen after this many ticks is dropped, so a lost input cannot block the turn. */ landingTimeoutTicks: 30 },
+  input: { tapSlopPx: 12, dragSlopPx: 6, /** A wall drawn from within this many screen px of a wall end starts exactly on it, and a dragged wall's end snaps to one. */ snapPx: 16, edgeScrollSpeed: 30, edgeBand: 0.1, touchTargetPx: 22, /** A landing still unseen after this many ticks is dropped, so a lost input cannot block the turn. */ landingTimeoutTicks: 30 },
   transition: { flipMs: 400, goalMs: 1500, sweepMs: 1000, dismissMs: 1000, revealMs: 1500 },
   hud: {
     /** UI text: Chakra Petch 700, uppercase, tabular numerals. `display` is Bungee, for digits, the title and Play. Both load from Google Fonts in `index.html`. */

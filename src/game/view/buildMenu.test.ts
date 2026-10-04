@@ -56,6 +56,9 @@ describe('selection', () => {
     expect(legal(buildState(1), sel)).toBe(true)
     expect(legal(emptied(buildState(1), 1, 'steal'), sel)).toBe(false)
   })
+  it('a structure the sim no longer has is illegal', () => {
+    expect(legal(buildState(1), { spec: wall, id: 99, movable: true })).toBe(false)
+  })
   it('moving is free; a new piece must be affordable', () => {
     const s = { ...placed(), credits: { 1: 0, 2: 0 } }
     const spec = { ...wall, ...hseg(4, 40) }

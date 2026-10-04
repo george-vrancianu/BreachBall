@@ -59,13 +59,16 @@ const tick = () => {
 const px = (p: Point) => camera.toCanvas(canvas as unknown as HTMLCanvasElement, p)
 const fire = (type: string, p: Point, id = 1, extra: object = {}) => {
   const at = px(p)
-  canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: at.x, offsetY: at.y, clientX: at.x, clientY: at.y, pointerId: id, ...extra }))
+  canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: at.x, offsetY: at.y, clientX: at.x, clientY: at.y, pointerId: id, pointerType: 'mouse', button: 0, ...extra }))
 }
 const down = (p: Point, id = 1) => fire('pointerdown', p, id)
 const move = (p: Point, id = 1) => fire('pointermove', p, id)
 const up = (p: Point, id = 1) => fire('pointerup', p, id)
 const drag = (from: Point, to: Point) => (down(from), move(to), up(to))
 const cancel = (p: Point, id = 1) => fire('pointercancel', p, id)
+const touch = (type: 'pointerdown' | 'pointermove' | 'pointerup', p: Point, id = 1) => fire(type, p, id, { pointerType: 'touch' })
+/** A finger's jitter: past the mouse drag slop, inside the touch tap slop. */
+const jitter = (p: Point): Point => ({ x: p.x, y: p.y + 9 / Math.abs(camera.view(canvas as unknown as HTMLCanvasElement).sy) })
 const key = (k: string) => keydown({ key: k, code: k })
 const unit = rules.wall.unit
 
@@ -438,6 +441,14 @@ describe('the press model', () => {
     expect(sent).toEqual([{ demolish: { player: 1, wall: 5 } }])
   })
 
+  it('a finger that jitters on an older own wall still selects it', () => {
+    build()
+    touch('pointerdown', at)
+    touch('pointermove', jitter(at))
+    touch('pointerup', jitter(at))
+    expect(ctl.selection).toMatchObject({ id: 5, movable: false })
+  })
+
   it('tapping this turn\'s wall selects it, movable', () => {
     turns({ ...older, id: 1 })
     build()
@@ -511,6 +522,46 @@ describe('the press model', () => {
       const origin = ctl.selection!.spec
       drag(at, { x: 24, y: 50 })
       expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      expect(sent).toEqual([])
+    })
+
+    it('a finger that jitters past the mouse slop on the selected wall is still a tap: no move, selection kept', () => {
+      const origin = ctl.selection!.spec
+      touch('pointerdown', at)
+      touch('pointermove', jitter(at))
+      touch('pointerup', jitter(at))
+      expect(sent).toEqual([])
+      expect(ctl.selection!.spec).toEqual(origin)
+    })
+
+    it('the same jitter with a mouse is a drag and commits a move', () => {
+      fire('pointerdown', at)
+      fire('pointermove', jitter(at))
+      fire('pointerup', jitter(at))
+      expect(sent).toEqual([{ moveStructure: expect.objectContaining({ player: 1, id: 1 }) }])
+    })
+
+    it('a body lift while a landing is in flight is sent when it settles', () => {
+      drag({ x: 10, y: 90 }, { x: 10 + unit, y: 90 })
+      expect(sent).toHaveLength(1)
+      down(at)
+      up(at)
+      drag(at, { x: 24, y: 70 })
+      expect(sent).toHaveLength(1)
+      tick()
+      expect(sent[1]).toEqual({ moveStructure: { player: 1, id: 1, a: { x: 20, y: 70 }, b: { x: 28, y: 70 } } })
+    })
+
+    it('a cancelled body drag of a red unplaced piece keeps the piece where it stood', () => {
+      turns(older)
+      build()
+      drag({ x: 20, y: 60 }, { x: 20, y: 60 - unit })
+      const before = ctl.selection!.spec
+      expect(ctl.selection!.id).toBeUndefined()
+      down({ x: 20, y: 56 })
+      move({ x: 20, y: 50 })
+      cancel({ x: 20, y: 50 })
+      expect(ctl.selection!.spec).toEqual(before)
       expect(sent).toEqual([])
     })
 
@@ -613,6 +664,14 @@ describe('the press model', () => {
       down({ x: 10, y: 100 })
       fire('pointermove', { x: 10, y: 90 })
       expect(camera.y).not.toBe(y)
+    })
+
+    it('a finger that jitters on an own wall still selects it', () => {
+      touch('pointerdown', at)
+      touch('pointermove', jitter(at))
+      touch('pointerup', jitter(at))
+      expect(ctl.selection).toMatchObject({ id: 1, movable: true })
+      expect(sent).toEqual([])
     })
 
     it('a tap selects an own wall and a body drag then commits a move', () => {

@@ -83,6 +83,7 @@ export function snapBody(w: WallSpec, objects: SimState['objects'], selfId: numb
 export function legal(s: SimState, sel: Selection): boolean {
   const others = s.objects.filter((o) => o.id !== sel.id)
   const was = sel.id === undefined ? undefined : s.objects.find((o) => o.id === sel.id)
+  if (sel.id !== undefined && !was) return false
   if (sel.spec.kind === 'wall' && was?.kind === 'wall') {
     if (!canEdit(s) && wallUnits(sel.spec) !== wallUnits(was)) return false
     if (s.credits[sel.spec.owner] < wallCost(sel.spec) - wallCost(was)) return false
