@@ -121,14 +121,18 @@ export const siege: GameMode<SiegeMatch> = {
     return { match: { ...m, builder: next, opening: m.opening && next !== null }, events: [] }
   },
   // A builder with nothing owned has the full budget (a fresh piece demolished refunds in full), so affordability is judged from `credits`:
-  // a straight wall on their half if it fits, else a Repulsor (free, always in stock at the opening).
-  // The spot mirrors across the halfway line (P1 gy 40, P2 gy 54 - 40) and is legal for either seat: inside the half, clear of the no-build zone,
-  // and the builder owns nothing yet, so it cannot block their own goal. Both pieces therefore always place (tested for each seat).
+  // a 1-unit horizontal wall centred left-right just in front of their goal no-build zone if it is affordable, else a Repulsor (free, always in stock at the opening).
+  // The spot mirrors across the halfway line and is legal for either seat: on their half, outside the zone and the Centre zone, and the builder owns
+  // nothing yet, so nothing can cross it. Both pieces therefore always place (tested for each seat).
   onBuildTimeout: (m, builder, _ctx, c) => {
     if (!m.opening) return null
-    const { gx, gy } = rules.fallbackPiece
-    const at = { gx, gy: builder === 1 ? gy : rules.gridRows - gy }
-    const wall: StructureSpec = { kind: 'wall', owner: builder, shape: 'straight', rotation: 0, at }
+    const half = rules.wall.unit / 2
+    const dy = rules.noBuildRadius + rules.fallbackPiece.gap
+    const y = builder === 1 ? rules.pitchHeight - dy : dy
+    const x = rules.pitchWidth / 2
+    const wall: StructureSpec = { kind: 'wall', owner: builder, a: { x: x - half, y }, b: { x: x + half, y } }
+    // The Repulsor's cell sits on the near side of the same line, so it stays clear of the zone too.
+    const at = { gx: rules.gridCols / 2 - 1, gy: builder === 1 ? Math.floor(y / rules.cellSize) - 1 : Math.ceil(y / rules.cellSize) }
     return structureCost(wall) <= c.credits ? wall : { kind: 'tower', owner: builder, at, power: 'repulsor' }
   },
   mayEdit: (m) => m.opening,

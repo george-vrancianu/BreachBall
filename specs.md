@@ -60,9 +60,9 @@ Match-level rules belong to a game mode (see `docs/adr/0001-game-mode-abstractio
 
 - No score and no rounds. One opening build phase with the Rounds ordering (coin-flip loser builds first, the winner gets ball-in-hand), then play; there are no further build phases.
 - Done is refused (`refused` event, the turn continues) until the builder owns a structure, and the Done button is disabled meanwhile; otherwise an empty defence would be an instant loss.
-- If the build timer runs out while the builder owns nothing, the sim places a fallback piece (a straight wall at a fixed cell on the builder's half, or a Repulsor if the wall is unaffordable) and then finishes the turn, with no `refused` event. The build clock never goes below 0.
+- If the build timer runs out while the builder owns nothing, the sim places a fallback piece (a 1-unit horizontal wall just in front of the goal's no-build zone on the builder's half, or a Repulsor if the wall is unaffordable) and then finishes the turn, with no `refused` event. The build clock never goes below 0.
 - A goal emits the goal event and resets the ball to the pitch center. The scorer then takes a defence turn (the opponent of the shooter after an own goal): the sim holds play (no shots, no ball placement, no shot clock) until they choose. The scorer picks with two buttons, Repair and Rearrange, in the phase row of the HUD shell (not an overlay): they appear once the GOAL banner has gone, only on the scorer's own device online, and read the live match at click time. With a build timer (online) the choice runs on the build window: it opens full at the goal and drains while the choice is pending (the HUD clock shows it; in hot-seat, with no build timer, the clock reads "-"); if it runs out, the mode picks for the scorer, which in Siege is Repair, resolved with the usual `repaired` events. A choice made on the expiry tick wins. With no build timer (hot-seat) the choice waits indefinitely. The peer waiting on the scorer sees an "Opponent is choosing" label over the pitch (non-blocking, no band) until the choice is made, then the pitch (Repair) or the Rearrange turn as they watch a build turn. Repair restores every surviving structure they own to full HP and emits one `repaired` event per surviving structure they own, structures already at full HP included, so the label and flash always fire (the renderer flashes it and a REPAIRED label sweeps across); Rearrange instead opens a build-style turn for the scorer (see below). The choice is a `defence` input from the scorer; from anyone else, or outside the window, it is refused. After it the conceder has ball-in-hand at the center with a fresh shot counter.
-- Rearrange: the scorer's turn opens with no wall points and every structure they own movable and rotatable under the placement, no-build and reachability rules, HP and cracks unchanged. Placement and demolish are refused (`refused`), the build menu shows no palette, and a REARRANGE label sweeps when it opens. Done ends it (also with nothing moved) and the conceder has ball-in-hand at the center. A Rearrange chosen on the expiry tick opens with 0 s left, so the turn ends on the next tick as a timed-out build. The choice is final: once made, a `defence` input is refused. The Siege match carries `opening`, true until the opening build is over; a build turn with it false is a Rearrange turn, never the blind opening build (fog keys on `opening`). One build window covers the choice and the Rearrange: choosing Rearrange continues the same window (the build-start refill is skipped when the turn opens from a choice), and its expiry ends the turn as a timed-out build, with no fallback piece.
+- Rearrange: the scorer's turn opens with no wall points and every structure they own movable and rotatable under the placement and no-build rules, HP and cracks unchanged. The Defence circle is greyed: a tap does nothing and a hold only pulses it (selecting and dragging one's own structures works on the pitch). Placement and demolish are refused (`refused`), and a REARRANGE label sweeps when it opens. Done ends it (also with nothing moved) and the conceder has ball-in-hand at the center. A Rearrange chosen on the expiry tick opens with 0 s left, so the turn ends on the next tick as a timed-out build. The choice is final: once made, a `defence` input is refused. The Siege match carries `opening`, true until the opening build is over; a build turn with it false is a Rearrange turn, never the blind opening build (fog keys on `opening`). One build window covers the choice and the Rearrange: choosing Rearrange continues the same window (the build-start refill is skipped when the turn opens from a choice), and its expiry ends the turn as a timed-out build, with no fallback piece.
 - There is no shot cap: shots never end anything.
 - The HUD shows each player's remaining structure count, towers included, in place of the score digit, and no round label.
 - Wipe-out: the match ends when a player owns no structures, towers included (a Steal tower consumed as the last piece counts). The check runs only when the ball comes to rest or a goal is scored, never mid-flight, so fragments fly and the ball settles before the winner banner. If both players are at zero, the shooter loses. After `match-ended` the sim ignores input. The end screen shows the winner and their surviving structure count instead of a score.
@@ -87,29 +87,30 @@ The match structure below is Rounds.
 - Siege: the opening build grants the configured wall points (default 10); its Rearrange turns have none.
 - A "Done" button ends your build. No timer in hot-seat (add one for P2P). In Rounds, tapping Done with nothing placed skips the phase; Siege refuses it (see Game modes).
 - Walls persist for the whole match.
-- Placement: tap a shape in the palette, a half-transparent build piece appears on your half, drag it to position it (dragging elsewhere pans), tap Rotate, tap Confirm. The piece turns red where placement is illegal.
-- Walls snap to the grid and rotate in 90-degree steps. No diagonals in v1.
-- Walls may touch or overlap each other, so L shapes can form boxes.
-- Placement is illegal on the opponent's half, inside your own no-build zone, or if it would make your goal unreachable (see below).
+- Placement: tap the Defence circle (the Wall is selected by default; hold it to pick another Defence item), then drag on the pitch. The build piece starts where the drag starts, its end snaps live to the nearest allowed angle and whole unit, and lifting places it. A drag shorter than half a unit places nothing. Placing commits at once: Credits are spent, with a full refund if the wall is demolished the same turn. A lift on an illegal spot leaves a red, selected, unplaced piece; tapping empty pitch discards it. Towers appear under the finger once it moves (or on a tap), follow the drag and place on lift. There is no Confirm step.
+- Walls are segments in free coordinates at an angle from the configured set (default 0°, 45°, 90°, 135°) and a length from the configured unit set (default 1 or 2), see `docs/adr/0005-free-angle-walls.md`. One unit is 4 cells end to end, so a diagonal unit is as long on the pitch as a horizontal one.
+- Editing: tap a wall placed this turn to select it (the wall just placed is selected already); only the selected wall shows its two end handles. Because the just-placed wall is selected, its ends are handles: to chain a new wall from one of its ends, tap off first (deselect), then drag from the end. Dragging the body moves the whole wall, with either end snapping onto a nearby wall end. Dragging an end swings and resizes the wall around the other end. On touch, two fingers may take both ends: the wall's midpoint follows the fingers' midpoint and the angle and length follow the fingers. Rotate (↻ or R) turns the selected wall 45° around its start. A new drag that starts near an existing wall end snaps onto it. A second finger off a handle is ignored mid-drag; two-finger pan only works with no drag active.
+- Walls may touch end to end or in a T, but may not cross or overlap; parallel or collinear walls closer than a wall's thickness count as overlapping. Corners and boxes are chained walls.
+- Placement is illegal unless the whole wall (or tower) lies on your half, inside the pitch, outside your goal's no-build zone and outside the Centre zone (a circle of radius 3 cells around the centre spot, in the rules config).
+- Moving a wall by its ends may change its length: the Credit difference is charged or refunded, refused if unaffordable, and Rearrange refuses any length change. Demolishing it the same turn refunds what it now costs, which is the total paid.
 - Demolishing your own wall costs 1 point and refunds nothing (a piece placed this turn refunds in full). Siege's Rearrange turn refuses demolishing. You cannot demolish the opponent's walls.
 - The camera starts centered on your own half at the beginning of your build turn.
 
 ### Shapes and costs
 
-| Shape | Geometry | Cost |
+| Item | Geometry | Cost |
 |---|---|---|
-| Straight wall | 4 cells in a line | 2 |
-| L wall | 3 cells + 3 cells at a right angle | 3 |
+| Wall | 1 or 2 units, any allowed angle | 2 per unit |
 
-Other shapes and diagonals are v2.
+The live cost shows on the build piece while dragging. The angle set, unit set and per-unit price live in the rules config.
 
-### Reachability rule
+### No reachability rule
 
-A placement is rejected if, after it, a ball-sized disc could no longer travel from the halfway line to the goal mouth. Implemented as a grid flood fill. Towers count as obstacles. The check never needs to re-run when walls are destroyed, since removal only opens paths.
+A player may seal their own goal. The walls are wasted Credits the opponent can break, and the HUD gives no warning (ADR-0005).
 
 ### Wall durability
 
-- Every wall has 3 hit points. An L wall is one object with one pool.
+- Every wall has 3 hit points. A 2-unit wall is one object with one pool.
 - A ball hitting a wall at more than 50% of max speed removes 1 hit point.
 - A Power shot's Splash also damages structures, see Shooting.
 - At 0 the wall disappears mid-shot and the ball continues at reduced speed.
@@ -163,7 +164,7 @@ A placement is rejected if, after it, a ball-sized disc could no longer travel f
 ## Power-ups (milestone 2)
 
 - Each player starts the match with 3 of each power-up. No economy. Counts are visible to both players.
-- Towers follow all wall rules: own half only, outside the no-build zone, counted in the reachability check, persistent across rounds, placed in the build phase through the same drag-rotate-confirm flow. They cost 0 Credits; the power-up is the cost.
+- Towers follow the wall placement rules: own half only, outside the goal no-build zones and the Centre zone, persistent across rounds, placed in the build phase by appearing under the finger once it moves (or on a tap), following the drag and placing on lift. They cost 0 Credits; the power-up is the cost.
 
 ### Breaker shot (play phase)
 
@@ -200,7 +201,7 @@ A placement is rejected if, after it, a ball-sized disc could no longer travel f
 ### Pitch markings
 
 - Halfway line always visible.
-- Grid dots at cell corners and the no-build arc (dashed, in the builder's colour) during build only.
+- Grid dots at cell corners and the no-build arc plus the Centre zone arc on the builder's half (both dashed, in the builder's colour) during build only.
 - Goal is a gap in the board with a thick line in the defending player's colour and a shallow net box behind it where a scored ball visibly lands.
 
 ### Ball
@@ -227,7 +228,7 @@ A placement is rejected if, after it, a ball-sized disc could no longer travel f
 ### Placement previews and buttons
 
 - The build piece and the ball-in-hand placement are half-transparent in the owner's colour, red when illegal. They are not the Ghost, which is the aim's predicted path.
-- One button-row component serves both phases. Build: palette (Straight, L, Repulsor, Steal, each with cost or remaining count, selected item highlighted), Rotate, Confirm, Done. Ball-in-hand: Confirm. Rearrange has no palette, and the defence choice is a two-button row (Repair, Rearrange).
+- One button-row component serves both phases. Build: the Defence circle (tap to enter or leave building with the Wall selected, hold to open the Defence items with their prices, tap again to close that menu), and for a selected wall Demolish, Rotate and Cancel; Done. Ball-in-hand: Confirm. In Rearrange the circle is greyed (no placing, no demolish), and the defence choice is a two-button row (Repair, Rearrange).
 
 ### Transitions
 
@@ -240,7 +241,7 @@ A placement is rejected if, after it, a ball-sized disc could no longer travel f
 ### HUD
 
 - React components in `src/ui` take data and callbacks and never import the sim; `Game` pushes a view up and the HUD drives it through an actions handle.
-- All in-match controls sit in one shell at the bottom of the screen and show only the active viewer: the build menu, Confirm (ball-in-hand) and the map's Stretch and Close when due; the phase row (Done in your build turn, disabled while the mode would refuse it; Repair and Rearrange for a scorer owing a defence choice); round as "ROUND 2 / 5" (Rounds only); the clock (the shot clock in play, the build window in a build turn or a pending defence choice, "-" when no clock runs); shots remaining; the phase label (Build, Rearrange or Play); the map and recenter buttons; each side's structure count or score (Siege: the remaining structure count; "?" for a hidden opponent); and the viewer's three power-up icons with counts (Breaker tappable only during your own play phase).
+- All in-match controls sit in one shell at the bottom of the screen and show only the active viewer: the Defence circle (greyed on the other player's build turn), Confirm (ball-in-hand) and the map's Stretch and Close when due; the phase row (Done in your build turn, disabled while the mode would refuse it; Repair and Rearrange for a scorer owing a defence choice); round as "ROUND 2 / 5" (Rounds only); the clock (the shot clock in play, the build window in a build turn or a pending defence choice, "-" when no clock runs); shots remaining; the phase label (Build, Rearrange or Play); the map and recenter buttons; each side's structure count or score (Siege: the remaining structure count; "?" for a hidden opponent); and the viewer's three power-up icons with counts (Breaker tappable only during your own play phase).
 - The shell sits inside the rotating stage, so the HUD turns with the flip and the active player's controls are always at the bottom of the screen.
 - Overlays (turn card, GOAL, sweeps, REVEAL, "Opponent is choosing") are their own layer, also inside the stage.
 
@@ -256,13 +257,13 @@ A placement is rejected if, after it, a ball-sized disc could no longer travel f
 - No sound in v1. The event list exists so an audio layer can subscribe later without touching the renderer.
 - Haptics through the Vibration API where supported: short pulse on firing a shot scaled by power, double pulse on goal, short buzz when the hold reaches Power.
 - Reduced-motion preference disables screen shake, particles, the flip rotation (instant cut with the overlay) and haptics. The hold ring drops its pulse but keeps its colour change. Functional visuals such as the Ghost and placement previews stay.
-- Desktop keys: M map, Space recenter, R rotate, Enter confirm, Esc close map or cancel the selection.
+- Desktop keys: M map, Space recenter, R rotate, Enter confirm (ball-in-hand), Esc close map, else deselect the wall, else leave building. The mouse grabs one wall end at a time, with a grab cursor over a handle.
 - App icon: a white ball with a cyan-to-orange shockwave ring on the pitch colour, one SVG source exported to the required PNG sizes. Splash is the dark background with the title.
 
 ## P2P (milestone 3)
 
 - WebRTC between two browsers. Signaling via a tiny server or a pasted connection string, to be decided then.
-- Each peer runs the same deterministic sim and exchanges one input per shot or placement. Inputs are small integers thanks to the grid; a shot is a direction, a tier and a power. The aim a shooter is holding travels too (each peer keeps the latest per player until it is replaced, cleared or fired), so a shot clock that fires it does so identically on both peers.
+- Each peer runs the same deterministic sim and exchanges one input per shot or placement. Wall inputs are float endpoints and every peer receives identical numbers; a shot is a direction, a tier and a power. The aim a shooter is holding travels too (each peer keeps the latest per player until it is replaced, cleared or fired), so a shot clock that fires it does so identically on both peers.
 - Each player sees the pitch with themselves at the bottom.
 - Add a build-phase timer for P2P. Siege's blind build hides the layout in the renderer and HUD only: a modified client could read the peer's layout from its own sim state. True hidden information (commit-and-reveal of the layout) is a later idea.
 
@@ -290,6 +291,6 @@ To test once implemented:
 - Point-generating tower and a tower that throws the ball in a chosen direction.
 - Earned power-ups (one per goal) if fixed allotments make matches feel samey.
 - Pickups spawned on the pitch.
-- Diagonal walls and additional shapes.
+- Wall shapes beyond straight segments (curves, free angles and lengths).
 - Realtime simultaneous play.
 - Pinch zoom, frame interpolation on high-refresh screens, sound.

@@ -18,7 +18,7 @@ import { Structures } from './entities/Structures'
 import { routeEvents } from './events'
 import { reducedMotion, tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
-import { buildMenu, type BuildActions, type BuildMenu } from './view/buildMenu'
+import { buildMenu, legal, type BuildActions, type BuildMenu } from './view/buildMenu'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
 import { phaseButtons } from './view/phaseButtons'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
@@ -28,7 +28,7 @@ export type { PlayerId, PowerUp }
 /** Everything the HUD and screens draw from. Data only: pushed up through `onView` when it changes, never read back. */
 export type HudView = {
   hud: HudModel
-  /** The builder's build menu, when it is their build turn and the map is closed. */
+  /** The Defence circle's model, for the whole match (greyed when the viewer cannot build; absent when no build turn is running). */
   menu?: BuildMenu
   overlay?: OverlayView
   /** Degrees the stage (canvas and in-match HUD) is rotated by the hot-seat flip. */
@@ -272,7 +272,11 @@ export class Game implements Sink {
     const { builder } = state.match
     const { shooter } = state.possession
     const sel = input.selection
-    structures.ghost = mapOpen || !sel?.movable ? undefined : sel.spec
+    structures.buildPiece = mapOpen || !sel?.movable ? undefined : sel.spec
+    structures.handles = !mapOpen && sel?.movable && sel.spec.kind === 'wall' ? { a: sel.spec.a, b: sel.spec.b } : undefined
+    structures.costLabel = !mapOpen && !!sel?.movable && sel.id === undefined && sel.spec.kind === 'wall'
+    structures.pieceBlocked = !!sel && !legal(state, sel)
+    structures.flipped = this.transition.shown === 2
     structures.landing = mapOpen ? undefined : input.landing?.spec
     structures.hidden = mapOpen ? [] : [sel?.movable ? sel.id : undefined, input.landing?.id].filter((id) => id !== undefined)
     structures.selected = !mapOpen && sel && !sel.movable ? sel.id : undefined
@@ -316,7 +320,7 @@ export class Game implements Sink {
     const { shooter, inHand } = state.possession
     const view: HudView = {
       hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked }), viewer: this.viewer(), armed: input.armed, tappable: canArm(state, shooter) }),
-      menu: builder && !this.mapOpen && !blocked ? buildMenu(state, builder, { open: input.menuOpen, selection: input.selection, landing: !!input.landing }, input.build) : undefined,
+      menu: buildMenu(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen }, input.build),
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),
       flipped: transition.shown === 2,

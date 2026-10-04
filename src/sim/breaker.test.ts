@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig, step, type SimInput, type SimState } from './step'
 import { canArm } from './possession'
-import { emptied, place, playState } from './testkit'
+import { emptied, hseg, place, playState } from './testkit'
 import type { WallSpec } from './wall'
 
 const c = defaultConfig
@@ -10,8 +10,8 @@ const shooter = (s: SimState) => s.possession.shooter
 const ready = (s = playState()): SimState => ({ ...s, possession: { ...s.possession, inHand: false } })
 const fire = (s: SimState, breaker: boolean, power = 0.4) => run(s, { shot: { player: shooter(s), dir: { x: 1, y: 0 }, tier: 0, power, breaker } })
 /** Ball on the shooter's half, so a straight wall can sit in its path. */
-const wall = (owner: 1 | 2, gy: number): WallSpec => ({ kind: 'wall', owner, shape: 'straight', rotation: 0, at: { gx: 9, gy } })
-const flying = (s: SimState, vy: number): SimState => ({ ...s, breaker: true, possession: { ...s.possession, live: true }, ball: { pos: { x: 20, y: 60 }, vel: { x: 0, y: vy }, rolled: 0 } })
+const wall = (owner: 1 | 2, gy: number): WallSpec => ({ kind: 'wall', owner, ...hseg(9, gy) })
+const flying = (s: SimState, vy: number, y = 60): SimState => ({ ...s, breaker: true, possession: { ...s.possession, live: true }, ball: { pos: { x: 20, y }, vel: { x: 0, y: vy }, rolled: 0 } })
 
 describe('breaker', () => {
   it('consumes one on fire, hit or miss', () => {
@@ -35,7 +35,7 @@ describe('breaker', () => {
   })
   it('destroys the first structure it touches at full speed, whoever owns it', () => {
     for (const owner of [1, 2] as const) {
-      const s = flying(place(wall(owner, owner === 1 ? 28 : 24)).state, -40)
+      const s = flying(place(wall(owner, owner === 1 ? 32 : 22)).state, -40, 70)
       const before = Math.hypot(s.ball.vel.x, s.ball.vel.y)
       let t = s
       const events = []
@@ -52,7 +52,7 @@ describe('breaker', () => {
     }
   })
   it('only the first structure breaks; the next one is hit normally', () => {
-    const s = place(wall(2, 16), place(wall(2, 24)).state).state
+    const s = place(wall(2, 16), place(wall(2, 22)).state).state
     let t = flying(s, -40)
     for (let i = 0; i < 300 && t.breaker; i++) t = run(t).state
     expect(t.objects.map((w) => w.hp)).toEqual([3])

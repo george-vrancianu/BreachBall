@@ -11,9 +11,9 @@ it('ButtonRow renders its children after the buttons', () => {
   expect(screen.getByText('extra')).toBeTruthy()
 })
 
-it('BuildMenu renders its children in both kinds', () => {
-  const { rerender } = render(<BuildMenu menu={{ kind: 'menu', open: false, items: [] }} onToggle={() => {}}><i>extra</i></BuildMenu>)
+it('BuildMenu renders its children with and without a selection', () => {
+  const { rerender } = render(<BuildMenu menu={{ building: false, items: [], available: true }} color="#fff" onToggle={() => {}} onArm={() => {}}><i>extra</i></BuildMenu>)
   expect(screen.getByText('extra')).toBeTruthy()
-  rerender(<BuildMenu menu={{ kind: 'selected', buttons: [] }} onToggle={() => {}}><i>more</i></BuildMenu>)
+  rerender(<BuildMenu menu={{ building: false, items: [], available: true, selection: { buttons: [] } }} color="#fff" onToggle={() => {}} onArm={() => {}}><i>more</i></BuildMenu>)
   expect(screen.getByText('more')).toBeTruthy()
 })

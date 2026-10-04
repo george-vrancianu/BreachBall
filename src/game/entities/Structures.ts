@@ -1,12 +1,22 @@
+import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
 import { splashDamage, splashOf } from '../../sim/splash'
 import type { SimConfig, SimState } from '../../sim/step'
-import { canPlace, type Structure, type StructureSpec } from '../../sim/wall'
+import { structureCost, type Structure, type StructureSpec } from '../../sim/wall'
 import { Entity } from './Entity'
 import { Fixture, type FixtureData } from './Fixture'
 import { Tower } from './Tower'
 import { Wall } from './Wall'
+
+/** Where the Credit cost reads: `offset` off a wall's midpoint along its unit normal, turned half a revolution with the canvas when it is `flipped`. A tower has no Credit cost, so it sits at its cell's centre. */
+export function costLabelAt(spec: StructureSpec, offset: number, flipped: boolean): Point {
+  if (spec.kind === 'tower') return { x: (spec.at.gx + 0.5) * rules.cellSize, y: (spec.at.gy + 0.5) * rules.cellSize }
+  const [dx, dy] = [spec.b.x - spec.a.x, spec.b.y - spec.a.y]
+  const len = Math.hypot(dx, dy) || 1
+  const sign = flipped ? -1 : 1
+  return { x: (spec.a.x + spec.b.x) / 2 - (sign * offset * dy) / len, y: (spec.a.y + spec.b.y) / 2 + (sign * offset * dx) / len }
+}
 
 type Particle = { at: Point; vel: Point; color: string; born: number }
 
@@ -14,14 +24,22 @@ const make = (d: FixtureData): Fixture => (d.kind === 'tower' ? new Tower(d) : n
 
 /**
  * Every wall and tower, keyed by sim id. `sync` creates a child as an object appears; one that leaves the sim is dropped at once,
- * unless it was told to `shatter`, in which case it stays until the shatter ends. Holds the build overlays (ghost, landing) and hit particles too.
- * What flies above the ball and aim (fragments, particles, landing, ghost) is drawn by `fx`, which the game adds to the camera after them.
+ * unless it was told to `shatter`, in which case it stays until the shatter ends. Holds the build overlays (build piece, landing) and hit particles too.
+ * What flies above the ball and aim (fragments, particles, landing, build piece) is drawn by `fx`, which the game adds to the camera after them.
  */
 export class Structures extends Entity {
-  /** The piece being dragged and a confirmed piece not yet in the sim, drawn half-transparent. */
-  ghost?: StructureSpec
+  /** The piece being dragged and a placed piece not yet in the sim (the landing one), drawn half-transparent. */
+  buildPiece?: StructureSpec
   landing?: StructureSpec
-  /** Ids stood in for by the ghost or landing piece. */
+  /** The build piece is a new wall (unplaced or being drawn): its Credit cost shows beside its midpoint. Towers spend stock, not Credits, so show none. */
+  costLabel = false
+  /** The build piece fails the full legality check (the Credit balance too), which the build piece's own geometry check cannot see. */
+  pieceBlocked = false
+  /** The selected movable wall's two ends: handles are drawn on them. */
+  handles?: { a: Point; b: Point }
+  /** The canvas is turned for the other seat (hot-seat flip): text is turned back to read upright. */
+  flipped = false
+  /** Ids stood in for by the build piece or landing piece. */
   hidden: number[] = []
   /** An older structure picked to demolish. */
   selected?: number
@@ -87,7 +105,8 @@ export class Structures extends Entity {
   reset(): void {
     for (const [id, f] of this.fixtures) this.drop(id, f)
     this.particles = []
-    this.ghost = this.landing = this.selected = undefined
+    this.buildPiece = this.landing = this.selected = this.handles = undefined
+    this.costLabel = this.pieceBlocked = false
     this.hidden = []
     this.movable = []
     this.preview = new Map()
@@ -139,28 +158,56 @@ export class Structures extends Entity {
     ctx.restore()
   }
 
-  /** The confirmed piece on its way to the sim, then the one being dragged. */
+  /** The landing piece (placed, on its way to the sim), then the one being dragged. */
   drawPieces(ctx: CanvasRenderingContext2D): void {
-    if (this.landing) this.drawGhost(ctx, this.landing, false)
-    if (this.ghost) this.drawGhost(ctx, this.ghost, true)
+    if (this.landing) this.drawBuildPiece(ctx, this.landing, false)
+    if (this.buildPiece) this.drawBuildPiece(ctx, this.buildPiece, true)
+    if (this.buildPiece && this.costLabel) this.drawCost(ctx, this.buildPiece)
+    if (this.handles) this.drawHandles(ctx, this.handles)
   }
 
-  private drawGhost(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean): void {
+  /** A circle on each end of the selected wall: what a finger or the mouse grabs to swing and resize it. */
+  private drawHandles(ctx: CanvasRenderingContext2D, ends: { a: Point; b: Point }): void {
+    const { radius, width, stroke, fill } = visual.wall.handle
+    ctx.save()
+    ctx.lineWidth = width
+    ctx.strokeStyle = stroke
+    ctx.fillStyle = fill
+    for (const at of [ends.a, ends.b]) {
+      ctx.beginPath()
+      ctx.arc(at.x, at.y, radius, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+    }
+    ctx.restore()
+  }
+
+  /** The piece's Credit cost beside its midpoint, red where it cannot be placed. */
+  private drawCost(ctx: CanvasRenderingContext2D, spec: StructureSpec): void {
+    const { size, offset } = visual.wall.cost
+    const at = costLabelAt(spec, offset, this.flipped)
+    ctx.save()
+    ctx.translate(at.x, at.y)
+    if (this.flipped) ctx.rotate(Math.PI)
+    ctx.font = `${visual.wall.cost.weight} ${size}px ${visual.hud.font}`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = this.pieceBlocked ? visual.wall.illegal : visual.hud.ink
+    ctx.fillText(String(structureCost(spec)), 0, 0)
+    ctx.restore()
+  }
+
+  private drawBuildPiece(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean): void {
     const f = make(spec)
     f.clock = this.clock
-    f.alpha = visual.wall.ghostAlpha
+    f.alpha = visual.wall.buildPieceAlpha
     f.selected = selected
-    if (selected && !canPlace(this.standing(), spec)) f.tint = visual.wall.illegal
+    if (selected && this.pieceBlocked) f.tint = visual.wall.illegal
     f.draw(ctx)
-  }
-
-  /** The structures a ghost has to fit among: everything in the sim except what it stands in for. */
-  private standing(): StructureSpec[] {
-    return [...this.fixtures].filter(([id, f]) => !this.hidden.includes(id) && !f.isShattering).map(([, f]) => f.data)
   }
 }
 
-/** Fragments, particles, the landing piece and the build ghost: the layer that draws over the ball and aim. */
+/** Fragments, particles, the landing piece and the build piece: the layer that draws over the ball and aim. */
 export class StructureFx extends Entity {
   constructor(private structures: Structures) {
     super()

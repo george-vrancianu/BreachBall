@@ -1,17 +1,11 @@
 import { rules } from '../config/rules'
 import type { Point } from './pitch'
-import { wallSegments, type Segment, type Structure, type StructureSpec } from './wall'
-
-function nearestOn({ a, b }: Segment, p: Point): Point {
-  const [vx, vy] = [b.x - a.x, b.y - a.y]
-  const t = Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / (vx * vx + vy * vy)))
-  return { x: a.x + t * vx, y: a.y + t * vy }
-}
+import { nearestOnSegment, wallSegments, type Structure, type StructureSpec } from './wall'
 
 /** The point of a structure's drawn segments nearest to `p`, and its distance. */
 export function nearestOnWall(w: StructureSpec, p: Point): { at: Point; dist: number } {
   return wallSegments(w)
-    .map((s) => nearestOn(s, p))
+    .map((s) => nearestOnSegment(s, p))
     .map((at) => ({ at, dist: Math.hypot(at.x - p.x, at.y - p.y) }))
     .reduce((m, h) => (h.dist < m.dist ? h : m))
 }

@@ -54,6 +54,7 @@ export function App() {
               onMapStretch={() => actions().mapStretch()}
               onMapClose={() => actions().map(false)}
               onBuildToggle={() => actions().build.toggle()}
+              onBuildArm={(item) => actions().build.arm(item)}
             />
           </>
         )}

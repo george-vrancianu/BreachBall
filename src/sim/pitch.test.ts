@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cellToWorld, goalCrossed, halfOf, inNoBuildZone, worldToCell } from './pitch'
+import { cellToWorld, goalCrossed, halfOf, worldToCell } from './pitch'
 
 describe('halfOf', () => {
   it('is player 2 above the halfway line, player 1 below', () => {
@@ -22,19 +22,6 @@ describe('cells', () => {
     expect(worldToCell({ x: 0, y: 0 })).toEqual({ cx: 0, cy: 0 })
     expect(worldToCell({ x: 3.9, y: 5 })).toEqual({ cx: 1, cy: 2 })
     expect(worldToCell({ x: 39, y: 107 })).toEqual({ cx: 19, cy: 53 })
-  })
-})
-
-describe('inNoBuildZone', () => {
-  it('covers points within 15 of a goal mouth centre', () => {
-    expect(inNoBuildZone({ x: 20, y: 14 })).toBe(true)
-    expect(inNoBuildZone({ x: 20, y: 94 })).toBe(true)
-    expect(inNoBuildZone({ x: 20, y: 15 })).toBe(true)
-  })
-  it('excludes points beyond the radius', () => {
-    expect(inNoBuildZone({ x: 20, y: 16 })).toBe(false)
-    expect(inNoBuildZone({ x: 33, y: 8 })).toBe(false)
-    expect(inNoBuildZone({ x: 20, y: 54 })).toBe(false)
   })
 })
 

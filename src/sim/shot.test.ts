@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import type { Structure, Wall } from './wall'
 import { defaultConfig, step, type SimConfig, type SimInput, type SimState } from './step'
-import { emptied, playState } from './testkit'
+import { emptied, hseg, playState } from './testkit'
 
 /** No friction, so the velocity after one tick is the launch velocity. */
 const c: SimConfig = { ...defaultConfig, halfLife: Infinity }
@@ -53,7 +53,7 @@ describe('shot', () => {
 })
 
 describe('Splash', () => {
-  const wall = (id: number, owner: 1 | 2, gy: number, gx = 8): Wall => ({ kind: 'wall', owner, shape: 'straight', rotation: 0, at: { gx, gy }, id, hp: rules.wallHp })
+  const wall = (id: number, owner: 1 | 2, gy: number, gx = 8): Wall => ({ kind: 'wall', owner, ...hseg(gx, gy), id, hp: rules.wallHp })
   const right = { x: 1, y: 0 }
   // Ball at (20, 79.5) under walls running x 16..24: gy 37, 38, 39 are 5.5, 3.5 and 1.5 away; gy 34 is 11.5 away.
   const near = (objects: Structure[], pos = { x: 20, y: 79.5 }): SimState => ({ ...ready(), objects, nextId: 99, ball: { pos, vel: { x: 0, y: 0 }, rolled: 0 } })

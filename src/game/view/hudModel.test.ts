@@ -3,7 +3,7 @@ import { defaultConfig, initialState, step, type SimState } from '../../sim/step
 import { firstBuilder } from '../../sim/match'
 import { opponent } from '../../sim/possession'
 import type { TowerSpec, WallSpec } from '../../sim/wall'
-import { playState } from '../../sim/testkit'
+import { playState, hseg } from '../../sim/testkit'
 import { hudModel } from './hudModel'
 
 const view = { active: 1 as const, viewer: 1 as const, armed: false, tappable: false }
@@ -42,7 +42,7 @@ describe('hudModel', () => {
   })
   describe('blind opening build', () => {
     const c = { ...defaultConfig, mode: 'siege' as const }
-    const piece = (owner: 1 | 2): WallSpec => ({ kind: 'wall', owner, shape: 'straight', rotation: 0, at: { gx: 10, gy: owner === 1 ? 40 : 10 } })
+    const piece = (owner: 1 | 2): WallSpec => ({ kind: 'wall', owner, ...hseg(10, owner === 1 ? 40 : 10) })
     const steal = (owner: 1 | 2): TowerSpec => ({ kind: 'tower', owner, power: 'steal', at: { gx: 4, gy: owner === 1 ? 40 : 10 } })
     /** Drives the opening: the builder places a wall and a Steal tower (or just a wall). */
     const build = (s: SimState, spec: WallSpec | TowerSpec) => step(s, { placeWall: spec }, c).state
@@ -98,7 +98,7 @@ describe('hudModel', () => {
     const c = { ...defaultConfig, mode: 'siege' as const }
     let s = initialState(1, c)
     expect(hudModel(s, c, view).players[1].digit).toBe('0')
-    const wall = (id: number, owner: 1 | 2) => ({ id, hp: 3, kind: 'wall' as const, owner, shape: 'straight' as const, rotation: 0 as const, at: { gx: 2, gy: id } })
+    const wall = (id: number, owner: 1 | 2) => ({ id, hp: 3, kind: 'wall' as const, owner, ...hseg(2, id) })
     const tower = { id: 3, hp: 1, kind: 'tower' as const, owner: 1 as const, at: { gx: 8, gy: 22 }, power: 'repulsor' as const }
     s = { ...s, objects: [wall(1, 1), tower, wall(2, 2)], match: { ...s.match, builder: null } }
     const m = hudModel(s, c, view)

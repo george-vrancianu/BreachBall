@@ -4,6 +4,7 @@ import { defaultSettings } from '../sim/settings'
 import { LocalDriver, type Driver } from './driver'
 import type { Structure } from '../sim/wall'
 import { Game, type HudView } from './Game'
+import { hseg } from '../sim/testkit'
 
 // No DOM in the test run: a canvas that is an EventTarget, a window that is one, a context that swallows every call.
 class FakeCanvas extends EventTarget {
@@ -11,6 +12,7 @@ class FakeCanvas extends EventTarget {
   height = 640
   clientWidth = 400
   clientHeight = 640
+  style = { cursor: '' }
   setPointerCapture() {}
   getContext() {
     const ctx: unknown = new Proxy({ canvas: this }, { get: (t, k) => (k in t ? (t as never)[k] : () => ({ addColorStop() {} })), set: () => true })
@@ -58,6 +60,65 @@ describe('Game', () => {
     frame(t)
     expect(onView).toHaveBeenCalledTimes(settled + 1)
     expect(onView.mock.lastCall![0].mapOpen).toBe(true)
+  })
+
+  describe('end handles', () => {
+    afterEach(() => vi.restoreAllMocks())
+    const wall = { kind: 'wall' as const, owner: 1 as const, ...hseg(10, 40) }
+    /** Draws the wall or presses the tower on the canvas, with Build armed through its action, and lets the sim take it: the lift leaves the piece selected. */
+    const built = (item: 'wall' | 'repulsor', older = false, mapOpen = false) => {
+      // Player 1 builds first.
+      vi.spyOn(Math, 'random').mockReturnValue(0)
+      let t = 1000
+      vi.spyOn(performance, 'now').mockImplementation(() => t)
+      const canvas = new FakeCanvas()
+      const game = new Game(canvas as unknown as HTMLCanvasElement, (sink) => new LocalDriver(sink))
+      game.actions.start({ ...defaultSettings, mode: 'siege' })
+      // The turn flips to Player 1 over the first 400 ms; its card may then be dismissed after a second.
+      frame(t)
+      t += 1500
+      frame(t)
+      game.actions.dismiss()
+      frame(t)
+      const at = (type: string, p: { x: number; y: number }) => {
+        const px = game.camera.toCanvas(canvas as unknown as HTMLCanvasElement, p)
+        canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: px.x, offsetY: px.y, clientX: px.x, clientY: px.y, pointerId: 1, pointerType: 'mouse', button: 0 }))
+      }
+      game.actions.build.toggle()
+      if (item === 'repulsor') game.actions.build.arm('repulsor')
+      const mid = { x: (wall.a.x + wall.b.x) / 2, y: wall.a.y }
+      at('pointerdown', item === 'wall' ? wall.a : mid)
+      if (item === 'wall') at('pointermove', wall.b)
+      at('pointerup', item === 'wall' ? wall.b : mid)
+      t += 100
+      frame(t)
+      t += 100
+      frame(t)
+      expect(game.state.objects).toHaveLength(1)
+      if (older) {
+        // A structure from an earlier turn: selectable by a tap, not movable.
+        game.state = { ...game.state, built: [] }
+        game.actions.build.cancel()
+        at('pointerdown', mid)
+        at('pointerup', mid)
+      }
+      if (mapOpen) game.actions.map(true)
+      frame(t)
+      return game.structures.handles
+    }
+
+    it('show on a selected movable wall', () => {
+      expect(built('wall')).toMatchObject({ a: expect.any(Object), b: expect.any(Object) })
+    })
+    it('are absent for a selected tower', () => {
+      expect(built('repulsor')).toBeUndefined()
+    })
+    it('are absent for a selected older wall', () => {
+      expect(built('wall', true)).toBeUndefined()
+    })
+    it('are absent with the map open', () => {
+      expect(built('wall', false, true)).toBeUndefined()
+    })
   })
 
   it('destroy stops the loop and removes every listener', () => {
@@ -173,19 +234,29 @@ describe('Game', () => {
       send: (input) => void calls.push(`send ${Object.keys(input)}`),
       update: () => void calls.push('update'),
     }
-    const game = new Game(new FakeCanvas() as unknown as HTMLCanvasElement, () => fake)
+    const canvas = new FakeCanvas()
+    const game = new Game(canvas as unknown as HTMLCanvasElement, () => fake)
     expect(calls).toEqual(['start'])
     frame(performance.now())
     expect(calls).toContain('update')
-    game.actions.build.spawn('straight')
-    game.actions.build.confirm()
+    // Let the opening card pass, then draw a one-unit wall across the middle of the builder's half.
+    const later = performance.now() + 60_000
+    frame(later)
+    vi.spyOn(performance, 'now').mockReturnValue(later)
+    game.actions.dismiss()
+    game.actions.build.toggle()
+    const at = (type: string, offsetX: number) => canvas.dispatchEvent(Object.assign(new Event(type), { offsetX, offsetY: 320, clientX: offsetX, clientY: 320, pointerId: 1 }))
+    at('pointerdown', 100)
+    at('pointermove', 190)
+    at('pointerup', 190)
     expect(calls).toContain('send placeWall')
+    vi.restoreAllMocks()
     game.destroy()
   })
 
   it('routes a tick\'s destroy events before syncing structures, so a destroyed wall shatters instead of being dropped', () => {
     const game = make()
-    const wall: Structure = { id: 99, kind: 'wall', owner: 1, shape: 'straight', rotation: 0, at: { gx: 10, gy: 40 }, hp: 3 }
+    const wall: Structure = { id: 99, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 }
     game.apply({ ...game.state, objects: [wall] }, [])
     expect(game.structures.count).toBe(1)
     game.apply({ ...game.state, objects: [] }, [{ type: 'wall-destroyed', wall: { ...wall, hp: 0 }, at: { x: 20, y: 40 } }])

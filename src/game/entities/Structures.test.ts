@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { visual } from '../../config/visual'
 import { defaultConfig } from '../../sim/step'
-import { playState } from '../../sim/testkit'
+import { playState, hseg } from '../../sim/testkit'
 import type { Structure } from '../../sim/wall'
-import { Structures } from './Structures'
+import { costLabelAt, Structures } from './Structures'
 import { Tower } from './Tower'
 import { Wall } from './Wall'
 
-const wall = (id: number): Structure => ({ id, kind: 'wall', owner: 1, shape: 'straight', rotation: 0, at: { gx: 10, gy: 40 }, hp: 3 })
+const wall = (id: number): Structure => ({ id, kind: 'wall', owner: 1, ...hseg(10, 40), hp: 3 })
 const tower = (id: number): Structure => ({ id, kind: 'tower', owner: 2, power: 'repulsor', at: { gx: 5, gy: 10 }, hp: 3 })
 const from = { x: 20, y: 80 }
 const run = (s: Structures, ms: number) => s.update(ms / 1000)
@@ -77,7 +77,7 @@ describe('Structures', () => {
 })
 
 describe('Splash preview', () => {
-  const at = (id: number, owner: 1 | 2, gy: number): Structure => ({ id, kind: 'wall', owner, shape: 'straight', rotation: 0, at: { gx: 8, gy }, hp: 3 })
+  const at = (id: number, owner: 1 | 2, gy: number): Structure => ({ id, kind: 'wall', owner, ...hseg(8, gy), hp: 3 })
   // P1's ball at (20, 79.5) under walls running x 16..24: own gy 39 is 1.5 away, enemy gy 37 5.5 away, enemy gy 34 11.5 away.
   const state = { ...playState(), objects: [at(1, 1, 39), at(2, 2, 37), at(3, 2, 34)], ball: { pos: { x: 20, y: 79.5 }, vel: { x: 0, y: 0 }, rolled: 0 }, possession: { shooter: 1 as const, shots: 3, inHand: false, live: false } }
   const previewOf = (aim?: { tier: number; power?: number }) => {
@@ -105,13 +105,32 @@ const ctx = new Proxy({}, { get: () => () => {}, set: () => true }) as unknown a
 const spyDraws = (s: Structures) => ({ shatter: vi.spyOn(s, 'drawShatter'), particles: vi.spyOn(s, 'drawParticles'), pieces: vi.spyOn(s, 'drawPieces') })
 
 describe('draw order', () => {
-  it('fragments, particles, the landing piece and the build ghost are drawn by `fx`, not by the structures', () => {
+  it('fragments, particles, the landing piece and the build piece are drawn by `fx`, not by the structures', () => {
     const s = new Structures()
     const spies = spyDraws(s)
     s.draw(ctx)
     for (const spy of Object.values(spies)) expect(spy).not.toHaveBeenCalled()
     s.fx.draw(ctx)
     for (const spy of Object.values(spies)) expect(spy).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('end handles', () => {
+  const arcs = (s: Structures) => {
+    const calls: number[][] = []
+    const rec = new Proxy({}, { get: (_, k) => (k === 'arc' ? (...a: number[]) => calls.push(a) : () => {}), set: () => true }) as unknown as CanvasRenderingContext2D
+    s.drawPieces(rec)
+    return calls
+  }
+
+  it('draws a circle on each end of the selected wall, and none without one', () => {
+    const s = new Structures()
+    expect(arcs(s)).toEqual([])
+    s.handles = { a: { x: 10, y: 80 }, b: { x: 18, y: 80 } }
+    expect(arcs(s)).toEqual([
+      [10, 80, visual.wall.handle.radius, 0, Math.PI * 2],
+      [18, 80, visual.wall.handle.radius, 0, Math.PI * 2],
+    ])
   })
 })
 
@@ -135,11 +154,24 @@ describe('Structures reset', () => {
     s.shatter(1, from)
     s.burst(from, 'red', 3)
     expect(s.particleCount).toBe(3)
-    s.ghost = wall(3)
+    s.buildPiece = wall(3)
     s.reset()
-    expect([s.count, s.children.length, s.ghost]).toEqual([0, 0, undefined])
+    expect([s.count, s.children.length, s.buildPiece]).toEqual([0, 0, undefined])
     s.sync([tower(1)])
     expect(s.get(1)).toBeInstanceOf(Tower)
     expect(s.particleCount).toBe(0)
+  })
+})
+
+describe('costLabelAt', () => {
+  const w = { kind: 'wall' as const, owner: 1 as const, a: { x: 10, y: 80 }, b: { x: 18, y: 80 } }
+  it('sits off the wall along its normal, on the other side when flipped', () => {
+    expect(costLabelAt(w, 1.4, false)).toEqual({ x: 14, y: 81.4 })
+    expect(costLabelAt(w, 1.4, true)).toEqual({ x: 14, y: 78.6 })
+  })
+  it('follows a vertical wall\'s normal', () => {
+    const p = costLabelAt({ ...w, b: { x: 10, y: 88 } }, 1, false)
+    expect(p.x).toBeCloseTo(9)
+    expect(p.y).toBeCloseTo(84)
   })
 })

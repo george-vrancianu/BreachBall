@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { predictPath } from './predict'
 import { defaultConfig, step, type SimEvent, type SimInput, type SimState } from './step'
-import { place, playState } from './testkit'
+import { place, playState, hseg } from './testkit'
 import type { Point } from './pitch'
 
 const c = defaultConfig
@@ -27,7 +27,7 @@ describe('predictPath', () => {
     expect(p.points[0]).toEqual({ x: 10, y: 20 })
   })
   it('ends where the stepped shot first touches a structure', () => {
-    const walled = place({ kind: 'wall', owner: 2, shape: 'straight', rotation: 0, at: { gx: 3, gy: 10 } })
+    const walled = place({ kind: 'wall', owner: 2, ...hseg(3, 10) })
     expect(walled.events).toEqual([])
     const s = at({ x: 10, y: 40 }, walled.state)
     const p = predictPath(s, up, c, { contacts: 1 })

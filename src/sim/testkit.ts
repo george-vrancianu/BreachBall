@@ -1,6 +1,7 @@
+import { rules } from '../config/rules'
 import { defaultConfig, initialState, step, type SimState } from './step'
 import type { RoundsMatch } from './match'
-import type { PlayerId } from './pitch'
+import type { PlayerId, Point } from './pitch'
 import type { PowerUp } from './player'
 import type { StructureSpec } from './wall'
 
@@ -31,3 +32,6 @@ export const roundsMatch = (s: SimState): RoundsMatch => {
   if (s.match.mode !== 'rounds') throw new Error('not a Rounds match')
   return s.match
 }
+
+/** The ends of a horizontal wall `units` long starting at grid vertex (gx, gy): one unit is `rules.wall.unit` world units. */
+export const hseg = (gx: number, gy: number, units = 1): { a: Point; b: Point } => ({ a: { x: gx * rules.cellSize, y: gy * rules.cellSize }, b: { x: gx * rules.cellSize + rules.wall.unit * units, y: gy * rules.cellSize } })

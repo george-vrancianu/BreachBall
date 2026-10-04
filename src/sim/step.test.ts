@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig, step } from './step'
-import { buildState, playState } from './testkit'
+import { buildState, playState, hseg } from './testkit'
 
 describe('step', () => {
   it('returns new state and an events list without mutating the input', () => {
@@ -14,28 +14,30 @@ describe('step', () => {
   it('starts with an empty object container', () => {
     expect(playState().objects).toEqual([])
   })
-  it('adds a placed wall to the state, overlapping walls allowed', () => {
-    const wall = { kind: 'wall', owner: 2, shape: 'L', rotation: 1, at: { gx: 3, gy: 4 } } as const
+  it('adds placed walls to the state, touching end to end but never overlapping', () => {
+    const wall = { kind: 'wall', owner: 2, ...hseg(3, 10) } as const
+    const next = { kind: 'wall', owner: 2, ...hseg(7, 10) } as const
     let s = step(buildState(2), { placeWall: wall }, defaultConfig).state
-    s = step(s, { placeWall: wall }, defaultConfig).state
+    s = step(s, { placeWall: next }, defaultConfig).state
     expect(s.objects).toEqual([
       { ...wall, id: 1, hp: 3 },
-      { ...wall, id: 2, hp: 3 },
+      { ...next, id: 2, hp: 3 },
     ])
+    const again = step(s, { placeWall: wall }, defaultConfig)
+    expect(again.state.objects).toHaveLength(2)
+    expect(again.events).toEqual([{ type: 'refused' }])
   })
 })
 
 describe('placement and demolition rules', () => {
-  it('refuses a placement that seals the owner\'s goal', () => {
-    const row = (gx: number) => ({ kind: 'wall', owner: 1, shape: 'straight', rotation: 0, at: { gx, gy: 40 } }) as const
-    let s = buildState(1)
-    for (const gx of [0, 4, 8, 12]) s = step(s, { placeWall: row(gx) }, defaultConfig).state
-    const r = step(s, { placeWall: row(16) }, defaultConfig)
-    expect(r.state.objects).toHaveLength(4)
-    expect(r.events).toEqual([{ type: 'refused' }])
+  it('lets a player wall off their own goal: there is no reachability rule', () => {
+    const row = (gx: number) => ({ kind: 'wall', owner: 1, ...hseg(gx, 40) }) as const
+    let s = { ...buildState(1), credits: { 1: 20, 2: 20 } }
+    for (const gx of [0, 4, 8, 12, 16]) s = step(s, { placeWall: row(gx) }, defaultConfig).state
+    expect(s.objects).toHaveLength(5)
   })
-  const legal = { kind: 'wall', owner: 1, shape: 'straight', rotation: 0, at: { gx: 2, gy: 40 } } as const
-  const illegal = { ...legal, at: { gx: 2, gy: 10 } }
+  const legal = { kind: 'wall', owner: 1, ...hseg(2, 40) } as const
+  const illegal = { ...legal, ...hseg(2, 10) }
   const placed = { ...legal, id: 1, hp: 3 }
   it('places a legal wall and refuses an illegal one', () => {
     expect(step(buildState(1), { placeWall: legal }, defaultConfig).state.objects).toEqual([placed])

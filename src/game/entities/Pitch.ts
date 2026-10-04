@@ -51,6 +51,10 @@ export class Pitch extends Entity {
     ctx.strokeStyle = visual.player.colors[builder]
     ctx.lineWidth = noBuild.lineWidth
     ctx.stroke()
+    // The Centre zone: the builder's half of the circle around the centre spot (canvas y grows downwards, so player 1's high-y half is angles 0 to PI).
+    ctx.beginPath()
+    ctx.arc(w / 2, h / 2, rules.centreZoneRadius, builder === 1 ? 0 : Math.PI, builder === 1 ? Math.PI : 2 * Math.PI)
+    ctx.stroke()
     ctx.setLineDash([])
   }
 }

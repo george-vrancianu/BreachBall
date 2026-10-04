@@ -4,9 +4,10 @@ import { blindSeat, buildPhase, openingBuild } from '../../sim/mode'
 import { whoActs } from '../../sim/possession'
 import { hudModel } from './hudModel'
 import { advance, blocking, newTransition, overlayView, revealing, type Transition } from './transition'
+import { hseg } from '../../sim/testkit'
 
 const siege = { ...defaultConfig, mode: 'siege' as const }
-const w = (id: number, owner: 1 | 2, gx: number) => ({ kind: 'wall' as const, owner, shape: 'straight' as const, rotation: 0 as const, at: { gx, gy: owner === 1 ? 40 : 10 }, id, hp: 2 })
+const w = (id: number, owner: 1 | 2, gx: number) => ({ kind: 'wall' as const, owner, ...hseg(gx, owner === 1 ? 40 : 10), id, hp: 2 })
 
 /** Drives step and advance as the shell does: the view derivations are the ones Game uses, computed from the state after each tick. */
 function play() {
@@ -35,7 +36,7 @@ describe('goal, Rearrange, Done as the shell drives them', () => {
     g.tick()
     g.tick({ defence: { player: 1, choice: 'rearrange' } })
     expect(g.state().match.builder).toBe(1)
-    g.tick({ moveStructure: { player: 1, id: 1, at: { gx: 6, gy: 44 }, rotation: 1 } })
+    g.tick({ moveStructure: { player: 1, id: 1, a: { x: 12, y: 88 }, b: { x: 20, y: 88 } } })
     g.tick({ done: 1 })
     g.tick()
     expect(g.state().match.builder).toBeNull()
