@@ -46,7 +46,7 @@ export const visual = {
   /** Text boxes for layout (no measuring): the average width of a glyph as a share of the font size (em), used to size the box of a label that must be kept clear of. */
   text: { glyphEm: 0.62 },
   /** The decimal point of a "x1.5" label, drawn as a disc so it reads at phone size: its radius, the gap on each side of it and how far below the text's middle it sits, as shares of the font size (em). */
-  decimalPoint: { radiusEm: 0.09, gapEm: 0.14, dropEm: 0.3 },
+  decimalPoint: { radiusEm: 0.12, gapEm: 0.1, dropEm: 0.3 },
   /** The pitch markings from the design handoff, authored in reference px (a 390 px wide pitch) and scaled to world units by `unit`, so everything follows the pane width. */
   pitch: {
     /** The pitch width the handoff is authored at, px. */
@@ -237,7 +237,7 @@ export const visual = {
     /** The ball-in-hand placement disc. */
     placementAlpha: 0.5,
     /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period), the "x1.5" / "x2" badge (size, height above the ball, weight; world units). It moves below the ball, then to its side (`sideOffset` from the ball's centre), where it would overlap the zone label or the Aim's chip; `margin` is the clearance kept round those. Then the badge's pop-in (`popMs`, growing from `popScale`). Its launch runs the tracer's core bright (`tracer.brightCore`). */
-    charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700, sideOffset: 3.6, margin: 0.3 }, popMs: 250, popScale: 0.5 },
+    charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700, sideOffset: 4.4, margin: 0.3 }, popMs: 250, popScale: 0.5 },
     /** The Breaker outline. */
     armed: { radius: 1.5, swing: 0.25, periodMs: 120, width: 0.3 },
     /** The hold ring, `radiusPx` screen px out, filling while the shooter holds still; reaching a new tier pulses it (up to `grow` larger) over `pulseMs`. */
