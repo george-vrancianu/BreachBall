@@ -44,6 +44,7 @@ export function App() {
             {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} />}
             <Shell
               hud={view.hud}
+              offence={view.offence}
               defence={view.defence}
               subterfuge={view.subterfuge}
               confirm={view.confirm}
@@ -51,7 +52,7 @@ export function App() {
               flipped={view.flipped}
               onMap={() => actions().map()}
               onRecenter={() => actions().recenter()}
-              onPowerUp={(p) => actions().powerUp(p)}
+              onOffenceArm={(item) => actions().offence.arm(item)}
               onRefund={(n) => actions().refund(n)}
               onConfirm={() => actions().confirmBall()}
               onMapStretch={() => actions().mapStretch()}

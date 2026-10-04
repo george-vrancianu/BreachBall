@@ -27,6 +27,8 @@ const base = {
   wallHalf: 0.35,
   /** Credits it costs to demolish a piece placed in an earlier turn. */
   demolishCost: 1,
+  /** Credits an armed Breaker shot costs when it fires (Rounds); Siege has no Credits economy and spends the stock instead. */
+  breakerCost: 2,
   startInventory: 3,
   /** Credits a Jam costs (Subterfuge). */
   jamCost: 2,

@@ -24,9 +24,26 @@ export const canRefund = (s: Pick<SimState, 'match' | 'possession'>, p: PlayerId
 export const canSubterfuge = (s: Pick<SimState, 'match' | 'possession' | 'subterfuge'>, p: PlayerId): boolean =>
   modeFor(s.match).maySubterfuge(s.match) && !s.match.winner && !s.match.choosing && !s.subterfuge.spent && (s.match.builder ? s.match.builder === p : s.possession.shooter === p && !s.possession.live)
 
-/** Whether `p` may queue a Jam now: Subterfuge is open to them, they can pay, and none is already queued against their opponent (a Jam never stacks). */
-export const canJam = (s: Pick<SimState, 'match' | 'possession' | 'subterfuge' | 'credits'>, p: PlayerId): boolean =>
-  canSubterfuge(s, p) && s.credits[p] >= rules.jamCost && s.subterfuge.queued[opponent(p)] === null
+/** Each Subterfuge item's price in Credits and what it does to the possession it lands on. */
+export const SUBTERFUGE: Record<SubterfugeItem, { cost: number; land(p: SimState['possession']): SimState['possession'] }> = {
+  // One Move point fewer, never the last.
+  jam: { cost: rules.jamCost, land: (p) => ({ ...p, shots: Math.max(1, p.shots - 1) }) },
+}
+
+/** Whether `item` is a Subterfuge item that works (an unknown one is refused, nothing charged). */
+export const isSubterfuge = (item: unknown): item is SubterfugeItem => typeof item === 'string' && Object.hasOwn(SUBTERFUGE, item)
+
+/** Whether `p` may queue `item` now: Subterfuge is open to them, they can pay, and none is already queued against their opponent (an item never stacks). */
+export const canCast = (s: Pick<SimState, 'match' | 'possession' | 'subterfuge' | 'credits'>, p: PlayerId, item: SubterfugeItem): boolean =>
+  canSubterfuge(s, p) && s.credits[p] >= SUBTERFUGE[item].cost && s.subterfuge.queued[opponent(p)] === null
+
+/** Whether `p` can pay for a Breaker shot: `rules.breakerCost` Credits in Rounds, one of the stock in Siege. */
+export const canAffordBreaker = (s: Pick<SimState, 'match' | 'credits' | 'players'>, p: PlayerId): boolean =>
+  modeFor(s.match).paysBreaker(s.match) ? s.credits[p] >= rules.breakerCost : s.players[p].inventory.breaker > 0
+
+/** Whether `p` may arm the Breaker now: the shooter in their own play phase, before the shot, able to pay. Nothing is charged until the shot fires. */
+export const canArm = (s: SimState, p: PlayerId): boolean =>
+  !s.match.builder && s.possession.shooter === p && !s.possession.inHand && !s.possession.live && canAffordBreaker(s, p)
 
 /** Whether the current build turn may place and demolish (false in a Rearrange turn, which only moves pieces). */
 export const canEdit = (s: Pick<SimState, 'match'>): boolean => modeFor(s.match).mayEdit(s.match)
@@ -280,9 +297,9 @@ export function step(
   const cast = input.subterfuge
   if (cast) {
     // The price is paid and the item queued against the opponent at once; it lands when their next possession begins.
-    if (canJam({ match, possession, subterfuge, credits }, cast.player)) {
+    if (isSubterfuge(cast.item) && canCast({ match, possession, subterfuge, credits }, cast.player, cast.item)) {
       subterfuge = { queued: { ...subterfuge.queued, [opponent(cast.player)]: cast.item }, spent: true }
-      credits = { ...credits, [cast.player]: credits[cast.player] - rules.jamCost }
+      credits = { ...credits, [cast.player]: credits[cast.player] - SUBTERFUGE[cast.item].cost }
       events.push({ type: 'subterfuge-queued', player: cast.player, item: cast.item })
     } else events.push({ type: 'refused' })
   }
@@ -310,8 +327,12 @@ export function step(
   if (shot) {
     const tier = rules.shot.tiers[shot.tier]
     const inRange = !!tier && shot.power >= tier.power[0] && shot.power <= tier.power[1]
-    if (!building && !waiting && shot.player === possession.shooter && !possession.inHand && !possession.live && inRange && (!shot.breaker || players[shot.player].inventory.breaker > 0)) {
-      if (shot.breaker) players = spend(players, shot.player, 'breaker')
+    if (!building && !waiting && shot.player === possession.shooter && !possession.inHand && !possession.live && inRange && (!shot.breaker || canAffordBreaker({ match, credits, players }, shot.player))) {
+      // The Breaker is paid for as the shot fires, never for arming or a cancelled aim.
+      if (shot.breaker) {
+        if (mode.paysBreaker(match)) credits = { ...credits, [shot.player]: credits[shot.player] - rules.breakerCost }
+        else players = spend(players, shot.player, 'breaker')
+      }
       events.push({ type: 'shot-fired', ...shot, from: ball.pos })
       possession = { ...possession, live: true }
       match = mode.onShotFired(match)
@@ -404,12 +425,13 @@ export function step(
   // A new turn (a hand-over, or a build turn starting or ending) may buy Subterfuge again.
   const turned = possession.shooter !== state.possession.shooter || match.builder !== state.match.builder || events.some((e) => e.type === 'possession-changed')
   if (turned) subterfuge = { ...subterfuge, spent: false }
-  // A possession begins in play with a hand-over, or when the last build turn ends: a Jam queued against its shooter lands, taking one Move point (never the last).
+  // A possession begins in play with a hand-over, or when the last build turn ends: an item queued against its shooter lands (a Jam takes one Move point, never the last).
   const began = !match.winner && !match.builder && (!!state.match.builder || events.some((e) => e.type === 'possession-changed'))
-  if (began && subterfuge.queued[possession.shooter] === 'jam') {
-    possession = { ...possession, shots: Math.max(1, possession.shots - 1) }
+  const landing = subterfuge.queued[possession.shooter]
+  if (began && landing) {
+    possession = SUBTERFUGE[landing].land(possession)
     subterfuge = { ...subterfuge, queued: { ...subterfuge.queued, [possession.shooter]: null } }
-    events.push({ type: 'subterfuge-landed', player: possession.shooter, item: 'jam' })
+    events.push({ type: 'subterfuge-landed', player: possession.shooter, item: landing })
   }
   if (match.builder !== state.match.builder) built = []
   if (match.builder && match.builder !== state.match.builder) {

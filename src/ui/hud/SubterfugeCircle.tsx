@@ -4,47 +4,26 @@ import { reducedMotion } from '../../game/feedback'
 import type { SubterfugeCircle as SubterfugeCircleView, SubterfugeSpec } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
 import { FONT } from '../ButtonRow'
+import { GREY, ItemButton, NO_CALLOUT, noMenu, useColumn, type ColumnItemSpec } from './ItemButton'
 
 const { ink, panel, shadow } = visual.hud
-const { circlePx, borderPx, itemPx, pillPx, gap, pulseMs, pulseScale, columnZ, itemFontPx, pillFontPx, pillOffsetPx, pillPadPx, pillBorderPx, itemBorderPx, shadowPx } = visual.hud.defence
-// A long press on touch would otherwise open the context menu, select text or show the callout.
-const NO_CALLOUT: CSSProperties = { userSelect: 'none', WebkitTouchCallout: 'none' }
-const noMenu = (e: { preventDefault(): void }) => e.preventDefault()
-const GREY = visual.tokens.ghostBorder
+const { circlePx, borderPx, gap, pulseMs, pulseScale, columnZ, itemPx, itemBorderPx, shadowPx } = visual.hud.defence
 
 const svg = (size: number, d: ReactNode) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">{d}</svg>
 // Drawn rather than an emoji, which some fonts lack: a dagger, and a spiked hub for the Jam.
 const DAGGER = svg(26, <path d="M20 4l-1 5-9 9-4-4 9-9zM6 14l4 4M4 20l3-3" />)
-export const JAM = (size: number) => svg(size, <><circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3" /></>)
-const ITEM_ICON: Record<SubterfugeSpec['item'], ReactNode> = { jam: JAM(26), soon1: '🧪', soon2: '🧪' }
+const JAM = (size: number) => svg(size, <><circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3" /></>)
+/** How each item is drawn and named, in the column and in the queued icons. */
+const ITEMS: Record<SubterfugeItem, { icon(size: number): ReactNode; name: string }> = { jam: { icon: JAM, name: 'Jam' } }
+const SOON_ICON = '🧪'
 
 type Press = { x: number; y: number; slid: boolean; opened: boolean; pulsed: boolean }
-
-/** One item of the column: a circle with its pill beside it, saying what it costs and when it lands. Greyed when disabled, but still there (and hit-testable for a slide). */
-function ItemButton({ spec, onPick }: { spec: SubterfugeSpec; onPick(item: SubterfugeItem): void }) {
-  const off = spec.disabled
-  return (
-    <button
-      data-item={spec.item}
-      aria-label={spec.soon ? 'Coming soon' : `${spec.label}, ${spec.when}`}
-      aria-disabled={off}
-      onClick={() => !off && !spec.soon && onPick(spec.item as SubterfugeItem)}
-      onContextMenu={noMenu}
-      style={{ ...FONT, position: 'relative', width: itemPx, height: itemPx, padding: 0, borderRadius: '50%', border: `${itemBorderPx}px solid ${off ? GREY : ink}`, color: off ? GREY : ink, background: panel, fontSize: itemFontPx, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 ${shadowPx.y}px ${shadowPx.blur}px ${shadow}`, touchAction: 'none', ...NO_CALLOUT }}
-    >
-      {ITEM_ICON[spec.item]}
-      <span style={{ position: 'absolute', left: itemPx + pillOffsetPx, height: pillPx, lineHeight: `${pillPx - 2 * pillBorderPx}px`, padding: `0 ${pillPadPx}px`, boxSizing: 'border-box', borderRadius: pillPx / 2, border: `${pillBorderPx}px solid ${GREY}`, background: panel, color: off ? GREY : ink, whiteSpace: 'nowrap', fontSize: pillFontPx }}>
-        {spec.soon ? 'Soon' : `${spec.label} · ${spec.when}`}
-      </span>
-    </button>
-  )
-}
 
 /**
  * The Subterfuge circle. Tap, or hold still for `holdMs`: the item column opens (a tap with it open closes it); slide onto an item and lift to buy it.
  * Outside the viewer's turn (or once this turn's Subterfuge is bought) the circle is greyed and a tap or hold pulses it instead.
  */
-export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, className, style }: { subterfuge: SubterfugeCircleView; color: string; flipped?: boolean; onBuy(item: SubterfugeItem): void; className?: string; style?: CSSProperties }) {
+export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, onOpen, className, style }: { subterfuge: SubterfugeCircleView; color: string; flipped?: boolean; onBuy(item: SubterfugeItem): void; /** The column opened (true) or closed (false), unmounting included. */ onOpen?(open: boolean): void; className?: string; style?: CSSProperties }) {
   const { available, items } = subterfuge
   const [open, setOpen] = useState(false)
   const hold = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -58,16 +37,7 @@ export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, cl
   const clearHold = () => clearTimeout(hold.current)
   useEffect(() => () => clearTimeout(hold.current), [])
   useEffect(() => { if (!available) setOpen(false) }, [available])
-  // A press anywhere outside the circle and its column closes the column.
-  useEffect(() => {
-    if (!open) return
-    const outside = (e: Event) => {
-      const t = e.target as Node
-      if (!circle.current?.contains(t) && !column.current?.contains(t)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', outside, true)
-    return () => document.removeEventListener('pointerdown', outside, true)
-  }, [open])
+  useColumn(open, () => setOpen(false), circle, column, onOpen)
 
   // A refused press swells the circle once; a second one restarts it.
   const nudge = () => {
@@ -90,7 +60,14 @@ export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, cl
     if (p && !p.opened && !p.slid && Math.hypot(e.clientX - p.x, e.clientY - p.y) > visual.input.tapSlopPx) (p.slid = true), clearHold()
   }
   const close = () => (setOpen(false), circle.current?.focus())
-  const buy = (item: SubterfugeItem) => (close(), onBuy(item))
+  const spec = (slot: string) => items.find((i) => i.item === slot)
+  // Closes the column; buys the item only when it can be (a greyed or locked one just closes it).
+  const pick = (slot: string) => {
+    close()
+    const i = spec(slot)
+    if (i && !i.soon && !i.disabled) onBuy(i.item)
+  }
+  const colSpec = (i: SubterfugeSpec): ColumnItemSpec<string> => ({ item: i.item, label: i.soon ? 'Locked' : `${i.label} · ${i.when}`, disabled: i.disabled, pressed: false, soon: i.soon })
   // The keyboard opens the column towards the pitch (Escape closes it); the items are buttons to Tab to.
   const key = (e: KeyboardEvent) => {
     if (e.key === (flipped ? 'ArrowDown' : 'ArrowUp') && available) (e.preventDefault(), setOpen(true))
@@ -108,8 +85,8 @@ export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, cl
     if (!p) return
     if (p.opened) {
       const hit = document.elementFromPoint?.(e.clientX, e.clientY)
-      const spec = items.find((i) => i.item === hit?.closest('[data-item]')?.getAttribute('data-item'))
-      if (spec) (close(), !spec.disabled && !spec.soon && onBuy(spec.item as SubterfugeItem))
+      const slot = hit?.closest('[data-item]')?.getAttribute('data-item')
+      if (slot && spec(slot)) pick(slot)
       // Lifting on the circle keeps the column for a tap; anywhere else closes it.
       else if (!(hit && circle.current?.contains(hit))) setOpen(false)
     } else if (!p.slid && !p.pulsed) tap()
@@ -125,7 +102,7 @@ export function SubterfugeCircle({ subterfuge, color, flipped = false, onBuy, cl
     <div className={className} style={{ position: 'relative', ...style }}>
       {open && (
         <div ref={column} style={{ position: 'absolute', [flipped ? 'top' : 'bottom']: circlePx + gap, left: (circlePx - itemPx) / 2, display: 'flex', flexDirection: flipped ? 'column' : 'column-reverse', gap, zIndex: columnZ }}>
-          {items.map((s) => <ItemButton key={s.item} spec={s} onPick={buy} />)}
+          {items.map((i) => <ItemButton key={i.item} spec={colSpec(i)} icon={i.soon ? SOON_ICON : ITEMS[i.item].icon(26)} color={color} onPick={pick} />)}
         </div>
       )}
       <button
@@ -159,9 +136,9 @@ export function QueuedIcons({ queued, flipped }: { queued: SubterfugeCircleView[
   return (
     <div style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'bottom' : 'top']: edgePx, display: 'flex', justifyContent: 'center', gap: gapPx, pointerEvents: 'none', ...FONT }}>
       {queued.map((q) => (
-        <div key={q.against} role="img" aria-label={`${q.item} queued against Player ${q.against}`} style={{ display: 'flex', alignItems: 'center', gap: 4, height: px, padding: `0 ${gapPx}px`, borderRadius: px / 2, border: `${itemBorderPx}px solid ${visual.player.colors[q.by]}`, background: panel, color: visual.player.colors[q.by], fontSize: fontPx }}>
-          {JAM(px - 10)}
-          <span>{`Jam · P${q.against}`}</span>
+        <div key={q.against} role="img" aria-label={`${ITEMS[q.item].name} queued against Player ${q.against}`} style={{ display: 'flex', alignItems: 'center', gap: 4, height: px, padding: `0 ${gapPx}px`, borderRadius: px / 2, border: `${itemBorderPx}px solid ${visual.player.colors[q.by]}`, background: panel, color: visual.player.colors[q.by], fontSize: fontPx }}>
+          {ITEMS[q.item].icon(px - 10)}
+          <span>{`${ITEMS[q.item].name} · P${q.against}`}</span>
         </div>
       ))}
     </div>

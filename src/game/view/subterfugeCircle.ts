@@ -1,11 +1,15 @@
-import { rules } from '../../config/rules'
 import { modeFor } from '../../sim/mode'
 import type { PlayerId } from '../../sim/pitch'
 import { opponent, whoActs } from '../../sim/possession'
-import { canJam, canSubterfuge, type SimState, type SubterfugeItem } from '../../sim/step'
+import { canCast, canSubterfuge, SUBTERFUGE, type SimState, type SubterfugeItem } from '../../sim/step'
 
 /** One Subterfuge item in the circle's column: `when` is what its pill says about when it lands; `disabled` greys it (no Credits, one already queued, or not built yet, `soon`). */
-export type SubterfugeSpec = { item: SubterfugeItem | 'soon1' | 'soon2'; label: string; when: string; disabled: boolean; soon?: boolean }
+export type SubterfugeSpec =
+  | { item: SubterfugeItem; label: string; when: string; disabled: boolean; soon?: false }
+  | { item: SoonSlot; label: string; when: string; disabled: true; soon: true }
+
+/** The column's placeholders for items not built yet. */
+export type SoonSlot = 'soon1' | 'soon2'
 
 /** A Subterfuge item waiting against `against`'s next possession, bought by `by`: drawn as a small icon for both players until it lands. */
 export type QueuedItem = { item: SubterfugeItem; by: PlayerId; against: PlayerId }
@@ -22,7 +26,7 @@ export function subterfugeCircle(s: SimState, viewer: PlayerId, v: { /** A block
   })
   return {
     items: [
-      { item: 'jam', label: `Jam · ${rules.jamCost}`, when: 'next possession', disabled: !canJam(s, viewer) },
+      { item: 'jam', label: `Jam · ${SUBTERFUGE.jam.cost}`, when: 'next possession', disabled: !canCast(s, viewer, 'jam') },
       { item: 'soon1', label: 'Soon', when: '', disabled: true, soon: true },
       { item: 'soon2', label: 'Soon', when: '', disabled: true, soon: true },
     ],

@@ -22,7 +22,7 @@ const view = (over: Partial<View> = {}): View => ({
   ...over,
 })
 const circle = () => screen.getByRole('button', { name: 'Subterfuge' })
-const jam = () => screen.getByRole('button', { name: 'Jam · 2, next possession' })
+const jam = () => screen.getByRole('button', { name: 'Jam · 2 · next possession' })
 
 describe('SubterfugeCircle', () => {
   it('a tap opens the column with the Jam, its price and when it lands, and a locked placeholder', () => {
@@ -31,7 +31,7 @@ describe('SubterfugeCircle', () => {
     fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 })
     fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
     expect(screen.getByText('Jam · 2 · next possession')).toBeTruthy()
-    expect(screen.getAllByText('Soon')).toHaveLength(2)
+    expect(screen.getAllByText('Locked · soon')).toHaveLength(2)
   })
 
   it('tapping the Jam buys it and closes the column; a locked item does nothing', () => {
@@ -39,7 +39,7 @@ describe('SubterfugeCircle', () => {
     render(<SubterfugeCircle subterfuge={view()} color="#fff" onBuy={onBuy} />)
     fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 })
     fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
-    fireEvent.click(screen.getAllByRole('button', { name: 'Coming soon' })[0]!)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Locked' })[0]!)
     expect(onBuy).not.toHaveBeenCalled()
     fireEvent.click(jam())
     expect(onBuy).toHaveBeenCalledWith('jam')
@@ -81,7 +81,7 @@ describe('SubterfugeCircle', () => {
 describe('QueuedIcons', () => {
   it('shows an icon per queued item, for the player it is against', () => {
     render(<QueuedIcons queued={[{ item: 'jam', by: 1, against: 2 }]} flipped={false} />)
-    expect(screen.getByRole('img', { name: 'jam queued against Player 2' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'Jam queued against Player 2' })).toBeTruthy()
   })
   it('shows nothing when nothing is queued', () => {
     const { container } = render(<QueuedIcons queued={[]} flipped={false} />)
