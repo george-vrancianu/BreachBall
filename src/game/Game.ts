@@ -21,6 +21,7 @@ import { InputController } from './input/InputController'
 import { defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { countDestroyed, type Destroyed } from './view/defenceBar'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
+import { minimapOf, type MinimapView } from './view/minimap'
 import { offenceCircle, type OffenceActions, type OffenceCircle } from './view/offenceCircle'
 import { phaseButtons } from './view/phaseButtons'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
@@ -42,6 +43,8 @@ export type HudView = {
   /** The ball-in-hand Confirm button is up. */
   confirm: boolean
   mapOpen: boolean
+  /** The minimap chip's thumbnail: where the main camera looks, live. */
+  minimap: MinimapView
   winner?: PlayerId
   /** The end screen's result line. */
   result: string
@@ -52,7 +55,6 @@ export type GameActions = {
   start(settings: Settings): void
   rematch(): void
   map(open?: boolean): void
-  mapStretch(): void
   recenter(): void
   /** The viewer taps an Offence item: the Breaker toggles armed (the sim charges it only when the shot fires). */
   offence: OffenceActions
@@ -81,22 +83,14 @@ const resultOf = (m: SimState['match'], winner: PlayerId, objects: SimState['obj
   }
 }
 
-const storedStretch = () => {
-  try {
-    return sessionStorage.getItem('mapStretch') === '1'
-  } catch {
-    return false
-  }
-}
-
 /**
  * The game renderer: owns the entity tree, the input controller, the frame loop and a driver. Sim state enters only through `apply`,
  * which routes the tick's events to entity methods; inputs leave through the driver.
  */
 export class Game implements Sink {
   readonly camera = new Camera(0)
-  /** A second camera over the whole pitch for the map overlay; its fit/stretch choice lasts the session. */
-  readonly mapCam = new Camera(rules.mapY, { stretch: storedStretch() })
+  /** A second camera over the whole pitch for the map overlay, always fitted above the HUD band. */
+  readonly mapCam = new Camera(rules.mapY, true)
   readonly pitch = new Pitch()
   readonly structures = new Structures()
   readonly ball = new Ball()
@@ -146,13 +140,6 @@ export class Game implements Sink {
       start: (s) => ((this.config = configFrom(s)), this.newMatch()),
       rematch: () => this.newMatch(),
       map: (open) => this.toggleMap(open),
-      mapStretch: () => {
-        const map = this.mapCam.map!
-        map.stretch = !map.stretch
-        try {
-          sessionStorage.setItem('mapStretch', map.stretch ? '1' : '0')
-        } catch {}
-      },
       recenter: () => this.camera.recenter(),
       offence: { arm: (item) => item === 'breaker' && this.input.toggleArm() },
       refund: (count) => {
@@ -237,6 +224,7 @@ export class Game implements Sink {
   private fitCamera(): void {
     this.camera.reserve = hudReserve(this.transition.shown, visual.camera.hudReservePx * this.dpr)
     this.camera.fit(this.canvas)
+    this.mapCam.reserve = this.camera.reserve
   }
 
   private toggleMap(open = !this.mapOpen): void {
@@ -314,10 +302,17 @@ export class Game implements Sink {
     this.fog.draw(ctx)
     this.edgeFade.draw(ctx)
     if (this.mapOpen) {
+      // The main view's frame: dashed, with solid corner brackets.
+      const { mapOutline, mapOutlinePx, mapDashPx, mapBracket } = visual.camera
       const o = viewOutline(canvas, mapCam, camera)
-      ctx.strokeStyle = visual.camera.mapOutline
-      ctx.lineWidth = visual.camera.mapOutlinePx * this.dpr
+      ctx.strokeStyle = mapOutline
+      ctx.lineWidth = mapOutlinePx * this.dpr
+      ctx.setLineDash(mapDashPx.map((d) => d * this.dpr))
       ctx.strokeRect(o.x, o.y, o.w, o.h)
+      ctx.setLineDash([])
+      ctx.lineWidth = mapBracket.linePx * this.dpr
+      const arm = mapBracket.armPx * this.dpr
+      strokeBrackets(ctx, o, arm)
     }
   }
 
@@ -337,6 +332,7 @@ export class Game implements Sink {
       flipped: transition.shown === 2,
       confirm: inHand && !builder && !state.match.choosing && !blocked,
       mapOpen: this.mapOpen,
+      minimap: minimapOf(this.camera.y, this.camera.visibleHeight, this.camera.blind),
       winner: state.match.winner ?? undefined,
       result: state.match.winner ? resultOf(state.match, state.match.winner, state.objects) : '',
     }
@@ -345,4 +341,17 @@ export class Game implements Sink {
     this.lastView = key
     this.onView?.(view)
   }
+}
+
+/** Solid corner brackets on the rectangle `o`, each corner's two arms `arm` long. */
+function strokeBrackets(ctx: CanvasRenderingContext2D, o: { x: number; y: number; w: number; h: number }, arm: number): void {
+  ctx.beginPath()
+  for (const [x, dx] of [[o.x, 1], [o.x + o.w, -1]] as const) {
+    for (const [y, dy] of [[o.y, 1], [o.y + o.h, -1]] as const) {
+      ctx.moveTo(x + dx * arm, y)
+      ctx.lineTo(x, y)
+      ctx.lineTo(x, y + dy * arm)
+    }
+  }
+  ctx.stroke()
 }

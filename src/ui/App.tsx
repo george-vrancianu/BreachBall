@@ -48,14 +48,13 @@ export function App() {
               defence={view.defence}
               confirm={view.confirm}
               mapOpen={view.mapOpen}
+              minimap={view.minimap}
               flipped={view.flipped}
               onMap={() => actions().map()}
               onRecenter={() => actions().recenter()}
               onOffenceArm={(item) => actions().offence.arm(item)}
               onRefund={(n) => actions().refund(n)}
               onConfirm={() => actions().confirmBall()}
-              onMapStretch={() => actions().mapStretch()}
-              onMapClose={() => actions().map(false)}
               onDefenceToggle={() => actions().build.toggle()}
               onDefenceArm={(item) => actions().build.arm(item)}
             />
