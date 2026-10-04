@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import type { Point } from './pitch'
 import { hseg } from './testkit'
-import { isDrawable, isLegal, rotatedWall, segmentsTouchOnly, snapWallBetween, snapWallEnd, structureCost, translatedWall, wallCost, wallSegments, wallsOverlap, wallUnits, type TowerSpec, type WallSpec } from './wall'
+import { isDrawable, isLegal, nearestOnSegment, rotatedWall, segmentsTouchOnly, snapWallBetween, snapWallEnd, structureCost, translatedWall, wallCost, wallSegments, wallsOverlap, wallUnits, type TowerSpec, type WallSpec } from './wall'
 
 const U = rules.wall.unit
 const D = U * Math.SQRT1_2 // a diagonal unit's run along each axis
@@ -367,5 +367,14 @@ describe('isLegal with custom wall rules', () => {
     const w: WallSpec = { kind: 'wall', owner: 1, ...hseg(1, 40, 3) }
     expect(isLegal(w)).toBe(false)
     expect(isLegal(w, [], { ...rules, wall: { ...rules.wall, units: [1, 2, 3] } })).toBe(true)
+  })
+})
+
+describe('nearestOnSegment', () => {
+  it('projects onto the segment, clamps to its ends, and takes a zero-length segment as its point', () => {
+    const s = { a: { x: 0, y: 0 }, b: { x: 10, y: 0 } }
+    expect(nearestOnSegment(s, { x: 4, y: 3 })).toEqual({ x: 4, y: 0 })
+    expect(nearestOnSegment(s, { x: 20, y: 3 })).toEqual({ x: 10, y: 0 })
+    expect(nearestOnSegment({ a: { x: 2, y: 2 }, b: { x: 2, y: 2 } }, { x: 5, y: 5 })).toEqual({ x: 2, y: 2 })
   })
 })

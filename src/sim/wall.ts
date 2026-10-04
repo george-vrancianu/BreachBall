@@ -107,12 +107,18 @@ export function rotatedWall<W extends Pick<WallSpec, 'a' | 'b'>>(w: W, r: WallRu
 /** The wall moved by `delta`, both ends together. */
 export const translatedWall = <W extends Pick<WallSpec, 'a' | 'b'>>(w: W, delta: Point): W => ({ ...w, a: { x: w.a.x + delta.x, y: w.a.y + delta.y }, b: { x: w.b.x + delta.x, y: w.b.y + delta.y } })
 
-/** Shortest distance from `p` to the segment. */
-export function distToSegment({ a, b }: Segment, p: Point): number {
+/** The point of the segment nearest to `p`; a zero-length segment is its one point. */
+export function nearestOnSegment({ a, b }: Segment, p: Point): Point {
   const [vx, vy] = [b.x - a.x, b.y - a.y]
   const len2 = vx * vx + vy * vy
   const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2))
-  return Math.hypot(a.x + t * vx - p.x, a.y + t * vy - p.y)
+  return { x: a.x + t * vx, y: a.y + t * vy }
+}
+
+/** Shortest distance from `p` to the segment. */
+export function distToSegment(s: Segment, p: Point): number {
+  const at = nearestOnSegment(s, p)
+  return Math.hypot(at.x - p.x, at.y - p.y)
 }
 
 /**
