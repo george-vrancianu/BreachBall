@@ -81,7 +81,7 @@ The demo the Title screen's hero plays while nobody presses Play: pieces circle 
 _Avoid_: Demo, screensaver, background animation, idle animation
 
 **Side menu**:
-The in-match menu, opened by a swipe in from the viewer's left edge or its ☰ button: Resume, Help, the match's settings (read-only), the flip toggle, Restart (hot-seat only) and Quit to the Title screen. It pauses the clocks in hot-seat, never online.
+The in-match menu, opened by a swipe in from the viewer's left edge or its ☰ button: Resume, Help, the match's settings (read-only), the Flip on turn toggle (a device setting, off by default; hot-seat only), Restart (hot-seat only) and Quit to the Title screen. It pauses the clocks in hot-seat, never online.
 _Avoid_: Pause menu, main menu, drawer
 
 **Move point**:
@@ -93,7 +93,7 @@ The segmented bar at the far edge showing how many structures each player still 
 _Avoid_: Health, health strip, HP bar
 
 **Subterfuge**:
-The third family of actions, beside Offence and Defence: actions that cripple the opponent's next round rather than improving your own shot or structures.
+The third family of actions, beside Offence and Defence: actions that cripple the opponent's next possession rather than improving your own shot or structures.
 _Avoid_: Sabotage, debuff, special
 
 **Credits**:

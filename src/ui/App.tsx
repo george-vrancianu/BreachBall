@@ -4,8 +4,10 @@ import { Game, type HudView } from '../game/Game'
 import { showConnectScreen } from '../net/connectScreen'
 import { defaultSettings, flipToggle, type Settings } from '../game/view/settings'
 import { DefenceBar } from './hud/DefenceBar'
+import { ResourceBar } from './hud/ResourceBar'
 import { Shell } from './hud/Shell'
 import { SideMenu, SideMenuButton } from './hud/SideMenu'
+import { QueuedIcons } from './hud/SubterfugeCircle'
 import { Overlay } from './overlays/Overlay'
 import { Button } from './ButtonRow'
 import { HelpScreen, MatchEndScreen, SettingsScreen, TitleScreen } from './screens/Screens'
@@ -42,12 +44,15 @@ export function App() {
         <canvas ref={canvas} />
         {view && (
           <>
-            <Overlay view={view.overlay} flipped={view.flipped} onTap={() => actions().dismiss()} />
+            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onTap={() => actions().dismiss()} />
             <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} />
+            {view.hud.resourceBar && <ResourceBar bar={view.hud.resourceBar} flipped={view.flipped} />}
+            {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} />}
             <Shell
               hud={view.hud}
               offence={view.offence}
               defence={view.defence}
+              subterfuge={view.subterfuge}
               confirm={view.confirm}
               mapOpen={view.mapOpen}
               minimap={view.minimap}
@@ -59,9 +64,10 @@ export function App() {
               onConfirm={() => actions().confirmBall()}
               onDefenceToggle={() => actions().build.toggle()}
               onDefenceArm={(item) => actions().build.arm(item)}
+              onSubterfuge={(item) => actions().subterfuge(item)}
             />
             {/* Both sit in the stage, so they turn with the flip and open from the viewer's left. */}
-            {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} onOpen={() => actions().menu(true)} />}
+            {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onOpen={() => actions().menu(true)} />}
             {!screen && <SideMenu menu={view.menu} onResume={() => actions().menu(false)} onHelp={() => setScreen('help')} onRestart={() => actions().restart()} onQuit={() => (actions().quit(), setScreen('title'))}>
               {view.menu.hotSeat && <Button spec={flipToggle(view.flipOnTurn, (on) => actions().flipOnTurn(on))} style={{ width: '100%' }} />}
             </SideMenu>}

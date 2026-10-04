@@ -6,6 +6,7 @@ import { opponent } from '../../sim/possession'
 import { canRefund, type SimConfig, type SimState } from '../../sim/step'
 import { structuresOf, type Structure } from '../../sim/wall'
 import type { Item } from './defenceCircle'
+import { resourceBar, type ResourceBar } from './resourceBar'
 import { defenceBar, type DefenceBar, type Destroyed } from './defenceBar'
 
 /**
@@ -18,6 +19,8 @@ export type HudModel = {
   players: Record<PlayerId, { /** What the big digit shows (Rounds: the score; Siege: remaining structures); null hides it. */ digit: string | null; inventory: Record<PowerUp, number> }>
   /** The Defence bar at the far edge: structure counts for both modes, `?` for the blind opponent. */
   defenceBar: DefenceBar
+  /** The Resource bar under it: each player's share of the banked Credits; null in Siege, which has none. */
+  resourceBar: ResourceBar | null
   /** Whose turn it is; their controls go to the bottom. */
   active: PlayerId
   /** Null in modes without rounds. */
@@ -85,6 +88,7 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
   return {
     players: { 1: { digit: digitOf(1), inventory: inventoryOf(1) }, 2: { digit: digitOf(2), inventory: inventoryOf(2) } },
     defenceBar: defenceBar(s.objects, v.destroyed ?? { 1: 0, 2: 0 }, hidden),
+    resourceBar: resourceBar(s),
     active: v.active,
     round: roundOf(s.match),
     rounds: c.rounds,

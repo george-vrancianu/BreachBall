@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import type { GameActions, HudView } from '../game/Game'
 
 // Game needs a real canvas; the seam under test is how App creates, feeds and drives it.
-const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, flipOnTurn: false, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, refundable: false, score: null, phase: 'Play' }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
+const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, flipOnTurn: false, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, resourceBar: null, refundable: false, score: null, phase: 'Play' }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
 const games = vi.hoisted(() => [] as { destroyed: boolean; onView: (v: HudView) => void; actions: { [K in 'start' | 'rematch' | 'map' | 'menu' | 'restart' | 'quit' | 'flipOnTurn']: Mock<GameActions[K]> } }[])
 vi.mock('../game/Game', () => ({
   Game: class {
@@ -141,6 +141,16 @@ describe('Side menu', () => {
     const flipped = screen.getByRole('button', { name: 'Menu' })
     expect(flipped.style.bottom).toBe('36px')
     expect(flipped.style.top).toBe('')
+  })
+
+  it('the ☰ button moves down by the Resource bar\'s height when that bar is shown', () => {
+    inMatch()
+    const bar = { 1: { credits: 3, share: 0.5 }, 2: { credits: 3, share: 0.5 } }
+    const hud = { ...freshView().hud, resourceBar: bar }
+    act(() => games[0]!.onView(view({ hud })))
+    expect(screen.getByRole('button', { name: 'Menu' }).style.top).toBe('56px')
+    act(() => games[0]!.onView(view({ hud, flipped: true })))
+    expect(screen.getByRole('button', { name: 'Menu' }).style.bottom).toBe('56px')
   })
 
   it('lists Resume, Help, the settings, Restart and Quit when open in hot-seat; Resume closes it', () => {

@@ -12,10 +12,11 @@ afterEach(cleanup)
 const hud = (over: Partial<HudModel> = {}): HudModel => ({
   players: { 1: { digit: '3', inventory: { breaker: 1, repulsor: 0, steal: 2 } }, 2: { digit: '?', inventory: { breaker: 4, repulsor: 4, steal: 4 } } },
   defenceBar: { 1: { count: '3', segments: [true, true, true] }, 2: { count: '?', segments: [] } },
+  resourceBar: null,
   active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, score: null, phase: 'Play', ...over,
 })
 const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
-const props = () => ({ hud: hud(), offence: offence(), confirm: false, mapOpen: false, minimap: { frame: { top: 0.5, height: 0.5 } }, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onOffenceArm: vi.fn(), onConfirm: vi.fn(), onDefenceToggle: vi.fn(), onDefenceArm: vi.fn(), onRefund: vi.fn() })
+const props = () => ({ hud: hud(), offence: offence(), confirm: false, mapOpen: false, minimap: { frame: { top: 0.5, height: 0.5 } }, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onOffenceArm: vi.fn(), onConfirm: vi.fn(), onDefenceToggle: vi.fn(), onDefenceArm: vi.fn(), onSubterfuge: vi.fn(), onRefund: vi.fn() })
 
 describe('Shell', () => {
   describe('Move point dots', () => {
@@ -551,5 +552,14 @@ describe('Shell', () => {
     expect(shell.style.bottom).toBe('0px')
     rerender(<Shell {...props()} flipped />)
     expect(shell.style.top).toBe('0px')
+  })
+
+  it('lays the circles out Offence, Defence, Subterfuge', () => {
+    const defence: DefenceCircle = { building: false, items: [], available: true }
+    render(<Shell {...props()} defence={defence} subterfuge={{ available: true, queued: [], items: [] }} />)
+    const names = ['Offence', 'Build', 'Subterfuge'].map((n) => screen.getByRole('button', { name: new RegExp(`^${n}`) }))
+    const follows = (a: HTMLElement, b: HTMLElement) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(follows(names[0]!, names[1]!)).toBe(true)
+    expect(follows(names[1]!, names[2]!)).toBe(true)
   })
 })
