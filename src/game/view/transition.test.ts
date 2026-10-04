@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { visual } from '../../config/visual'
-import { advance, angle, blocking, choosingNotice, facing, goalBall, handedOver, seatAngle, newTransition, overlayView, reorient, revealing, type Frame, type Transition } from './transition'
+import { advance, angle, slideAt, blocking, choosingNotice, facing, goalBall, handedOver, seatAngle, newTransition, overlayView, reorient, revealing, type Frame, type Transition } from './transition'
 
 const base: Frame = { tabletop: false, active: 1, phase: 'Play', events: [], now: 0 }
 /** A new match with Tabletop mode off: the stage turns at each handover. */
@@ -212,6 +212,9 @@ describe('opponent is choosing notice', () => {
   })
 })
 
+const { outMs, gapMs, inMs } = visual.transition.slide
+const slideMs = outMs + gapMs + inMs
+
 describe('Tabletop mode on (hot-seat, the default)', () => {
   const settled = (tabletop: boolean) => go(go(newTransition(1, tabletop), { tabletop }), { tabletop, now: 400 })
   it('still holds at match start: a flip with no rotation, then the sim runs', () => {
@@ -231,10 +234,10 @@ describe('Tabletop mode on (hot-seat, the default)', () => {
     expect(angle(t, 2200)).toBe(0)
     expect(overlayView(t, 2000)).toBeUndefined()
     expect(blocking(t)).toBe(true)
-    t = go(t, { now: 2400, active: 2, tabletop: true })
+    t = go(t, { now: 2000 + slideMs, active: 2, tabletop: true })
     expect([t.shown, t.hudSeat]).toEqual([1, 2])
     expect(blocking(t)).toBe(false)
-    t = go(go(t, { now: 4000, active: 1, tabletop: true }), { now: 4400, active: 1, tabletop: true })
+    t = go(go(t, { now: 4000, active: 1, tabletop: true }), { now: 4000 + slideMs, active: 1, tabletop: true })
     expect([t.shown, t.hudSeat]).toEqual([1, 1])
   })
   it('opens a match for player 2 with the pitch unturned and the HUD on seat 2', () => {
@@ -269,7 +272,7 @@ describe('Tabletop mode on (hot-seat, the default)', () => {
 
 describe('orientation of the layers', () => {
   it('turns the HUD to the HUD seat in tabletop, and with the stage otherwise', () => {
-    const tabletop = go(go(newTransition(1, true), { tabletop: true, active: 2 }), { tabletop: true, active: 2, now: 400 })
+    const tabletop = go(go(newTransition(1, true), { tabletop: true, active: 2 }), { tabletop: true, active: 2, now: slideMs })
     expect([tabletop.shown, tabletop.hudSeat]).toEqual([1, 2])
     expect(seatAngle(tabletop)).toBe(180)
     const flipped = go(go(fresh(1), { active: 2 }), { active: 2, now: 400 })
@@ -290,7 +293,7 @@ describe('facing', () => {
 })
 
 describe('reorient (the setting changed mid-match)', () => {
-  const tabletopTurned = () => go(go(newTransition(1, true), { tabletop: true, active: 2 }), { tabletop: true, active: 2, now: 400 })
+  const tabletopTurned = () => go(go(newTransition(1, true), { tabletop: true, active: 2 }), { tabletop: true, active: 2, now: slideMs })
   it('snaps a turned stage to the HUD-only layout: pitch back to seat 1, HUD stays on the active seat', () => {
     const turned = go(go(fresh(1), { active: 2 }), { active: 2, now: 400 })
     const t = reorient(turned, true)
@@ -337,5 +340,67 @@ describe('handedOver', () => {
     expect(handedOver(t, go(t, { now: 500 }))).toBe(false)
     const flipping = go(t, { active: 2, now: 500 })
     expect(handedOver(flipping, go(flipping, { active: 2, now: 500 + visual.transition.flipMs }))).toBe(false)
+  })
+})
+
+describe('Tabletop handover slide', () => {
+  const tt = (o: Partial<Frame>) => ({ tabletop: true, ...o })
+  /** Seat 1 settled with the HUD on it, the handover to seat 2 beginning at 2000. */
+  const handing = () => go(go(go(newTransition(1, true), tt({})), tt({ now: 400 })), tt({ now: 2000, active: 2 }))
+  const swapAt = 2000 + outMs + gapMs / 2
+  it('holds the sim for the whole slide, out and in, and no longer', () => {
+    const t = handing()
+    expect(t.flip).toMatchObject({ at: 2000, ms: slideMs })
+    expect(blocking(go(t, tt({ now: 2000 + slideMs - 1, active: 2 })))).toBe(true)
+    expect(blocking(go(t, tt({ now: 2000 + slideMs, active: 2 })))).toBe(false)
+  })
+  it('swaps the HUD seat while nothing shows, between slide-out ending and slide-in starting', () => {
+    const t = handing()
+    expect(t.hudSeat).toBe(1)
+    expect(go(t, tt({ now: 2000 + outMs - 1, active: 2 })).hudSeat).toBe(1)
+    expect(go(t, tt({ now: swapAt, active: 2 })).hudSeat).toBe(2)
+    const swapped = go(t, tt({ now: swapAt, active: 2 }))
+    expect(slideAt(swapped, swapAt)).toEqual({ dock: 1, chrome: 0 })
+  })
+  it('slides the dock off the layer bottom ease-in, then back in ease-out', () => {
+    const t = handing()
+    expect(slideAt(t, 2000)).toEqual({ dock: 0, chrome: 1 })
+    // Ease-in is slow at first (power 2: a quarter of the way through is a sixteenth of the way off), ease-out is quick at first.
+    expect(slideAt(t, 2000 + outMs / 4).dock).toBeCloseTo(1 / 16)
+    expect(slideAt(t, 2000 + outMs / 2).dock).toBeCloseTo(1 / 4)
+    expect(slideAt(t, 2000 + outMs).dock).toBe(1)
+    const inAt = 2000 + outMs + gapMs
+    expect(slideAt(t, inAt).dock).toBe(1)
+    expect(slideAt(t, inAt + inMs / 2).dock).toBeCloseTo(1 / 8)
+    expect(slideAt(t, inAt + inMs)).toEqual({ dock: 0, chrome: 1 })
+  })
+  it('fades the strips and chips out with the dock, hides them across the swap, and fades them back in', () => {
+    const t = handing()
+    expect(slideAt(t, 2000 + outMs / 2).chrome).toBeCloseTo(1 - 1 / 4)
+    expect(slideAt(t, 2000 + outMs + gapMs / 2).chrome).toBe(0)
+    expect(slideAt(t, 2000 + outMs + gapMs + inMs / 2).chrome).toBeCloseTo(1 - 1 / 8)
+  })
+  it('is the same going back to seat 1: the dock always leaves and returns by the layer bottom', () => {
+    let t = go(handing(), tt({ now: 2000 + slideMs, active: 2 }))
+    t = go(t, tt({ now: 5000, active: 1 }))
+    expect(t.flip).toMatchObject({ ms: slideMs, hudSeat: 1 })
+    expect(slideAt(t, 5000 + outMs).dock).toBe(1)
+    expect(go(t, tt({ now: 5000 + outMs + gapMs, active: 1 })).hudSeat).toBe(1)
+  })
+  it('does not slide when the HUD stays with the same seat', () => {
+    const same = go(go(newTransition(1, true), tt({})), tt({}))
+    expect(same.flip?.ms).toBe(visual.transition.flipMs)
+    expect(slideAt(same, 200)).toEqual({ dock: 0, chrome: 1 })
+  })
+  it('does not slide with Tabletop mode off: the stage turns as before', () => {
+    const t = go(open(), { now: 2000, active: 2 })
+    expect(t.flip?.ms).toBe(visual.transition.flipMs)
+    expect(slideAt(t, 2100)).toEqual({ dock: 0, chrome: 1 })
+  })
+  it('a mid-match setting change lands it at once', () => {
+    const t = reorient(handing(), true)
+    expect(t.flip).toBeUndefined()
+    expect(t.hudSeat).toBe(2)
+    expect(slideAt(t, 2100)).toEqual({ dock: 0, chrome: 1 })
   })
 })

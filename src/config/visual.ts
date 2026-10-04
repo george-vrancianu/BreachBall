@@ -353,7 +353,8 @@ export const visual = {
     vibration: { shotBase: 10, shotPerPower: 40, goal: [60, 40, 60], tier: 30 },
   },
   input: { tapSlopPx: 12, dragSlopPx: 6, /** A wall drawn from within this many screen px of a wall end starts exactly on it, and a dragged wall's end snaps to one. */ snapPx: 16, edgeScrollSpeed: 30, edgeBand: 0.1, touchTargetPx: 22, /** A landing still unseen after this many ticks is dropped, so a lost input cannot block the turn. */ landingTimeoutTicks: 30 },
-  transition: { flipMs: 400, goalMs: 1500, sweepMs: 1000, revealMs: 1500 },
+  /** `flipMs` is the whole-stage flip and the hold at a match's start; goal, sweep and reveal hold for their `Ms`. `slide` is the Tabletop handover (the Dock slides off the bottom of the layer, `outMs` with an ease-in of power `easeIn`, the layer turns while nothing shows, `gapMs` later it slides back in, `inMs` with an ease-out of power `easeOut`; the edge strips and corner chips fade out and in over the same spans). The sim waits for the whole of it: `outMs + gapMs + inMs`. */
+  transition: { flipMs: 400, goalMs: 1500, sweepMs: 1000, revealMs: 1500, slide: { outMs: 250, gapMs: 100, inMs: 300, easeIn: 2, easeOut: 3 } },
   hud: {
     /** UI text: Chakra Petch 700, uppercase, tabular numerals. `display` is Bungee, for digits, the title and Play. Both load from Google Fonts in `index.html`. */
     font: '"Chakra Petch","Trebuchet MS",sans-serif', display: 'Bungee,Impact,sans-serif', ink, dark, panel: '#141a2a', track: '#3b4256', urgent: '#ff4d4d', urgentSeconds: 5, urgentPulse: 0.15, scrim: 'rgba(11,15,26,0.85)', scrimLight: 'rgba(11,15,26,0.7)', pressed: '#2a3350', pressedBorder: white, scoreFlipMs: 400, /** Hold on a Move point dot this long to refund all but one. */ longPressMs: 500,

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import type { GameActions, HudView } from '../game/Game'
 
 // Game needs a real canvas; the seam under test is how App creates, feeds and drives it.
-const freshView = vi.hoisted(() => () => ({ angle: 0, seatAngle: 0, flipped: false, tabletop: true, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, resourceBar: null, refundable: false, score: null, phase: 'Play', dock: 'play', balance: null, refundRate: null }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
+const freshView = vi.hoisted(() => () => ({ angle: 0, seatAngle: 0, slide: { dock: 0, chrome: 1 }, flipped: false, tabletop: true, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, resourceBar: null, refundable: false, score: null, phase: 'Play', dock: 'play', balance: null, refundRate: null }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
 const games = vi.hoisted(() => [] as { destroyed: boolean; onView: (v: HudView) => void; actions: { [K in 'start' | 'rematch' | 'map' | 'menu' | 'restart' | 'quit' | 'tabletop']: Mock<GameActions[K]> } }[])
 vi.mock('../game/Game', () => ({
   Game: class {
@@ -53,6 +53,20 @@ it('Tabletop mode on: only the HUD layer turns, to face its seat', () => {
   act(() => games[0]!.onView(view({ tabletop: true, angle: 0, seatAngle: 180 })))
   expect(screen.getByTestId('canvas-layer').style.transform).toBe('rotate(0deg)')
   expect(screen.getByTestId('hud-layer').style.transform).toBe('rotate(180deg)')
+})
+
+it('the Tabletop slide moves the Dock off the layer bottom and fades the strips and chips, which take no taps meanwhile', () => {
+  render(<App />)
+  fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+  fireEvent.click(screen.getByText('Start'))
+  act(() => games[0]!.onView(view({ slide: { dock: 0.5, chrome: 0.25 } })))
+  expect(screen.getByTestId('dock').parentElement!.style.transform).toBe('translateY(50%)')
+  const menu = screen.getByRole('button', { name: 'Menu' })
+  expect(menu.style.opacity).toBe('0.25')
+  expect(menu.style.pointerEvents).toBe('none')
+  act(() => games[0]!.onView(view()))
+  expect(screen.getByTestId('dock').parentElement!.style.transform).toBe('')
+  expect(screen.getByRole('button', { name: 'Menu' }).style.opacity).toBe('')
 })
 
 it('keeps the HUD layer out of the pitch input, while its controls still take clicks', () => {

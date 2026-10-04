@@ -159,6 +159,8 @@ describe('Game', () => {
       expect(view().hud.hint).toBeUndefined()
     })
 
+    const { outMs, gapMs, inMs } = visual.transition.slide
+    const slideMs = outMs + gapMs + inMs
     const flip = (game: Game) => (game as unknown as { transition: Transition }).transition.flip
 
     it('the hint returns for the next player after a handover, and is hidden while the flip runs', () => {
@@ -173,8 +175,14 @@ describe('Game', () => {
       step()
       expect(flip(game)).toBeDefined()
       expect(view().hud.hint).toBeUndefined()
-      step(visual.transition.flipMs + 100)
+      // Past the swap the incoming player's hint slides in with their Dock, while the sim and input are still held.
+      step(outMs + gapMs)
+      expect(flip(game)).toBeDefined()
+      expect(view().hud.hint).toMatch(/draw a wall/)
+      expect(view().slide.dock).toBeGreaterThan(0)
+      step(slideMs + 100)
       expect(flip(game)).toBeUndefined()
+      expect(view().slide).toEqual({ dock: 0, chrome: 1 })
       expect(game.state.match.builder).not.toBe(builder)
       expect(view().hud.hint).toMatch(/draw a wall/)
     })
@@ -186,7 +194,7 @@ describe('Game', () => {
       expect(flip(game)).toBeDefined()
       // Stands in for the drop of a half-made aim that the hold forces: it goes through the same send, while the board is blocked.
       game.actions.subterfuge('jam')
-      step(visual.transition.flipMs + 100)
+      step(slideMs + 100)
       expect(flip(game)).toBeUndefined()
       expect(view().hud.hint).toMatch(/draw a wall/)
     })
@@ -275,8 +283,14 @@ describe('Game', () => {
   })
 
   it('the minimap thumbnail tracks the live camera', () => {
+    // Seat 1 at the bottom with the HUD on it: the thumbnail is not mirrored, so a pan toward the far end moves the frame up.
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} })
+    vi.spyOn(performance, 'now').mockReturnValue(1000)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
     const onView = vi.fn()
     const game = make(onView)
+    game.actions.start(withMode(defaultSettings, 'rounds'))
+    expect(game.state.match.builder ?? game.state.possession.shooter).toBe(1)
     const t = performance.now()
     frame(t)
     // The opening hold has passed.
@@ -288,9 +302,10 @@ describe('Game', () => {
     game.camera.pan(10)
     frame(t + 5032)
     const after = onView.mock.lastCall![0].minimap.frame
-    // Which way it moves depends on whether the HUD is across the table (mirrored); the pan is 10 of the map's units.
-    expect(Math.abs(after.top - before.top)).toBeCloseTo(10 / rules.mapHeight, 2)
+    // The pan is 10 of the map's units, and it moves the frame the same way as the camera: down the thumbnail.
+    expect(after.top - before.top).toBeCloseTo(10 / rules.mapHeight, 2)
     expect(after.height).toBe(before.height)
+    vi.restoreAllMocks()
   })
 
   it('the map camera fits above the HUD band the main camera keeps clear', () => {
@@ -459,6 +474,42 @@ describe('Game', () => {
       store.set('breachball.tabletop', 'false')
       const off = opened(2)
       expect(off.view().minimap.frame).toEqual(minimapOf(off.game.camera.y, off.game.camera.visibleHeight, off.game.camera.blind).frame)
+    })
+    it('the handover holds the sim and swaps the HUD seat, the minimap mirror and the layer angle only while the strips are faded out', () => {
+      const { game, view } = opened(1)
+      expect(view().hud.active).toBe(1)
+      const { outMs, gapMs, inMs } = visual.transition.slide
+      // Let the opening hold pass, then hand the turn over by finishing the opening build.
+      frame(2000)
+      frame(2000 + visual.transition.flipMs)
+      view().hud.buttons!.find((b) => b.label === 'Done')?.onClick()
+      let t = 3000
+      frame(t)
+      expect(view().slide).toEqual({ dock: 0, chrome: 1 })
+      expect(view().seatAngle).toBe(0)
+      t += outMs + gapMs / 2
+      frame(t)
+      // Half way through the gap: nothing shows, the seat has swapped (the layer is turned, the thumbnail mirrored).
+      expect(view().slide).toEqual({ dock: 1, chrome: 0 })
+      expect(view()).toMatchObject({ seatAngle: 180, angle: 0 })
+      expect(game.simPaused()).toBe(true)
+      t += gapMs / 2 + inMs - 1
+      frame(t)
+      expect(game.simPaused()).toBe(true)
+      t += 1
+      frame(t)
+      expect(game.simPaused()).toBe(false)
+      expect(view().slide).toEqual({ dock: 0, chrome: 1 })
+    })
+    it('an edge swipe from the right opens the Side menu for player 2 across the table', () => {
+      const { game, view } = opened(2)
+      const canvas = (game as unknown as { canvas: FakeCanvas }).canvas
+      const at = (type: string, x: number) => canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: x, offsetY: 300, clientX: x, clientY: 300, pointerId: 1, pointerType: 'touch', button: 0 }))
+      at('pointerdown', 396)
+      at('pointermove', 340)
+      at('pointerup', 340)
+      frame(1600)
+      expect(view().menu.open).toBe(true)
     })
     it('turned off (an old Flip on turn "true" migrates to it), player 2 turns the whole stage to the bottom', () => {
       store.set('breachball.flipOnTurn', 'true')

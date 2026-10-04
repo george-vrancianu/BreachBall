@@ -21,6 +21,9 @@ type Screen = 'title' | 'settings' | 'help' | 'end' | undefined
 /** A full-screen layer of the stage, turned `angle` degrees. */
 const layerStyle = (angle: number, style?: CSSProperties): CSSProperties => ({ position: 'fixed', inset: 0, transform: `rotate(${angle}deg)`, ...style })
 
+/** The Tabletop handover's fade on an edge strip or corner chip: `chrome` is its opacity (1 at rest, leaving it untouched), and it takes no taps while faded. */
+const fade = (chrome: number): CSSProperties | undefined => (chrome < 1 ? { opacity: chrome, pointerEvents: 'none' } : undefined)
+
 /** Owns the canvas, the Game and the HUD view. Game pushes the view up; the layers drive it back through `actions`. */
 export function App() {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -55,10 +58,10 @@ export function App() {
       <div data-testid="hud-layer" style={layerStyle(hudAngle, { pointerEvents: 'none' })}>
         {view && (
           <>
-            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} />
-            <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} />
-            {view.hud.resourceBar && <ResourceBar bar={view.hud.resourceBar} flipped={view.flipped} />}
-            {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} />}
+            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} style={fade(view.slide.chrome)} />
+            <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} style={fade(view.slide.chrome)} />
+            {view.hud.resourceBar && <ResourceBar bar={view.hud.resourceBar} flipped={view.flipped} style={fade(view.slide.chrome)} />}
+            {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} style={fade(view.slide.chrome)} />}
             <Shell
               hud={view.hud}
               offence={view.offence}
@@ -68,6 +71,7 @@ export function App() {
               confirm={view.confirm}
               mapOpen={view.mapOpen}
               flipped={view.flipped}
+              style={view.slide.dock > 0 ? { transform: `translateY(${view.slide.dock * 100}%)` } : undefined}
               onRecenter={() => actions().recenter()}
               onOffenceArm={(item) => actions().offence.arm(item)}
               onRefund={(n) => actions().refund(n)}
@@ -79,9 +83,9 @@ export function App() {
               onStrategy={(id) => actions().strategies.apply(id)}
             />
             {/* The minimap chip (top-left) and ☰ (top-right) sit level with each other, under the far-edge bars. */}
-            {!screen && <Minimap minimap={view.minimap} open={view.mapOpen} color={visual.player.colors[view.hud.active]} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onToggle={() => actions().map()} />}
+            {!screen && <Minimap minimap={view.minimap} open={view.mapOpen} color={visual.player.colors[view.hud.active]} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onToggle={() => actions().map()} style={fade(view.slide.chrome)} />}
             {/* Both sit in the HUD layer, so they turn with the flip and open from the viewer's left. */}
-            {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onOpen={() => actions().menu(true)} />}
+            {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onOpen={() => actions().menu(true)} style={fade(view.slide.chrome)} />}
             {!screen && <SideMenu menu={view.menu} onResume={() => actions().menu(false)} onHelp={() => setScreen('help')} onRestart={() => actions().restart()} onQuit={() => (actions().quit(), setScreen('title'))}>
               {view.menu.hotSeat && <TabletopToggle on={view.tabletop} onChange={(on) => actions().tabletop(on)} />}
             </SideMenu>}

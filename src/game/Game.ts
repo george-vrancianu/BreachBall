@@ -30,7 +30,7 @@ import { pausesSim, settingRows, type SideMenuView } from './view/sideMenu'
 import { loadTabletop, saveTabletop } from './deviceSettings'
 import { subterfugeCircle, type SubterfugeCircle } from './view/subterfugeCircle'
 import { planStrategy, STRATEGIES, strategyCards, type StrategyCard } from './view/strategies'
-import { acrossTable, advance, angle, blocking, choosingNotice, goalBall, facing, handedOver, newTransition, overlayView, reorient, revealing, seatAngle, type OverlayView } from './view/transition'
+import { acrossTable, advance, angle, blocking, choosingNotice, goalBall, facing, handedOver, newTransition, overlayView, reorient, revealing, seatAngle, slideAt, type OverlayView } from './view/transition'
 
 export type { PlayerId, PowerUp, SubterfugeItem }
 
@@ -50,6 +50,8 @@ export type HudView = {
   angle: number
   /** Degrees that face the HUD's seat: what the HUD layer turns by in Tabletop mode. */
   seatAngle: number
+  /** The Tabletop handover slide's progress this frame (the Dock's offset off the HUD layer's bottom, the edge strips' and corner chips' opacity); `{ dock: 0, chrome: 1 }` at rest. */
+  slide: { dock: number; chrome: number }
   /** The stage is turned for Player 2 (Tabletop mode off): the HUD's dock and bars sit on the stage's other edges. */
   flipped: boolean
   /** The Tabletop mode device setting (hot-seat only; online ignores it). */
@@ -368,7 +370,8 @@ export class Game implements Sink {
     if (blocking(this.transition)) this.input.cancelGestures()
     const { state, transition, camera } = this
     this.fitCamera()
-    const flipping = !!transition.flip && now - transition.flip.at >= transition.flip.ms / 2
+    // The whole-stage flip is turned half way at its midpoint; the Tabletop slide's swap point is its own.
+    const flipping = !!transition.flip && now - transition.flip.at >= (transition.flip.swapMs ?? transition.flip.ms / 2)
     // The ball is held a set way down the HUD seat's screen, so across the table (Tabletop mode, seat 2) it sits near the top of the unturned canvas layer.
     const target = anchorY(state.ball.pos.y, this.seatFacing(), camera.visibleHeight)
     // Mid-flip the camera snaps to where the incoming HUD seat frames the ball, so the flip ends already framed; so does a mid-match change of Tabletop mode.
@@ -448,6 +451,9 @@ export class Game implements Sink {
     }
   }
 
+  /** The Tabletop slide has the outgoing player's Dock on its way out (the seat has not swapped yet): their hint is gone, the incoming player's slides in with the Dock. */
+  private leaving = (): boolean => this.transition.flip?.swapMs !== undefined && this.transition.hudSeat !== this.transition.flip.hudSeat
+
   /** Calls `onView` with the HUD view, but only when it differs from the last one (functions in it are stable and not compared). */
   private push(): void {
     const { state, input, transition, now } = this
@@ -456,7 +462,7 @@ export class Game implements Sink {
     const { inHand } = state.possession
     const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: this.act, choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, acted: this.acted || !!transition.flip, destroyed: this.destroyed, bullseyes: this.bullseyes }),
+      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: this.act, choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, acted: this.acted || (!!transition.flip && transition.flip.swapMs === undefined) || this.leaving(), destroyed: this.destroyed, bullseyes: this.bullseyes }),
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),
@@ -464,6 +470,7 @@ export class Game implements Sink {
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),
       seatAngle: hotSeat() ? seatAngle(transition) : 0,
+      slide: slideAt(transition, now),
       flipped: transition.shown === 2,
       tabletop: this.tabletop,
       confirm: inHand && !builder && !state.match.choosing && !blocked,

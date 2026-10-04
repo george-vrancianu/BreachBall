@@ -6,7 +6,7 @@ import type { SimEvent } from '../../sim/step'
 /** `holds` = the handover waits for this overlay and the sim is paused while it is up (the REPAIRED sweep; the goal and reveal kinds always hold). */
 type Overlay = { kind: 'goal' | 'sweep' | 'reveal'; at: number; player: PlayerId; text: string; ms: number; net?: Point; holds?: true }
 /** `shown` is whose end of the pitch is at the bottom of the screen; `hudSeat` is whose turn the HUD shows (the same seat when the stage turns, but not in Tabletop mode, where the pitch stays put and seat 2 plays from across the table); `due` = a handover is waiting (e.g. for the goal hold to end); `opening` = the last frame saw a Siege opening build (the reveal fires when it ends). */
-export type Transition = { shown: PlayerId; hudSeat: PlayerId; flip?: { at: number; ms: number; from: PlayerId; to: PlayerId; hudSeat: PlayerId }; overlay?: Overlay; due?: boolean; phase?: string; opening?: boolean }
+export type Transition = { shown: PlayerId; hudSeat: PlayerId; flip?: { at: number; ms: number; from: PlayerId; to: PlayerId; hudSeat: PlayerId; /** Tabletop handover slide only: ms in at which the HUD seat swaps, while nothing shows. */ swapMs?: number }; overlay?: Overlay; due?: boolean; phase?: string; opening?: boolean }
 
 /** `tabletop` (Tabletop mode, the device default): the pitch never turns, so seat 1's end is at the bottom whoever starts. Off, the stage turns to the starting player. Online passes true, and `advance` ignores the flip there, so online never flips. */
 export const newTransition = (active: PlayerId, tabletop = true): Transition => ({ shown: bottomSeat(tabletop, active), hudSeat: active, due: true })
@@ -38,6 +38,7 @@ export type Frame = { handover?: boolean; tabletop: boolean; active: PlayerId; p
 export function advance(t: Transition, f: Frame): Transition {
   let { shown, hudSeat, flip, overlay, due } = t
   if (flip && f.now >= flip.at + flip.ms) (shown = flip.to), (hudSeat = flip.hudSeat), (flip = undefined)
+  if (flip?.swapMs !== undefined && f.now >= flip.at + flip.swapMs) hudSeat = flip.hudSeat
   if (overlay && f.now >= overlay.at + overlay.ms) overlay = undefined
   for (const ev of f.events) {
     if (ev.type === 'goal') overlay = { kind: 'goal', at: f.now, player: ev.scorer, text: 'GOAL', ms: visual.transition.goalMs, net: ev.at }
@@ -51,11 +52,14 @@ export function advance(t: Transition, f: Frame): Transition {
   const repairing = overlay?.kind === 'sweep' && !!overlay.holds
   if (f.handover === false) due = false
   else if ((due || f.active !== hudSeat) && !flip && !repairing && overlay?.kind !== 'goal' && overlay?.kind !== 'reveal') {
-    const ms = visual.transition.flipMs
+    const { flipMs, slide } = visual.transition
+    // The Tabletop handover to another seat slides the Dock out and in (the seat swaps in between); anything else (the hold at a match's start, a hand-back to the same seat, the whole-stage flip) holds for `flipMs`.
+    const sliding = f.tabletop && f.active !== hudSeat && slide.outMs + slide.gapMs + slide.inMs > 0
+    const ms = sliding ? slide.outMs + slide.gapMs + slide.inMs : flipMs
     // In Tabletop mode the bottom seat is always 1: the stage turns back once if it was left turned.
     const to = bottomSeat(f.tabletop, f.active)
     // Even when `to` is already shown the flip runs (rotating 0 degrees), so the hold is the same as ever.
-    if (ms) flip = { at: f.now, ms, from: shown, to, hudSeat: f.active }
+    if (ms) flip = { at: f.now, ms, from: shown, to, hudSeat: f.active, swapMs: sliding ? slide.outMs + slide.gapMs / 2 : undefined }
     else (shown = to), (hudSeat = f.active)
     due = false
   }
@@ -77,6 +81,20 @@ export function angle(t: Transition, now: number): number {
   if (!t.flip) return rot(t.shown)
   const p = Math.min(1, (now - t.flip.at) / t.flip.ms)
   return rot(t.flip.from) + (rot(t.flip.to) - rot(t.flip.from)) * p
+}
+
+const easeIn = (p: number) => p ** visual.transition.slide.easeIn
+const easeOut = (p: number) => 1 - (1 - p) ** visual.transition.slide.easeOut
+const span = (now: number, from: number, ms: number) => (ms > 0 ? Math.min(1, Math.max(0, (now - from) / ms)) : now >= from ? 1 : 0)
+
+/** The Tabletop handover slide at `now`: `dock` is how far the Dock is off the HUD layer's bottom (0 in place, 1 fully gone; the layer turns while it is 1, so it always leaves and returns by the layer's own bottom, the device's bottom for seat 1 and its top for seat 2); `chrome` is the opacity of the edge strips and corner chips, which fade rather than cross the pitch. At rest, and for the whole-stage flip, `{ dock: 0, chrome: 1 }`. */
+export function slideAt(t: Transition, now: number): { dock: number; chrome: number } {
+  const f = t.flip
+  if (f?.swapMs === undefined) return { dock: 0, chrome: 1 }
+  const { outMs, gapMs, inMs } = visual.transition.slide
+  const out = span(now, f.at, outMs)
+  const back = span(now, f.at + outMs + gapMs, inMs)
+  return back > 0 ? { dock: 1 - easeOut(back), chrome: easeOut(back) } : { dock: easeIn(out), chrome: 1 - easeIn(out) }
 }
 
 /** Where the ball rests in the net during the goal hold (the sim has already reset it). */
