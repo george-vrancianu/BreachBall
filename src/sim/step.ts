@@ -1,10 +1,10 @@
 import { rules } from '../config/rules'
-import { goalCrossed, type PlayerId, type Point } from './pitch'
+import { goalCrossed, kickoffSpot, type PlayerId, type Point } from './pitch'
 import type { GameModeName, Match } from './match'
 import { modeFor, modeNamed, type DefenceChoice, type ModeContext } from './mode'
 import { initialPlayers, type Player, type PowerUp } from './player'
 import { rollBall, type Ball } from './ball'
-import { canPlaceBall, handOver, opponent, resolveRest, type Possession } from './possession'
+import { canPlaceBall, centreRestart, handOver, opponent, resolveRest, type Possession } from './possession'
 import { splashDamage, splashOf } from './splash'
 import { damageWall, isLegal, maxHp, structureCost, wallCost, type Structure, type Tower, type TowerPower, type StructureSpec, type Vertex } from './wall'
 
@@ -222,7 +222,7 @@ export function initialState(seed = 1, config: SimConfig = defaultConfig): SimSt
   // The first builder's turn opens here, so it gets its grant as every later build turn does in step; the other player holds nothing yet.
   const none = { 1: 0, 2: 0 }
   const credits = { ...none, ...(b && { [b]: mode.onBuildStart(start.match, ctxOf([], start.possession, start.possession.shooter, none), config).credits }) }
-  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: { x: rules.pitchWidth / 2, y: rules.halfHeight }, vel: { x: 0, y: 0 }, rolled: 0 }, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false } }
+  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: kickoffSpot(start.possession.shooter), vel: { x: 0, y: 0 }, rolled: 0 }, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false } }
 }
 
 const spend = (players: SimState['players'], id: PlayerId, power: PowerUp, n = 1): SimState['players'] => ({ ...players, [id]: { ...players[id], inventory: { ...players[id].inventory, [power]: players[id].inventory[power] - n } } })
@@ -297,8 +297,9 @@ export function step(
     // Refunding the last one ends the possession as running out of shots does.
     if (left > 0) possession = { ...possession, shots: left }
     else {
-      const h = handOver(opponent(refund.player), true, config)
+      const h = centreRestart(refund.player, config)
       possession = h.possession
+      ball = { ...ball, pos: h.ball, vel: { x: 0, y: 0 } }
       events.push(...h.events)
       clock = { left: config.shotClock * config.tickHz, expiries: 0 }
     }
@@ -370,8 +371,9 @@ export function step(
       consumed = true
       match = mode.onShotFired(match)
       if (clock.expiries >= 1) {
-        const h = handOver(opponent(shooter), true, config)
+        const h = centreRestart(shooter, config)
         possession = h.possession
+        ball = { ...ball, pos: h.ball, vel: { x: 0, y: 0 } }
         events.push(...h.events)
       } else {
         if (possession.inHand) {
@@ -380,6 +382,7 @@ export function step(
         }
         const r = resolveRest(possession, ball.pos.y, config)
         possession = r.possession
+        if (r.ball) ball = { ...ball, pos: r.ball, vel: { x: 0, y: 0 } }
         events.push(...r.events)
         clock = { ...clock, expiries: clock.expiries + 1 }
       }
@@ -415,6 +418,7 @@ export function step(
     consumed = true
     const r = resolveRest(possession, landed.pos.y, config)
     possession = r.possession
+    if (r.ball) landed = { ...landed, pos: r.ball, vel: { x: 0, y: 0 } }
     events.push(...r.events)
   }
   const ctx = ctxOf(rolled.objects, possession, shooter, credits)

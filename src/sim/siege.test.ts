@@ -42,7 +42,7 @@ describe('Siege', () => {
     let s = initialState(1, siege)
     const first = firstBuilder(1, 1)
     expect(s.match).toMatchObject({ mode: 'siege', builder: first })
-    expect(s.possession).toMatchObject({ shooter: coinFlip(1, 1), inHand: true })
+    expect(s.possession).toMatchObject({ shooter: coinFlip(1, 1), inHand: false })
     s = step(step(s, { placeWall: piece(first) }, siege).state, { done: first }, siege).state
     expect(s.match.builder).toBe(opponent(first))
     expect(s.credits[opponent(first)]).toBe(siege.credits)
@@ -101,21 +101,22 @@ describe('Siege', () => {
     expect(s.match.builder).toBe(opponent(first))
   })
 
-  it('a goal scores nothing and hands the conceder ball-in-hand at the center with a fresh counter', () => {
+  it('a goal scores nothing and hands the conceder a Kick-off from their own goal with a fresh counter', () => {
     const before = shot(playing(), 1, 0.5, -60)
     const r = step({ ...before, possession: { ...before.possession, shots: 1 } }, {}, siege)
     expect(r.events).toContainEqual({ type: 'goal', scorer: 1, at: expect.anything() })
     expect(r.events.some((e) => e.type === 'round-ended')).toBe(false)
     expect(r.state.match).toMatchObject({ mode: 'siege', builder: null, winner: null })
-    expect(r.state.possession).toEqual({ shooter: 2, shots: siege.shots, inHand: true, live: false })
-    expect(r.state.ball.pos).toEqual({ x: 20, y: 54 })
+    expect(r.state.possession).toEqual({ shooter: 2, shots: siege.shots, inHand: false, live: false })
+    expect(r.state.ball.pos).toEqual({ x: 20, y: 5 })
     expect(r.state.ball.vel).toEqual({ x: 0, y: 0 })
   })
 
   it('an own goal counts for the opponent', () => {
     const r = step(shot(playing(), 1, 107.5, 60), {}, siege)
     expect(r.events).toContainEqual({ type: 'goal', scorer: 2, at: expect.anything() })
-    expect(r.state.possession).toMatchObject({ shooter: 1, inHand: true })
+    expect(r.state.possession).toMatchObject({ shooter: 1, inHand: false })
+    expect(r.state.ball.pos).toEqual({ x: 20, y: 103 })
   })
 
   it('shots never end anything: no shot cap, no round-ended, no build', () => {
@@ -156,13 +157,14 @@ describe('Siege defence turn: Repair', () => {
     for (const input of [{ shot: { player: 2 as const, dir: { x: 0, y: 1 }, tier: 0, power: 0.3 } }, { placeBall: { player: 2 as const, at: { x: 20, y: 80 } } }]) {
       const r = step(s, input, siege)
       expect(r.events).toContainEqual({ type: 'refused' })
-      expect(r.state.possession.inHand).toBe(true)
+      expect(r.state.possession.inHand).toBe(false)
     }
     const clock = s.clock
     for (let i = 0; i < siege.shotClock * siege.tickHz + 5; i++) s = step(s, {}, siege).state
     expect(s.clock).toEqual(clock)
     expect(s.match).toMatchObject({ choosing: 1 })
-    expect(s.possession).toMatchObject({ shooter: 2, inHand: true, shots: siege.shots })
+    expect(s.possession).toMatchObject({ shooter: 2, inHand: false, shots: siege.shots })
+    expect(s.ball.pos).toEqual({ x: 20, y: 5 })
   })
 
   it("Repair restores the scorer's surviving structures to full HP and emits one repaired event each", () => {
@@ -177,13 +179,14 @@ describe('Siege defence turn: Repair', () => {
     expect(r.state.objects.map((o) => o.id)).toEqual([2, 3])
   })
 
-  it('then the conceder has ball-in-hand at center with a fresh counter, and play goes on', () => {
-    let s = step(scored(), repair(1), siege).state
+  it('then the conceder kicks off with a fresh counter, and play goes on', () => {
+    const s = step(scored(), repair(1), siege).state
     expect(s.match).toMatchObject({ choosing: null, builder: null })
-    expect(s.possession).toEqual({ shooter: 2, shots: siege.shots, inHand: true, live: false })
-    expect(s.ball.pos).toEqual({ x: 20, y: 54 })
-    s = step(s, { placeBall: { player: 2, at: { x: 20, y: 30 } } }, siege).state
-    expect(s.possession.inHand).toBe(false)
+    expect(s.possession).toEqual({ shooter: 2, shots: siege.shots, inHand: false, live: false })
+    expect(s.ball.pos).toEqual({ x: 20, y: 5 })
+    const r = step(s, { placeBall: { player: 2, at: { x: 20, y: 30 } } }, siege)
+    expect(r.events).toContainEqual({ type: 'refused' })
+    expect(r.state.ball.pos).toEqual({ x: 20, y: 5 })
   })
 
   it('refuses a choice from the conceder, or outside the window', () => {
@@ -200,7 +203,8 @@ describe('Siege defence turn: Repair', () => {
     expect(s.match).toMatchObject({ choosing: 2 })
     expect(step(s, repair(1), siege).events).toContainEqual({ type: 'refused' })
     const r = step(s, repair(2), siege)
-    expect(r.state.possession).toMatchObject({ shooter: 1, inHand: true })
+    expect(r.state.possession).toMatchObject({ shooter: 1, inHand: false })
+    expect(r.state.ball.pos).toEqual({ x: 20, y: 103 })
   })
 })
 
@@ -300,12 +304,12 @@ describe('Siege build timeout', () => {
     expect(events).not.toContain('refused')
   })
 
-  it('an idle second builder also gets a piece, then play starts with ball-in-hand for the coin-flip winner', () => {
+  it('an idle second builder also gets a piece, then play starts with a Kick-off for the coin-flip winner', () => {
     const { s, events } = idle(initialState(1, timed), 2 * TICKS)
     expect(owned(s, first)).toHaveLength(1)
     expect(owned(s, opponent(first))).toHaveLength(1)
     expect(s.match.builder).toBeNull()
-    expect(s.possession).toMatchObject({ shooter: coinFlip(1, 1), inHand: true })
+    expect(s.possession).toMatchObject({ shooter: coinFlip(1, 1), inHand: false })
     expect(events).not.toContain('refused')
   })
 
@@ -409,15 +413,15 @@ describe('Siege defence turn: Rearrange', () => {
     }
   })
 
-  it('Done ends the turn: the conceder has ball-in-hand at center, whichever player rearranged', () => {
+  it('Done ends the turn: the conceder kicks off, whichever player rearranged', () => {
     for (const scorer of [1, 2] as const) {
       let s = step(scored(scorer), { defence: { player: scorer, choice: 'rearrange' } }, siege).state
       expect(s.match.builder).toBe(scorer)
       expect(canFinishBuild(s, siege)).toBe(true)
       s = step(s, { done: scorer }, siege).state
       expect(s.match).toMatchObject({ builder: null, choosing: null })
-      expect(s.possession).toEqual({ shooter: opponent(scorer), shots: siege.shots, inHand: true, live: false })
-      expect(s.ball.pos).toEqual({ x: 20, y: 54 })
+      expect(s.possession).toEqual({ shooter: opponent(scorer), shots: siege.shots, inHand: false, live: false })
+      expect(s.ball.pos).toEqual({ x: 20, y: scorer === 1 ? 5 : 103 })
     }
   })
 

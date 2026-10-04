@@ -16,6 +16,12 @@ export function halfSpan(player: PlayerId): [top: number, bottom: number] {
   return player === 1 ? [rules.halfHeight, rules.pitchHeight] : [0, rules.halfHeight]
 }
 
+/** The centre spot, where a Centre-spot restart puts the ball. */
+export const centreSpot = (): Point => ({ x: rules.pitchWidth / 2, y: rules.halfHeight })
+
+/** Where `kicker` kicks off: the centre line, `rules.kickoffGap` out from their own goal line. */
+export const kickoffSpot = (kicker: PlayerId): Point => ({ x: rules.pitchWidth / 2, y: kicker === 1 ? rules.pitchHeight - rules.kickoffGap : rules.kickoffGap })
+
 /** World centre of a grid cell. */
 export function cellToWorld({ cx, cy }: Cell): Point {
   return { x: (cx + 0.5) * rules.cellSize, y: (cy + 0.5) * rules.cellSize }

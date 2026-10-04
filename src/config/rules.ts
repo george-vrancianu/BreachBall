@@ -23,6 +23,8 @@ const base = {
   wall: { unit: 4 * cellSize, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 2, shapeTol: 0.01 } as WallRules['wall'],
   /** Radius of the no-build circle around the centre spot, in world units (3 cells). */
   centreZoneRadius: 3 * cellSize,
+  /** Distance in world units from a goal line to the Kick-off spot of the kicker defending it (inside their keep-out arc, so no wall can block the ball). */
+  kickoffGap: 5,
   /** Half the drawn wall thickness; the ball cannot be placed on it. */
   wallHalf: 0.35,
   /** Credits it costs to demolish a piece placed in an earlier turn. */

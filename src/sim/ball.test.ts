@@ -99,7 +99,7 @@ describe('ball', () => {
   it('a slow ball rolling over the goal line scores and the round restarts', () => {
     const r = ticks(at(20, 1, 0, -3), 600)
     expect(r.events).toContainEqual(expect.objectContaining({ type: 'goal' }))
-    expect(r.s.ball.pos).toEqual({ x: 20, y: 54 })
+    expect(r.s.ball.pos).toEqual({ x: 20, y: 5 })
   })
   it('is deterministic: the same inputs give identical state twice', () => {
     const play = () => {

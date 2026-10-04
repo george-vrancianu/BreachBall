@@ -20,12 +20,13 @@ describe('refund', () => {
     expect(r.state.possession.shooter).toBe(p)
     expect(r.events).toContainEqual({ type: 'refunded', player: p, count: 2 })
   })
-  it('refunding the last Move point hands the opponent ball-in-hand with a fresh counter', () => {
+  it('refunding the last Move point gives the opponent a Centre-spot restart with a fresh counter', () => {
     const s = ready()
     const p = s.possession.shooter
     const r = step(s, { refund: { player: p, count: 3 } }, c)
-    expect(r.state.possession).toEqual({ shooter: opponent(p), shots: c.shots, inHand: true, live: false })
-    expect(r.events).toContainEqual({ type: 'possession-changed', shooter: opponent(p), inHand: true })
+    expect(r.state.possession).toEqual({ shooter: opponent(p), shots: c.shots, inHand: false, live: false })
+    expect(r.events).toContainEqual({ type: 'possession-changed', shooter: opponent(p), inHand: false })
+    expect(r.state.ball.pos).toEqual({ x: 20, y: 54 })
     expect(r.state.credits[p]).toBe(s.credits[p] + 6)
     expect(r.state.clock).toEqual({ left: c.shotClock * c.tickHz, expiries: 0 })
   })
@@ -33,7 +34,7 @@ describe('refund', () => {
     const s = { ...ready(), clock: { left: 1, expiries: 0 } }
     const p = s.possession.shooter
     const r = step(s, { refund: { player: p, count: 3 } }, c)
-    expect(r.state.possession).toEqual({ shooter: opponent(p), shots: c.shots, inHand: true, live: false })
+    expect(r.state.possession).toEqual({ shooter: opponent(p), shots: c.shots, inHand: false, live: false })
     expect(r.state.clock).toEqual({ left: c.shotClock * c.tickHz, expiries: 0 })
     expect(roundsMatch(r.state).roundShots).toBe(roundsMatch(s).roundShots)
     expect(r.events.some((e) => e.type === 'shot-clock-expired')).toBe(false)
@@ -44,7 +45,7 @@ describe('refund', () => {
     const r = step(s, { refund: { player: p, count: 3 }, shot: { player: p, dir: { x: 1, y: 0 }, tier: 0, power: 0.15 } }, c)
     expect(r.events).toContainEqual({ type: 'refused' })
     expect(r.events.some((e) => e.type === 'shot-fired')).toBe(false)
-    expect(r.state.possession).toEqual({ shooter: opponent(p), shots: c.shots, inHand: true, live: false })
+    expect(r.state.possession).toEqual({ shooter: opponent(p), shots: c.shots, inHand: false, live: false })
   })
   it('works in sudden death', () => {
     const s = ready()
