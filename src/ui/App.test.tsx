@@ -41,10 +41,18 @@ it('mounting under StrictMode leaves one running Game, and unmounting stops it',
   expect(games.filter((g) => !g.destroyed)).toHaveLength(0)
 })
 
-it('rotates the in-match stage with the view angle', () => {
+it('rotates the canvas layer and the HUD layer with the view angle', () => {
   const { container } = render(<App />)
   act(() => games[0]!.onView(view({ angle: 180, flipped: true })))
-  expect((container.querySelector('canvas')!.parentElement as HTMLElement).style.transform).toBe('rotate(180deg)')
+  const canvasLayer = container.querySelector('canvas')!.parentElement as HTMLElement
+  expect(canvasLayer.style.transform).toBe('rotate(180deg)')
+  expect((canvasLayer.nextElementSibling as HTMLElement).style.transform).toBe('rotate(180deg)')
+})
+
+it('keeps the HUD layer out of the pitch input', () => {
+  const { container } = render(<App />)
+  act(() => games[0]!.onView(view()))
+  expect(((container.querySelector('canvas')!.parentElement as HTMLElement).nextElementSibling as HTMLElement).style.pointerEvents).toBe('none')
 })
 
 it('plays from title through settings into a match, then offers match end once and rematch', () => {
@@ -222,7 +230,7 @@ describe('Side menu', () => {
     expect(game.actions.menu).toHaveBeenCalledWith(false)
   })
 
-  it('turns with the stage', () => {
+  it('turns with the HUD layer', () => {
     inMatch({ open: true })
     act(() => games[0]!.onView(view({ angle: 180, flipped: true, menu: { ...freshView().menu, open: true } })))
     const stage = screen.getByRole('navigation', { name: 'Side menu' }).parentElement!.parentElement as HTMLElement
