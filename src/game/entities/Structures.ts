@@ -2,7 +2,7 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
 import { splashDamage, splashOf } from '../../sim/splash'
-import type { SimConfig, SimState } from '../../sim/step'
+import { playCost, type SimConfig, type SimState } from '../../sim/step'
 import { structureCost, type Structure, type StructureSpec } from '../../sim/wall'
 import { Entity } from './Entity'
 import { Fixture, type FixtureData } from './Fixture'
@@ -34,6 +34,8 @@ export class Structures extends Entity {
   landing?: StructureSpec
   /** The build piece is a new wall (unplaced or being drawn): its Credit cost shows beside its midpoint. Towers spend stock, not Credits, so show none. */
   costLabel = false
+  /** The piece is an in-play build: its cost label reads the in-play price (`rules.playBuild`). */
+  inPlay = false
   /** The build piece fails the full legality check (the Credit balance too), which the build piece's own geometry check cannot see. */
   pieceBlocked = false
   /** The selected movable wall's two ends: handles are drawn on them. */
@@ -187,7 +189,7 @@ export class Structures extends Entity {
   private drawCost(ctx: CanvasRenderingContext2D, spec: StructureSpec): void {
     const { size, offset } = visual.wall.cost
     const at = costLabelAt(spec, offset, this.flipped)
-    drawLabel(ctx, String(structureCost(spec)), at, { size, weight: visual.wall.cost.weight, color: this.pieceBlocked ? visual.wall.illegal : visual.hud.ink, flipped: this.flipped })
+    drawLabel(ctx, String(this.inPlay ? playCost(spec) : structureCost(spec)), at, { size, weight: visual.wall.cost.weight, color: this.pieceBlocked ? visual.wall.illegal : visual.hud.ink, flipped: this.flipped })
   }
 
   private drawBuildPiece(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean): void {

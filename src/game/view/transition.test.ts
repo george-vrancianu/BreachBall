@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { visual } from '../../config/visual'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type Frame, type Transition } from './transition'
 
-const base: Frame = { flip: true, active: 1, round: 1, inHand: true, phase: 'Play', events: [], now: 0, reduced: false }
+const base: Frame = { flip: true, active: 1, round: 1, inHand: true, phase: 'Play', events: [], now: 0 }
 /** A new match with Flip on turn on (the shell's default is off). */
 const fresh = (a: 1 | 2) => newTransition(a, true)
 const go = (t: Transition, o: Partial<Frame>) => advance(t, { ...base, ...o })
@@ -35,12 +35,6 @@ describe('handover', () => {
     expect(overlayView(t, 2300)!.opacity).toBeCloseTo(0.5)
     t = go(t, { now: 2400, active: 2 })
     expect(t.shown).toBe(2)
-  })
-  it('cuts instantly under reduced motion', () => {
-    let t = open()
-    t = go(t, { now: 2000, active: 2, reduced: true })
-    expect(angle(t, 2000)).toBe(180)
-    expect(overlayView(t, 2000)!.opacity).toBe(1)
   })
   it('only dismisses by tap after 1 s', () => {
     const t = go(go(fresh(1), {}), { now: 500 })
@@ -159,15 +153,6 @@ describe('reveal', () => {
     expect(revealing(t)).toBe(false)
     expect(overlayView(t, 6500)?.text).toBe("Player 2's turn")
     expect(blocking(t)).toBe(true)
-  })
-  it('holds the same 1.5 s under reduced motion, with no flip afterwards', () => {
-    let t = done(go(building(), { now: 2500, opening: true, phase: 'Build', reduced: true }), { reduced: true })
-    expect(revealing(t)).toBe(true)
-    t = go(t, { now: 6499, active: 2, phase: 'Play', reduced: true })
-    expect(revealing(t)).toBe(true)
-    t = go(t, { now: 6500, active: 2, phase: 'Play', reduced: true })
-    expect(revealing(t)).toBe(false)
-    expect(t.flip).toBeUndefined()
   })
   it('pins its label to the top edge with no band, so the whole pitch stays visible', () => {
     const t = done(building())

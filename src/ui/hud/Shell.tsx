@@ -1,39 +1,29 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
-import type { DefenceCircle as DefenceCircleView, Item } from '../../game/view/defenceCircle'
+import type { DefenceCircle as DefenceCircleView, Item, ItemSpec } from '../../game/view/defenceCircle'
 import type { ButtonSpec, HudModel } from '../../game/view/hudModel'
-import type { MinimapView } from '../../game/view/minimap'
 import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
+import type { StrategyCard } from '../../game/view/strategies'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
-import type { PlayerId, PowerUp, SubterfugeItem } from '../../game/Game'
-import { Button, ButtonRow, FONT } from '../ButtonRow'
-import { DefenceCircle } from './DefenceCircle'
-import { Minimap } from './Minimap'
-import { OffenceCircle } from './OffenceCircle'
-import { SubterfugeCircle } from './SubterfugeCircle'
+import type { SubterfugeItem } from '../../game/Game'
+import { FONT } from '../ButtonRow'
+import { CANNON, CHECK, CLOSE, CREDIT, LAYERS, LOCK, RECENTER, REFUND, REPULSOR, ROTATE, STEAL, TOWER, TRASH, WALL } from './icons'
+import { noMenu } from './press'
+import { AbilityBar } from './AbilityBar'
+import { StrategyTray } from './StrategyTray'
+import { tileBadge, tileLabel, tileStyle } from './tile'
 
 const ELLIPSIS: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-// The Breaker lives in the Offence circle; what is left here is the tower stock.
-const ICONS: Record<Exclude<PowerUp, 'breaker'>, string> = { repulsor: 'R', steal: 'S' }
 const ring = (f: number, color: string = visual.hud.ink) => `conic-gradient(${color} ${f * 360}deg,${visual.hud.track} 0)`
-
-/** The structure count (Siege) or score (Rounds); the digit flips when it changes. */
-function Digit({ value, color }: { value: string | null; color: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const last = useRef(value)
-  useEffect(() => {
-    if (last.current && value && last.current !== value) ref.current?.animate?.([{ transform: 'rotateX(90deg)' }, { transform: 'rotateX(0)' }], visual.hud.scoreFlipMs)
-    last.current = value
-  }, [value])
-  return <div ref={ref} style={{ display: value === null ? 'none' : undefined, fontFamily: visual.hud.display, fontSize: 40, lineHeight: 1, color }}>{value}</div>
-}
+const { dock } = visual.hud
+const PIECE_ICON: Record<ItemSpec['item'], (size: number) => ReactNode> = { wall: WALL, repulsor: REPULSOR, steal: STEAL, cannon: CANNON }
 
 /** The clock ring: a conic drain around a dark disc holding the seconds; at the urgent seconds it turns red with a halo and pulses. */
 function Clock({ clock }: { clock: HudModel['clock'] }) {
   const { ringPx, discPx, haloPx, haloColor } = visual.hud.sharedRow
   const urgent = !!clock && clock.seconds <= visual.hud.urgentSeconds
   return (
-    <div style={{ flex: 'none', width: ringPx, height: ringPx, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: ring(clock?.fraction ?? 0, urgent ? visual.hud.urgent : undefined), boxShadow: urgent ? `0 0 0 ${haloPx}px ${haloColor}` : undefined, transform: urgent ? `scale(${1 + visual.hud.urgentPulse * Math.abs(Math.sin(Math.PI * clock.seconds))})` : undefined }}>
+    <div role="timer" aria-label={clock ? `${Math.ceil(clock.seconds)} seconds left` : 'No clock'} style={{ flex: 'none', width: ringPx, height: ringPx, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', background: ring(clock?.fraction ?? 0, urgent ? visual.hud.urgent : undefined), boxShadow: urgent ? `0 0 0 ${haloPx}px ${haloColor}` : undefined, transform: urgent ? `scale(${1 + visual.hud.urgentPulse * Math.abs(Math.sin(Math.PI * clock.seconds))})` : undefined }}>
       <div style={{ width: discPx, height: discPx, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: visual.tokens.bg, color: urgent ? visual.hud.urgent : visual.hud.ink }}>{clock ? Math.ceil(clock.seconds) : '-'}</div>
     </div>
   )
@@ -41,73 +31,177 @@ function Clock({ clock }: { clock: HudModel['clock'] }) {
 
 /** The ghost circle that sends the camera back to the ball: a crosshair. */
 function Recenter({ onClick }: { onClick(): void }) {
-  const { recenterPx, recenterBorderPx, iconPx, iconStroke } = visual.hud.sharedRow
+  const { recenterPx, recenterBorderPx, iconPx } = visual.hud.sharedRow
   const { ghostBorder, ghostGlyph } = visual.tokens
   return (
     <button aria-label="Recenter" onClick={onClick} style={{ flex: 'none', width: recenterPx, height: recenterPx, padding: 0, borderRadius: '50%', border: `${recenterBorderPx}px solid ${ghostBorder}`, background: 'none', color: ghostGlyph, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width={iconPx} height={iconPx} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={iconStroke} strokeLinecap="round" aria-hidden>
-        <circle cx="10" cy="10" r="3.5" />
-        <path d="M10 1v4M10 15v4M1 10h4M15 10h4" />
-      </svg>
+      {RECENTER(iconPx)}
     </button>
   )
 }
 
-/** A phase button as the handoff's pill: a fully rounded 36 px outline, inside a transparent 44 px tap target. */
-function Pill({ spec }: { spec: ButtonSpec }) {
-  const { pillPx, pillPadPx, pillBorderPx, hitPx } = visual.hud.sharedRow
-  const { ink, panel, pressed, pressedBorder } = visual.hud
+/** The balance chip: a Credit token and the amount in the display face, ringed in the player's colour; the amount pops when it changes. */
+function CreditsChip({ balance, color }: { balance: NonNullable<HudModel['balance']>; color: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const last = useRef(balance.amount)
+  useEffect(() => {
+    if (last.current !== balance.amount) ref.current?.animate?.([{ transform: 'scale(1.35)' }, { transform: 'scale(1)' }], 260)
+    last.current = balance.amount
+  }, [balance.amount])
   return (
-    <button disabled={spec.disabled} aria-pressed={spec.pressed} onClick={spec.onClick} style={{ ...FONT, flex: 'none', minWidth: hitPx, height: hitPx, margin: `${(pillPx - hitPx) / 2}px 0`, padding: 0, border: 'none', background: 'none', color: ink, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: spec.disabled ? 0.4 : 1 }}>
-      <span style={{ boxSizing: 'border-box', height: pillPx, padding: `0 ${pillPadPx}px`, display: 'flex', alignItems: 'center', borderRadius: 999, border: `${pillBorderPx}px solid ${spec.pressed ? pressedBorder : ink}`, background: spec.pressed ? pressed : panel, whiteSpace: 'nowrap' }}>{spec.label}</span>
+    <div role="status" aria-label={`${balance.amount} ${balance.unit}`} style={{ ...FONT, flex: 'none', boxSizing: 'border-box', height: dock.chipPx, padding: '0 12px 0 6px', display: 'flex', alignItems: 'center', gap: 6, borderRadius: dock.chipPx / 2, border: `2px solid ${color}`, background: `linear-gradient(135deg, ${color}2e, ${color}0a 60%)`, color: visual.hud.ink, boxShadow: `inset 0 0 12px ${color}22` }}>
+      <span style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: color, color: visual.hud.dark }}>{CREDIT(18)}</span>
+      <span ref={ref} style={{ fontFamily: visual.hud.display, fontSize: dock.creditFontPx, lineHeight: 1, display: 'inline-block' }}>{balance.amount}</span>
+      <span style={{ fontSize: 10, letterSpacing: '0.1em', color: visual.tokens.muted }}>{balance.unit}</span>
+    </div>
+  )
+}
+
+/** The primary pill of a dock (OK to submit the build; Repair or Rearrange): filled in the player's colour, a check when it submits. */
+function Primary({ spec, color, icon, label, aria, grow = false }: { spec: ButtonSpec; color: string; icon?: ReactNode; label?: string; aria?: string; /** Fill the space it is given (the defence choice's two halves). */ grow?: boolean }) {
+  const off = !!spec.disabled
+  return (
+    <button disabled={spec.disabled} aria-label={aria ?? spec.label} onClick={spec.onClick} style={{ ...FONT, flex: grow ? 1 : 'none', boxSizing: 'border-box', minWidth: dock.okMinPx, height: grow ? dock.tilePx - 4 : dock.chipPx, padding: '0 14px', borderRadius: dock.chipPx / 2, border: `2px solid ${off ? visual.tokens.ghostBorder : color}`, background: off ? 'transparent' : color, color: off ? visual.tokens.muted : visual.hud.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 15, letterSpacing: '0.06em', boxShadow: off ? 'none' : `0 0 16px ${color}55`, cursor: off ? 'default' : 'pointer', pointerEvents: 'auto' }}>
+      {icon}
+      {label ?? spec.label}
     </button>
   )
 }
 
-/** Move points: filled for each one left. When `refundable`, the filled ones are buttons: a tap refunds one, a long-press all but one (none when one is left, which `onRefund(0)` reports). A held dot shows pressed. */
-function MoveDots({ left, max, refundable, onRefund }: { left: number; max: number; refundable: boolean; onRefund(count: number): void }) {
-  const { dotPx, ringPx, gap } = visual.hud.refund
+/** The Move points left this possession: a ball per point, filled while unspent. */
+function ShotPips({ left, max, color }: { left: number; max: number; color: string }) {
+  const px = 14
+  return (
+    <div role="img" aria-label={`${left} of ${max} shots left`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+      <div style={{ display: 'flex', gap: 5 }}>
+        {Array.from({ length: max }, (_, i) => (
+          <span key={i} style={{ width: px, height: px, boxSizing: 'border-box', borderRadius: '50%', border: `2px solid ${i < left ? visual.ball.fill : visual.tokens.ghostBorder}`, background: i < left ? `radial-gradient(circle at 35% 35%, #fff, ${visual.ball.fill} 60%, #c9c9c0)` : 'none', boxShadow: i < left ? `0 0 6px ${color}66` : 'none' }} />
+        ))}
+      </div>
+      <span style={{ ...tileLabel, color: visual.tokens.muted }}>{`Shots ${left}/${max}`}</span>
+    </div>
+  )
+}
+
+/** Refund: trades a Move point for Credits. A tap refunds one; a long-press refunds all but one (none when one is left, which `onRefund(0)` reports). Greyed when a refund is not allowed now. */
+function RefundButton({ rate, left, refundable, color, onRefund }: { rate: number; left: number; refundable: boolean; color: string; onRefund(count: number): void }) {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const longPressed = useRef(false)
-  const [pressed, setPressed] = useState<number>()
-  const down = (i: number) => {
-    longPressed.current = false
-    setPressed(i)
-    timer.current = setTimeout(() => {
-      longPressed.current = true
-      setPressed(undefined)
-      onRefund(left - 1)
-    }, visual.hud.longPressMs)
-  }
+  const [pressed, setPressed] = useState(false)
   useEffect(
     () => () => {
       clearTimeout(timer.current)
       longPressed.current = true
-      setPressed(undefined)
+      setPressed(false)
     },
     [left, refundable],
   )
+  const down = () => {
+    if (!refundable) return
+    longPressed.current = false
+    setPressed(true)
+    timer.current = setTimeout(() => {
+      longPressed.current = true
+      setPressed(false)
+      onRefund(left - 1)
+    }, visual.hud.longPressMs)
+  }
   const up = () => {
     clearTimeout(timer.current)
-    setPressed(undefined)
-    if (!longPressed.current) onRefund(1)
+    setPressed(false)
+    if (refundable && !longPressed.current) onRefund(1)
     longPressed.current = true
   }
   const cancel = () => {
     clearTimeout(timer.current)
     longPressed.current = true
-    setPressed(undefined)
+    setPressed(false)
   }
-  const dot = (filled: boolean): CSSProperties => ({ width: dotPx, height: dotPx, padding: 0, borderRadius: '50%', border: `${ringPx}px solid ${visual.hud.ink}`, background: filled ? visual.hud.ink : 'none' })
   return (
-    <div style={{ display: 'flex', gap, pointerEvents: 'auto' }}>
-      {Array.from({ length: max }, (_, i) =>
-        refundable && i < left ? (
-          <button key={i} aria-label="Refund a Move point" aria-pressed={pressed === i} onPointerDown={() => down(i)} onPointerUp={up} onPointerLeave={cancel} onPointerCancel={cancel} style={{ ...dot(true), ...(pressed === i && { background: visual.hud.pressed, borderColor: visual.hud.pressedBorder }), cursor: 'pointer', touchAction: 'none' }} />
-        ) : (
-          <span key={i} style={dot(i < left)} />
-        ),
+    <button
+      aria-label={`Refund a shot for ${rate} Credits`}
+      aria-disabled={!refundable}
+      aria-pressed={pressed}
+      onPointerDown={down}
+      onPointerUp={up}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      onContextMenu={noMenu}
+      onClick={(e) => e.detail === 0 && refundable && onRefund(1)}
+      style={{ ...tileStyle({ color, available: refundable }), width: dock.tilePx + 6, ...(pressed && { background: visual.hud.pressed, borderColor: visual.hud.pressedBorder }), ...(refundable && { borderColor: color }) }}
+    >
+      <span style={{ color: refundable ? color : 'inherit', display: 'flex' }}>{REFUND(dock.iconPx)}</span>
+      <span style={tileLabel}>{`+${rate} CR`}</span>
+    </button>
+  )
+}
+
+/** The round line (with the score) over the phase label. */
+function Status({ m }: { m: HudModel }) {
+  const { roundPx, labelPx, roundSpacingEm, labelSpacingEm } = visual.hud.sharedRow
+  return (
+    <div style={{ textAlign: 'left', flex: '1 1 0', minWidth: 0 }}>
+      {m.round === null ? null : <div style={{ fontSize: roundPx - 1, letterSpacing: `${roundSpacingEm}em`, ...ELLIPSIS }}>{`Round ${m.round}/${m.rounds}${m.score ? ` · ${m.score}` : ''}`}</div>}
+      <div style={{ fontSize: labelPx, letterSpacing: `${labelSpacingEm}em`, color: visual.tokens.muted, ...ELLIPSIS }}>{m.phase}</div>
+    </div>
+  )
+}
+
+/** The Build tile (a chess rook): filled in build mode; tap to enter or leave it. Greyed (and inert) when the viewer cannot build now, e.g. in play after the round's first shot. */
+function BuildTile({ defence, color, onToggle }: { defence?: DefenceCircleView; color: string; onToggle(): void }) {
+  const available = !!defence?.available
+  const building = !!defence?.building
+  return (
+    <button aria-label={building ? 'Leave building' : 'Build'} aria-pressed={building} aria-disabled={!available} onClick={() => available && onToggle()} onContextMenu={noMenu} style={tileStyle({ color, active: building && available, available })}>
+      {TOWER(dock.iconPx)}
+      <span style={tileLabel}>Build</span>
+    </button>
+  )
+}
+
+/** The build dock's tool row: Build (a chess rook) on the left, then the pieces it can place, then Strategies on the right. */
+function BuildTools({ defence, color, trayOpen, strategies, onToggle, onArm, onStrategies }: { defence: DefenceCircleView; color: string; trayOpen: boolean; strategies: boolean; onToggle(): void; onArm(item: Item): void; onStrategies(): void }) {
+  const { available, items } = defence
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: dock.gapPx, minWidth: 0 }}>
+      <BuildTile defence={defence} color={color} onToggle={onToggle} />
+      <span aria-hidden style={{ flex: 'none', width: dock.dividerPx, height: dock.tilePx - 16, background: dock.border, margin: '0 2px' }} />
+      <div role="toolbar" aria-label="Pieces" style={{ display: 'flex', gap: dock.gapPx, minWidth: 0 }}>
+        {items.map((s) => {
+          const off = s.disabled || !available
+          return (
+            <button key={s.item} data-item={s.item} aria-label={s.soon ? `${s.label} · soon` : s.label} aria-pressed={s.pressed} aria-disabled={off} onClick={() => !off && s.item !== 'cannon' && onArm(s.item)} onContextMenu={noMenu} style={{ ...tileStyle({ color, active: s.pressed && !off, available: !off, width: dock.tilePx - 4 }) }}>
+              {s.soon ? LOCK(dock.iconPx - 4) : PIECE_ICON[s.item](dock.iconPx)}
+              <span style={{ ...tileLabel, fontSize: dock.labelPx - 1, letterSpacing: '0.02em' }}>{s.name}</span>
+              {s.badge && !s.soon && <span style={tileBadge(color, off)}>{s.badge}</span>}
+            </button>
+          )
+        })}
+      </div>
+      <span style={{ flex: 1 }} />
+      {strategies && (
+        <button aria-label="Strategies" aria-pressed={trayOpen} aria-expanded={trayOpen} aria-haspopup="menu" onClick={onStrategies} onContextMenu={noMenu} style={tileStyle({ color, active: trayOpen })}>
+          {LAYERS(dock.iconPx)}
+          <span style={tileLabel}>Plans</span>
+        </button>
       )}
+    </div>
+  )
+}
+
+/** The selected structure's controls (demolish, rotate, deselect), floating over the pitch above the dock. */
+function SelectionBar({ buttons }: { buttons: ButtonSpec[] }) {
+  const GLYPH: Record<string, { icon: ReactNode; aria: string }> = { '🗑': { icon: TRASH(20), aria: 'Demolish' }, '↻': { icon: ROTATE(20), aria: 'Rotate' }, '✕': { icon: CLOSE(20), aria: 'Deselect' } }
+  return (
+    <div role="toolbar" aria-label="Selected piece" style={{ display: 'flex', gap: 8, padding: 6, borderRadius: 26, background: dock.fill, border: `1px solid ${dock.border}`, boxShadow: `0 6px 18px ${visual.hud.shadow}`, pointerEvents: 'auto' }}>
+      {buttons.map((b) => {
+        const g = GLYPH[b.label]
+        return (
+          <button key={b.label} disabled={b.disabled} aria-label={g?.aria ?? b.label} onClick={b.onClick} style={{ ...FONT, width: 40, height: 40, padding: 0, borderRadius: '50%', border: `2px solid ${b.label === '🗑' ? visual.hud.urgent : visual.tokens.ghostBorder}`, background: visual.hud.panel, color: b.label === '🗑' ? visual.hud.urgent : visual.hud.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: b.disabled ? 0.4 : 1 }}>
+            {g?.icon ?? b.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -124,14 +218,12 @@ export type ShellProps = {
   defence?: DefenceCircleView
   /** The Subterfuge circle's model; absent where the mode has no Credits (Siege). */
   subterfuge?: SubterfugeCircleView
+  /** The Strategies tray's cards while it is open; absent when closed. */
+  strategies?: StrategyCard[]
   confirm: boolean
   mapOpen: boolean
-  /** The minimap chip's thumbnail. */
-  minimap: MinimapView
   /** Player 2 is at the bottom of the screen: the stage is turned, so the shell sits at the stage's top. */
   flipped: boolean
-  /** The minimap chip: opens the map view, or closes it. */
-  onMap(): void
   onRecenter(): void
   onOffenceArm(item: OffenceItemSpec['item']): void
   onConfirm(): void
@@ -141,60 +233,76 @@ export type ShellProps = {
   onSubterfuge(item: SubterfugeItem): void
   /** Refund `count` Move points. */
   onRefund(count: number): void
+  /** Open or close the Strategies tray. */
+  onStrategies(): void
+  /** Drop a Strategy in. */
+  onStrategy(id: string): void
   className?: string
   style?: CSSProperties
   children?: ReactNode
 }
 
-/** The in-match controls, in one shell at the bottom of the screen and only for the active viewer. Mount inside the rotating stage. Flipped, the rows run in reverse so the Defence circle is always the row nearest the pitch, where its column opens over the pitch and not the HUD. */
-export function Shell({ hud: m, offence, defence, subterfuge, confirm, mapOpen, minimap, flipped, onMap, onRecenter, onOffenceArm, onConfirm, onDefenceToggle, onDefenceArm, onSubterfuge, onRefund, className, style, children }: ShellProps) {
+/**
+ * The in-match controls: one dock at the bottom of the screen, only for the active viewer, plus what floats over the pitch above it (the Strategies tray, the
+ * selected piece's controls, Confirm, the map hint). Mount inside the rotating stage. Flipped, it sits at the stage's top and runs in reverse, so the floating rows stay on the pitch side.
+ *
+ * The dock has two rows: the status row (balance, round and phase, clock, Recenter, and the turn's primary pill) and the action row, which depends on `hud.dock`:
+ * a build turn gets the Build tools and Strategies; play gets the shots, Refund, Powerup and Subterfuge; a Rearrange turn and a defence choice get a prompt.
+ */
+export function Shell({ hud: m, offence, defence, subterfuge, strategies, confirm, mapOpen, flipped, onRecenter, onOffenceArm, onConfirm, onDefenceToggle, onDefenceArm, onSubterfuge, onRefund, onStrategies, onStrategy, className, style, children }: ShellProps) {
   const color = visual.player.colors[m.active]
-  const stock = m.players[m.active].inventory
-  const { sharedRow } = visual.hud
-  // The power-ups dim to outlines while a circle's column is open over the pitch, or the map is.
-  const [open, setOpen] = useState({ offence: false, defence: false, subterfuge: false })
-  const columnOpen = open.offence || open.defence || open.subterfuge
-  const dimmed = columnOpen || mapOpen
-  const dim = visual.tokens.dimOutline
-  const row: CSSProperties = { ...FONT, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, pointerEvents: 'auto' }
-  const auto: CSSProperties = { pointerEvents: 'auto' }
   const buttons = m.buttons ?? []
-  // One phase button (Done) fits in the row; Siege's Repair and Rearrange together do not (see the width budget on `visual.hud.sharedRow`), so they sit on their own row above.
-  const stacked = buttons.length > 1
+  const done = m.dock === 'build' || m.dock === 'rearrange' ? buttons.find((b) => b.label === 'Done') : undefined
+  const choices = m.dock === 'choice' ? buttons : []
+  const building = m.dock === 'build' && !!defence?.available
+  const auto: CSSProperties = { pointerEvents: 'auto' }
+  const radius = `${flipped ? 0 : dock.cornerPx}px ${flipped ? 0 : dock.cornerPx}px ${flipped ? dock.cornerPx : 0}px ${flipped ? dock.cornerPx : 0}px`
+  const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: dock.gapPx + 2, minWidth: 0 }
+  // The screen-edge side clears the home indicator; longhands only, so a flip never mixes them with the `padding` shorthand.
+  const safeEdge = `max(${dock.padPx}px, env(safe-area-inset-bottom))`
   return (
-    <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, padding: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
-      <div style={{ ...auto, display: 'flex', alignItems: 'center', gap: visual.hud.circleGapPx }}>
-        <OffenceCircle offence={offence} color={color} flipped={flipped} onArm={onOffenceArm} onOpen={(o) => setOpen((p) => ({ ...p, offence: o }))} />
-        {defence && <DefenceCircle defence={defence} color={color} flipped={flipped} onToggle={onDefenceToggle} onArm={onDefenceArm} onOpen={(o) => setOpen((p) => ({ ...p, defence: o }))} />}
-        {subterfuge && <SubterfugeCircle subterfuge={subterfuge} color={color} flipped={flipped} onBuy={onSubterfuge} onOpen={(o) => setOpen((p) => ({ ...p, subterfuge: o }))} />}
-      </div>
-      {confirm && <ButtonRow specs={[{ label: 'Confirm', onClick: onConfirm }]} style={auto} />}
+    <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
+      {building && strategies && <StrategyTray cards={strategies} color={color} unit={m.balance?.unit ?? 'CR'} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `4px ${dock.padPx}px` }} />}
+      {defence?.selection && <SelectionBar buttons={defence.selection.buttons} />}
+      {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(18)} />}
       {mapOpen && <MapHint />}
-      {stacked && <div style={{ ...row, gap: sharedRow.gapPx }}>{buttons.map((b) => <Pill key={b.label} spec={b} />)}</div>}
-      <div data-testid="shared-row" style={{ ...row, gap: sharedRow.gapPx, justifyContent: 'flex-start', flexWrap: 'nowrap', alignSelf: 'stretch', minHeight: sharedRow.heightPx, paddingRight: sharedRow.chipPadPx }}>
-        <div style={{ textAlign: 'left', flex: '1 1 0', minWidth: 0 }}>
-          {m.round === null ? null : <div style={{ fontSize: sharedRow.roundPx, letterSpacing: `${sharedRow.roundSpacingEm}em`, ...ELLIPSIS }}>{`Round ${m.round}/${m.rounds}${m.score ? ` · ${m.score}` : ''}`}</div>}
-          <div style={{ fontSize: sharedRow.labelPx, letterSpacing: `${sharedRow.labelSpacingEm}em`, color: visual.tokens.muted, ...ELLIPSIS }}>{m.phase}</div>
-        </div>
-        <Clock clock={m.clock} />
-        <MoveDots left={m.shotsLeft} max={m.shotsMax} refundable={m.refundable} onRefund={onRefund} />
-        <Recenter onClick={onRecenter} />
-        {!stacked && buttons.map((b) => <Pill key={b.label} spec={b} />)}
-      </div>
-      <div style={{ ...row, gap: 16, color }}>
-        {([1, 2] as PlayerId[]).filter((id) => m.score === null || id === m.active).map((id) => <Digit key={id} value={m.players[id].digit} color={visual.player.colors[id]} />)}
-        {stock && (Object.keys(ICONS) as (keyof typeof ICONS)[]).map((p) => {
-          const n = stock[p]
-          return (
-            <div key={p} role="img" aria-label={`${ICONS[p]}${n}`} style={{ ...FONT, position: 'relative', width: 44, height: 44, boxSizing: 'border-box', borderRadius: '50%', border: `2px solid ${dimmed ? dim : color}`, color: dimmed ? dim : color, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: n > 0 ? 1 : 0.35 }}>
-              {ICONS[p]}
-              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: dimmed ? dim : color, color: visual.hud.dark, fontSize: 12, textAlign: 'center' }}>{n}</span>
-            </div>
-          )
-        })}
-      </div>
       {children && <div style={auto}>{children}</div>}
-      <Minimap minimap={minimap} open={mapOpen} color={color} flipped={flipped} onToggle={onMap} />
+      <div data-testid="dock" data-dock={m.dock} style={{ ...FONT, ...auto, alignSelf: 'stretch', boxSizing: 'border-box', display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', gap: dock.rowGapPx, paddingInline: dock.padPx, paddingTop: flipped ? safeEdge : dock.padPx, paddingBottom: flipped ? dock.padPx : safeEdge, background: dock.fill, [flipped ? 'borderBottom' : 'borderTop']: `1px solid ${dock.border}`, borderRadius: radius, boxShadow: `0 ${flipped ? 8 : -8}px 24px ${visual.hud.shadow}` }}>
+        <div data-testid="status-row" style={row}>
+          {m.balance && <CreditsChip balance={m.balance} color={color} />}
+          <Status m={m} />
+          {m.clock && <Clock clock={m.clock} />}
+          <Recenter onClick={onRecenter} />
+          {done && <Primary spec={done} color={color} icon={CHECK(18)} label="OK" aria="Done" />}
+        </div>
+        <div data-testid="action-row" style={{ ...row, minHeight: dock.tilePx }}>
+          {m.dock === 'build' && defence && <div style={{ flex: 1, minWidth: 0 }}><BuildTools defence={defence} color={color} trayOpen={!!strategies} strategies={!!defence.available} onToggle={onDefenceToggle} onArm={onDefenceArm} onStrategies={onStrategies} /></div>}
+          {m.dock === 'rearrange' && <Prompt text="Drag your pieces to new spots, then OK" />}
+          {m.dock === 'choice' && (choices.length ? choices.map((b) => <Primary key={b.label} spec={b} color={color} grow />) : <Prompt text="Waiting for the defence choice" />)}
+          {m.dock === 'play' && (
+            <AbilityBar
+              defence={defence}
+              offence={offence}
+              subterfuge={subterfuge}
+              color={color}
+              onDefenceToggle={onDefenceToggle}
+              onDefenceArm={onDefenceArm}
+              onOffenceArm={onOffenceArm}
+              onSubterfuge={onSubterfuge}
+              trailing={
+                <div style={{ display: 'flex', alignItems: 'center', gap: dock.gapPx + 2 }}>
+                  <ShotPips left={m.shotsLeft} max={m.shotsMax} color={color} />
+                  {m.refundRate !== null && <RefundButton rate={m.refundRate} left={m.shotsLeft} refundable={m.refundable} color={color} onRefund={onRefund} />}
+                </div>
+              }
+            />
+          )}
+        </div>
+      </div>
     </div>
   )
+}
+
+function Prompt({ text }: { text: string }) {
+  return <div style={{ flex: 1, minWidth: 0, fontSize: 12, letterSpacing: '0.08em', color: visual.tokens.muted, textAlign: 'center', ...ELLIPSIS }}>{text}</div>
 }

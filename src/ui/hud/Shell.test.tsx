@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { DefenceCircle, ItemSpec } from '../../game/view/defenceCircle'
 import type { OffenceCircle } from '../../game/view/offenceCircle'
 import type { HudModel } from '../../game/view/hudModel'
+import type { StrategyCard } from '../../game/view/strategies'
 import { visual } from '../../config/visual'
 import { Shell } from './Shell'
 
@@ -13,158 +14,303 @@ const hud = (over: Partial<HudModel> = {}): HudModel => ({
   players: { 1: { digit: '3', inventory: { breaker: 1, repulsor: 0, steal: 2 } }, 2: { digit: '?', inventory: { breaker: 4, repulsor: 4, steal: 4 } } },
   defenceBar: { 1: { count: '3', segments: [true, true, true] }, 2: { count: '?', segments: [] } },
   resourceBar: null,
-  active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, score: null, phase: 'Play', ...over,
+  active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, score: null, phase: 'Play',
+  dock: 'play', balance: null, refundRate: null, ...over,
 })
 const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
-const props = () => ({ hud: hud(), offence: offence(), confirm: false, mapOpen: false, minimap: { frame: { top: 0.5, height: 0.5 } }, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onOffenceArm: vi.fn(), onConfirm: vi.fn(), onDefenceToggle: vi.fn(), onDefenceArm: vi.fn(), onSubterfuge: vi.fn(), onRefund: vi.fn() })
+const items = (over: Record<string, Partial<ItemSpec>> = {}): ItemSpec[] => [
+  { item: 'wall', label: 'Wall · 2/unit', name: 'Wall', badge: '2', disabled: false, pressed: true, ...over.wall },
+  { item: 'repulsor', label: 'Repulsor · 3', name: 'Repulsor', badge: '3', disabled: false, pressed: false, ...over.repulsor },
+  { item: 'steal', label: 'Steal · 2', name: 'Steal', badge: '2', disabled: false, pressed: false, ...over.steal },
+  { item: 'cannon', label: 'Cannon', name: 'Cannon', disabled: true, pressed: false, soon: true },
+]
+const defence = (over: Partial<DefenceCircle> = {}): DefenceCircle => ({ building: true, item: 'wall', items: items(), available: true, ...over })
+const props = () => ({ hud: hud(), offence: offence(), confirm: false, mapOpen: false, flipped: false, onRecenter: vi.fn(), onOffenceArm: vi.fn(), onConfirm: vi.fn(), onDefenceToggle: vi.fn(), onDefenceArm: vi.fn(), onSubterfuge: vi.fn(), onRefund: vi.fn(), onStrategies: vi.fn(), onStrategy: vi.fn() })
+const buildHud = (over: Partial<HudModel> = {}) => hud({ dock: 'build', phase: 'Build phase', balance: { amount: 10, unit: 'CR' }, buttons: [{ label: 'Done', onClick: vi.fn() }], ...over })
+const follows = (a: HTMLElement, b: HTMLElement) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
 describe('Shell', () => {
-  describe('Move point dots', () => {
-    afterEach(() => vi.useRealTimers())
-    const dots = () => screen.queryAllByRole('button', { name: 'Refund a Move point' })
+  it('has no score digit row: the score lives in the round line, the structure counts in the Defence bar', () => {
+    render(<Shell {...props()} hud={hud({ round: 2, score: '1–0' })} />)
+    expect(screen.getByText('Round 2/3 · 1–0')).toBeTruthy()
+    expect(screen.queryByText('3')).toBeNull()
+    expect(screen.queryAllByRole('img', { name: /^[RS]\d/ })).toHaveLength(0)
+  })
 
-    it('a tap on a filled dot refunds one Move point', () => {
+  it('has no minimap chip: it sits at the top-left with ☰', () => {
+    render(<Shell {...props()} />)
+    expect(screen.queryByRole('button', { name: 'Map' })).toBeNull()
+  })
+
+  describe('status row', () => {
+    it('shows the balance chip when there is one, and none without', () => {
+      const { rerender } = render(<Shell {...props()} hud={hud({ balance: { amount: 7, unit: 'CR' } })} />)
+      expect(screen.getByRole('status', { name: '7 CR' })).toBeTruthy()
+      rerender(<Shell {...props()} />)
+      expect(screen.queryByRole('status')).toBeNull()
+    })
+
+    it('reads the round and score over the phase label; Siege shows the phase label alone', () => {
+      const { rerender } = render(<Shell {...props()} hud={hud({ round: 2, score: '1–0', phase: 'Play phase' })} />)
+      expect(screen.getByText('Play phase')).toBeTruthy()
+      rerender(<Shell {...props()} hud={hud({ phase: 'Play phase' })} />)
+      expect(screen.queryByText(/^Round/)).toBeNull()
+    })
+
+    it('shows the clock only while one runs, and always the Recenter circle', () => {
       const p = props()
-      render(<Shell {...p} hud={hud({ refundable: true, shotsLeft: 3 })} />)
-      expect(dots()).toHaveLength(3)
-      fireEvent.pointerDown(dots()[0]!)
-      fireEvent.pointerUp(dots()[0]!)
+      const { rerender } = render(<Shell {...p} />)
+      expect(screen.getByRole('timer', { name: '12 seconds left' })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Recenter' }))
+      expect(p.onRecenter).toHaveBeenCalled()
+      rerender(<Shell {...p} hud={hud({ clock: null })} />)
+      expect(screen.queryByRole('timer')).toBeNull()
+    })
+  })
+
+  describe('build dock', () => {
+    it('shows Build on the left, the pieces beside it, and Strategies on the right; no Powerup or Subterfuge', () => {
+      render(<Shell {...props()} hud={buildHud()} defence={defence()} subterfuge={{ available: true, queued: [], items: [] }} />)
+      const build = screen.getByRole('button', { name: 'Leave building' })
+      const wall = screen.getByRole('button', { name: 'Wall · 2/unit' })
+      const plans = screen.getByRole('button', { name: 'Strategies' })
+      expect(follows(build, wall) && follows(wall, plans)).toBe(true)
+      expect(build.getAttribute('aria-pressed')).toBe('true')
+      expect(screen.queryByRole('button', { name: /^Offence/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Subterfuge' })).toBeNull()
+    })
+
+    it('the Build tile toggles build mode; a piece tile arms it; a greyed or soon one does nothing', () => {
+      const p = props()
+      render(<Shell {...p} hud={buildHud()} defence={defence({ items: items({ steal: { disabled: true } }) })} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Leave building' }))
+      expect(p.onDefenceToggle).toHaveBeenCalledTimes(1)
+      fireEvent.click(screen.getByRole('button', { name: 'Repulsor · 3' }))
+      expect(p.onDefenceArm).toHaveBeenCalledWith('repulsor')
+      fireEvent.click(screen.getByRole('button', { name: 'Steal · 2' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Cannon · soon' }))
+      expect(p.onDefenceArm).toHaveBeenCalledTimes(1)
+    })
+
+    it('marks the armed piece pressed and badges each piece with its price or stock', () => {
+      render(<Shell {...props()} hud={buildHud()} defence={defence({ items: items({ repulsor: { badge: '×2' } }) })} />)
+      expect(screen.getByRole('button', { name: 'Wall · 2/unit' }).getAttribute('aria-pressed')).toBe('true')
+      expect(screen.getByRole('button', { name: 'Repulsor · 3' }).textContent).toContain('×2')
+    })
+
+    it('OK submits the build (the Done phase button) and greys while it may not', () => {
+      const done = vi.fn()
+      const { rerender } = render(<Shell {...props()} hud={buildHud({ buttons: [{ label: 'Done', onClick: done }] })} defence={defence()} />)
+      const ok = () => screen.getByRole('button', { name: 'Done' })
+      expect(ok().textContent).toContain('OK')
+      fireEvent.click(ok())
+      expect(done).toHaveBeenCalledTimes(1)
+      rerender(<Shell {...props()} hud={buildHud({ buttons: [{ label: 'Done', onClick: done, disabled: true }] })} defence={defence()} />)
+      expect((ok() as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('the Strategies tile toggles the tray, whose cards drop a layout in; a card where nothing fits does nothing', () => {
+      const p = props()
+      const cards: StrategyCard[] = [
+        { id: 'bulwark', name: 'Bulwark', pieces: [{ kind: 'wall', a: { x: 4, y: 88 }, b: { x: 20, y: 88 } }], cost: 10, placed: 3, total: 3, disabled: false },
+        { id: 'turrets', name: 'Turrets', pieces: [{ kind: 'tower', power: 'repulsor', at: { gx: 4, gy: 41 } }], cost: 6, placed: 2, total: 4, disabled: false },
+        { id: 'zigzag', name: 'Zigzag', pieces: [], cost: 0, placed: 0, total: 3, disabled: true },
+      ]
+      const { rerender } = render(<Shell {...p} hud={buildHud()} defence={defence()} />)
+      expect(screen.queryByRole('menu', { name: 'Strategies' })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Strategies' }))
+      expect(p.onStrategies).toHaveBeenCalledTimes(1)
+      rerender(<Shell {...p} hud={buildHud()} defence={defence()} strategies={cards} />)
+      expect(screen.getByRole('button', { name: 'Strategies' }).getAttribute('aria-pressed')).toBe('true')
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Bulwark, 10 CR' }))
+      expect(p.onStrategy).toHaveBeenCalledWith('bulwark')
+      expect(screen.getByRole('menuitem', { name: 'Turrets, 6 CR, 2 of 4 pieces fit' })).toBeTruthy()
+      fireEvent.click(screen.getByRole('menuitem', { name: /^Zigzag/ }))
+      expect(p.onStrategy).toHaveBeenCalledTimes(1)
+    })
+
+    it('floats the selected structure\'s controls over the pitch, named', () => {
+      const del = vi.fn()
+      render(<Shell {...props()} hud={buildHud()} defence={defence({ selection: { buttons: [{ label: '🗑', onClick: del }, { label: '↻', onClick: vi.fn() }, { label: '✕', onClick: vi.fn() }] } })} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Demolish' }))
+      expect(del).toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: 'Rotate' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Deselect' })).toBeTruthy()
+    })
+
+    it('on the opponent\'s build turn the tools are greyed and there are no Strategies', () => {
+      const p = props()
+      render(<Shell {...p} hud={buildHud({ buttons: undefined })} defence={defence({ building: false, available: false })} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Build' }))
+      expect(p.onDefenceToggle).not.toHaveBeenCalled()
+      expect(screen.queryByRole('button', { name: 'Strategies' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Done' })).toBeNull()
+    })
+  })
+
+  describe('in-game build docks', () => {
+    it('a Rearrange turn shows a prompt and OK, no pieces', () => {
+      render(<Shell {...props()} hud={hud({ dock: 'rearrange', phase: 'Rearrange', buttons: [{ label: 'Done', onClick: vi.fn() }] })} defence={defence({ building: false, available: false })} />)
+      expect(screen.getByText(/Drag your pieces/)).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Done' })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /^Wall/ })).toBeNull()
+    })
+
+    it('a defence choice shows Repair and Rearrange side by side', () => {
+      const repair = vi.fn()
+      render(<Shell {...props()} hud={hud({ dock: 'choice', buttons: [{ label: 'Repair', onClick: repair }, { label: 'Rearrange', onClick: vi.fn() }] })} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Repair' }))
+      expect(repair).toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: 'Rearrange' })).toBeTruthy()
+    })
+  })
+
+  describe('play dock', () => {
+    afterEach(() => vi.useRealTimers())
+    const refund = () => screen.getByRole('button', { name: 'Refund a shot for 2 Credits' })
+
+    it('aligns the abilities left (Build, Powerup, Subterfuge) and the shots and Refund right', () => {
+      render(<Shell {...props()} hud={hud({ refundRate: 2 })} subterfuge={{ available: true, queued: [], items: [] }} />)
+      const build = screen.getByRole('button', { name: 'Build' })
+      const power = screen.getByRole('button', { name: /^Offence/ })
+      const trick = screen.getByRole('button', { name: 'Subterfuge' })
+      const shots = screen.getByRole('img', { name: '2 of 3 shots left' })
+      expect(follows(build, power) && follows(power, trick) && follows(trick, shots) && follows(shots, refund())).toBe(true)
+    })
+
+    it('makes the three ability tiles one width, whatever their labels', () => {
+      render(<Shell {...props()} hud={hud({ refundRate: 2 })} subterfuge={{ available: true, queued: [], items: [] }} />)
+      const widths = [screen.getByRole('button', { name: 'Build' }), screen.getByRole('button', { name: /^Offence/ }), screen.getByRole('button', { name: 'Subterfuge' })].map((b) => b.style.width)
+      expect(widths).toEqual(Array(3).fill(`${visual.hud.dock.abilityPx}px`))
+    })
+
+    it('greys Build when the viewer cannot build in play (no model), and it does nothing', () => {
+      const p = props()
+      render(<Shell {...p} />)
+      const build = screen.getByRole('button', { name: 'Build' })
+      expect(build.getAttribute('aria-disabled')).toBe('true')
+      fireEvent.click(build)
+      expect(p.onDefenceToggle).not.toHaveBeenCalled()
+    })
+
+    it('an in-play build: Build opens (build mode), the other abilities fold away and the pieces take the row until Build is tapped again', () => {
+      const p = props()
+      const { rerender } = render(<Shell {...p} hud={hud({ refundRate: 2 })} defence={defence({ building: false, item: undefined })} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Build' }))
+      expect(p.onDefenceToggle).toHaveBeenCalledTimes(1)
+      rerender(<Shell {...p} hud={hud({ refundRate: 2 })} defence={defence()} />)
+      expect(screen.getByRole('button', { name: 'Leave building' }).getAttribute('aria-expanded')).toBe('true')
+      fireEvent.click(screen.getByRole('button', { name: 'Repulsor · 3' }))
+      expect(p.onDefenceArm).toHaveBeenCalledWith('repulsor')
+      // Folded away: out of the accessibility tree, and the shots and Refund step aside.
+      expect(screen.queryByRole('button', { name: /^Offence/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /^Refund/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Strategies' })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Leave building' }))
+      expect(p.onDefenceToggle).toHaveBeenCalledTimes(2)
+    })
+
+    it('Subterfuge opens to its options (the Jam with its price, two locked); buying closes it; tapping it again closes it', () => {
+      const p = props()
+      const sub = { available: true, queued: [], items: [{ item: 'jam' as const, label: 'Jam · 2', when: 'next possession', disabled: false }, { item: 'soon1' as const, label: 'Soon', when: '', disabled: true as const, soon: true as const }, { item: 'soon2' as const, label: 'Soon', when: '', disabled: true as const, soon: true as const }] }
+      render(<Shell {...p} subterfuge={sub} />)
+      const tile = () => screen.getByRole('button', { name: 'Subterfuge' })
+      expect(screen.queryByRole('button', { name: 'Jam · 2 · next possession' })).toBeNull()
+      fireEvent.click(tile())
+      expect(tile().getAttribute('aria-expanded')).toBe('true')
+      expect(screen.getAllByRole('button', { name: 'Locked · soon' })).toHaveLength(2)
+      expect(screen.queryByRole('button', { name: 'Build' })).toBeNull()
+      fireEvent.click(tile())
+      expect(screen.queryByRole('button', { name: 'Jam · 2 · next possession' })).toBeNull()
+      fireEvent.click(tile())
+      fireEvent.click(screen.getAllByRole('button', { name: 'Locked · soon' })[0]!)
+      expect(p.onSubterfuge).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Jam · 2 · next possession' }))
+      expect(p.onSubterfuge).toHaveBeenCalledWith('jam')
+      expect(screen.queryByRole('button', { name: 'Jam · 2 · next possession' })).toBeNull()
+    })
+
+    it('a greyed Subterfuge still opens, its Jam greyed, and buys nothing', () => {
+      const p = props()
+      render(<Shell {...p} subterfuge={{ available: false, queued: [], items: [{ item: 'jam', label: 'Jam · 2', when: 'next possession', disabled: false }] }} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Subterfuge' }))
+      const jam = screen.getByRole('button', { name: 'Jam · 2 · next possession' })
+      expect(jam.getAttribute('aria-disabled')).toBe('true')
+      fireEvent.click(jam)
+      expect(p.onSubterfuge).not.toHaveBeenCalled()
+    })
+
+    it('has no Refund where refunds do not exist (Siege)', () => {
+      render(<Shell {...props()} />)
+      expect(screen.queryByRole('button', { name: /^Refund/ })).toBeNull()
+    })
+
+    it('a tap on Refund refunds one Move point', () => {
+      const p = props()
+      render(<Shell {...p} hud={hud({ refundRate: 2, refundable: true, shotsLeft: 3 })} />)
+      fireEvent.pointerDown(refund())
+      fireEvent.pointerUp(refund())
       expect(p.onRefund).toHaveBeenCalledWith(1)
     })
 
-    it('a long-press refunds all but one', () => {
+    it('a long-press refunds all but one, showing pressed while held', () => {
       vi.useFakeTimers()
       const p = props()
-      render(<Shell {...p} hud={hud({ refundable: true, shotsLeft: 3 })} />)
-      fireEvent.pointerDown(dots()[0]!)
-      vi.advanceTimersByTime(visual.hud.longPressMs + 1)
-      fireEvent.pointerUp(dots()[0]!)
+      render(<Shell {...p} hud={hud({ refundRate: 2, refundable: true, shotsLeft: 3 })} />)
+      fireEvent.pointerDown(refund())
+      expect(refund().getAttribute('aria-pressed')).toBe('true')
+      act(() => void vi.advanceTimersByTime(visual.hud.longPressMs))
+      fireEvent.pointerUp(refund())
       expect(p.onRefund).toHaveBeenCalledTimes(1)
       expect(p.onRefund).toHaveBeenCalledWith(2)
-    })
-
-    it('releasing just before the long-press refunds one', () => {
-      vi.useFakeTimers()
-      const p = props()
-      render(<Shell {...p} hud={hud({ refundable: true, shotsLeft: 3 })} />)
-      fireEvent.pointerDown(dots()[0]!)
-      vi.advanceTimersByTime(visual.hud.longPressMs - 1)
-      fireEvent.pointerUp(dots()[0]!)
-      expect(p.onRefund).toHaveBeenCalledTimes(1)
-      expect(p.onRefund).toHaveBeenCalledWith(1)
-    })
-
-    it('a long-press does not fire after the Move points change mid-hold', () => {
-      vi.useFakeTimers()
-      const p = props()
-      const { rerender } = render(<Shell {...p} hud={hud({ refundable: true, shotsLeft: 3 })} />)
-      fireEvent.pointerDown(dots()[0]!)
-      rerender(<Shell {...p} hud={hud({ refundable: true, shotsLeft: 2 })} />)
-      vi.advanceTimersByTime(visual.hud.longPressMs + 1)
-      expect(p.onRefund).not.toHaveBeenCalled()
-    })
-
-    it('releasing after the Move points change mid-hold refunds nothing and leaves no dot pressed', () => {
-      const p = props()
-      const { rerender } = render(<Shell {...p} hud={hud({ refundable: true, shotsLeft: 3 })} />)
-      fireEvent.pointerDown(dots()[0]!)
-      rerender(<Shell {...p} hud={hud({ refundable: true, shotsLeft: 2 })} />)
-      fireEvent.pointerUp(dots()[0]!)
-      expect(p.onRefund).not.toHaveBeenCalled()
-      expect(dots().some((d) => d.getAttribute('aria-pressed') === 'true')).toBe(false)
-    })
-
-    it('a held dot shows pressed until released', () => {
-      render(<Shell {...props()} hud={hud({ refundable: true, shotsLeft: 3 })} />)
-      fireEvent.pointerDown(dots()[1]!)
-      expect(dots().map((d) => d.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false'])
-      fireEvent.pointerUp(dots()[1]!)
-      expect(dots().every((d) => d.getAttribute('aria-pressed') === 'false')).toBe(true)
+      expect(refund().getAttribute('aria-pressed')).toBe('false')
     })
 
     it('a long-press on the last Move point reports a refund of none', () => {
       vi.useFakeTimers()
       const p = props()
-      render(<Shell {...p} hud={hud({ refundable: true, shotsLeft: 1 })} />)
-      fireEvent.pointerDown(dots()[0]!)
-      vi.advanceTimersByTime(visual.hud.longPressMs + 1)
+      render(<Shell {...p} hud={hud({ refundRate: 2, refundable: true, shotsLeft: 1 })} />)
+      fireEvent.pointerDown(refund())
+      act(() => void vi.advanceTimersByTime(visual.hud.longPressMs))
       expect(p.onRefund).toHaveBeenCalledWith(0)
     })
 
-    it('are not buttons when the Move points may not be refunded', () => {
-      render(<Shell {...props()} hud={hud({ refundable: false, shotsLeft: 3 })} />)
-      expect(dots()).toHaveLength(0)
-    })
-  })
-
-  it('shows both structure counts, including a hidden opponent as ?', () => {
-    render(<Shell {...props()} />)
-    expect(screen.getByText('3')).toBeTruthy()
-    expect(screen.getByText('?')).toBeTruthy()
-  })
-
-  it('shows the tower stock badges in Siege and none in Rounds (towers cost Credits there)', () => {
-    const { unmount } = render(<Shell {...props()} />)
-    expect(screen.getByRole('img', { name: 'S2' })).toBeTruthy()
-    unmount()
-    render(<Shell {...props()} hud={hud({ players: { 1: { digit: '3', inventory: null }, 2: { digit: '?', inventory: null } } })} />)
-    expect(screen.queryByRole('img', { name: /^[RS]\d/ })).toBeNull()
-  })
-
-  describe('shared row', () => {
-    it('reads the round and score over the phase label, and the score digit shows once', () => {
-      render(<Shell {...props()} hud={hud({ round: 3, rounds: 7, score: '2–1', phase: 'Build phase', players: { 1: { digit: '2', inventory: { breaker: 5, repulsor: 6, steal: 7 } }, 2: { digit: '1', inventory: { breaker: 5, repulsor: 6, steal: 7 } } } })} />)
-      expect(screen.getByText('Round 3/7 · 2–1')).toBeTruthy()
-      expect(screen.getByText('Build phase')).toBeTruthy()
-      expect(screen.getAllByText('2')).toHaveLength(1)
-      expect(screen.queryByText('1')).toBeNull()
-    })
-    it('Siege shows the phase label alone', () => {
-      render(<Shell {...props()} hud={hud({ round: null, phase: 'Play phase' })} />)
-      expect(screen.queryByText(/Round/)).toBeNull()
-      expect(screen.getByText('Play phase')).toBeTruthy()
-    })
-    it('holds the phase buttons, the Recenter circle and the Move points', () => {
+    it('a long-press does not fire after the Move points change mid-hold', () => {
+      vi.useFakeTimers()
       const p = props()
-      const done = vi.fn()
-      render(<Shell {...p} hud={hud({ buttons: [{ label: 'Done', onClick: done }] })} />)
-      const row = screen.getByTestId('shared-row')
-      expect(row.contains(screen.getByText('Done'))).toBe(true)
-      expect(row.contains(screen.getByRole('button', { name: 'Recenter' }))).toBe(true)
-      expect(row.contains(screen.getByText('12'))).toBe(true)
+      const { rerender } = render(<Shell {...p} hud={hud({ refundRate: 2, refundable: true, shotsLeft: 3 })} />)
+      fireEvent.pointerDown(refund())
+      rerender(<Shell {...p} hud={hud({ refundRate: 2, refundable: true, shotsLeft: 2 })} />)
+      act(() => void vi.advanceTimersByTime(visual.hud.longPressMs))
+      fireEvent.pointerUp(refund())
+      expect(p.onRefund).not.toHaveBeenCalled()
     })
-    it('moves Siege\'s Repair and Rearrange above the row, which keeps the Move points and Recenter', () => {
-      render(<Shell {...props()} hud={hud({ buttons: [{ label: 'Repair', onClick: vi.fn() }, { label: 'Rearrange', onClick: vi.fn() }] })} />)
-      const row = screen.getByTestId('shared-row')
-      expect(row.contains(screen.getByText('Repair'))).toBe(false)
-      expect(row.contains(screen.getByRole('button', { name: 'Recenter' }))).toBe(true)
-    })
-    it('keeps right padding clear for the minimap chip', () => {
-      render(<Shell {...props()} />)
-      expect(screen.getByTestId('shared-row').style.paddingRight).toBe(`${visual.hud.sharedRow.chipPadPx}px`)
+
+    it('is greyed and refunds nothing when a refund is not allowed', () => {
+      const p = props()
+      render(<Shell {...p} hud={hud({ refundRate: 2, refundable: false })} />)
+      expect(refund().getAttribute('aria-disabled')).toBe('true')
+      fireEvent.pointerDown(refund())
+      fireEvent.pointerUp(refund())
+      expect(p.onRefund).not.toHaveBeenCalled()
     })
   })
 
-  it('shows the active viewer the tower power-ups with counts; the Breaker is in the Offence circle', () => {
-    render(<Shell {...props()} />)
-    expect(screen.getAllByRole('img', { name: /^[RS]\d/ })).toHaveLength(2)
-    expect(screen.queryByRole('button', { name: /^B\d/ })).toBeNull()
-  })
-
-  describe('Offence circle', () => {
+  describe('Powerup tile (the Offence circle)', () => {
     const circle = () => screen.getByRole('button', { name: /^Offence/ })
 
-    it('a tap opens the column of items and a second tap closes it', () => {
+    it('a tap opens its options beside it and a second tap closes it', () => {
       render(<Shell {...props()} />)
       expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
       fireEvent.click(circle())
+      expect(circle().getAttribute('aria-expanded')).toBe('true')
       expect(screen.getByRole('button', { name: 'Breaker · 2' })).toBeTruthy()
-      expect(screen.getByText('Overdrive · soon')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Overdrive · soon' })).toBeTruthy()
       fireEvent.click(circle())
       expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
     })
 
-    it('tapping the Breaker arms it and closes the column', () => {
+    it('tapping the Breaker arms it and closes the options', () => {
       const p = props()
       render(<Shell {...p} />)
       fireEvent.click(circle())
@@ -178,45 +324,33 @@ describe('Shell', () => {
       render(<Shell {...p} offence={offence({ items: [{ item: 'breaker', label: 'Breaker · 2', disabled: true, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }] })} />)
       fireEvent.click(circle())
       fireEvent.click(screen.getByRole('button', { name: 'Breaker · 2' }))
-      fireEvent.click(screen.getByRole('button', { name: 'Overdrive' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Overdrive · soon' }))
       expect(p.onOffenceArm).not.toHaveBeenCalled()
     })
 
-    it('outside the viewer\'s possession it is greyed but its column still opens', () => {
+    it('outside the viewer\'s possession it is greyed but still opens', () => {
       render(<Shell {...props()} offence={offence({ available: false })} />)
       expect(circle().getAttribute('aria-disabled')).toBe('true')
       fireEvent.click(circle())
       expect(screen.getByRole('button', { name: 'Breaker · 2' })).toBeTruthy()
     })
 
-    it('shows the armed state on the circle', () => {
+    it('shows the armed state, filled in the active player\'s colour', () => {
       const r = render(<Shell {...props()} />)
       expect(circle().getAttribute('aria-pressed')).toBe('false')
       r.rerender(<Shell {...props()} offence={offence({ armed: true })} />)
       expect(circle().getAttribute('aria-pressed')).toBe('true')
-      // The fill is the active player's colour (read back through the DOM, which normalises it).
       const probe = document.createElement('div')
       probe.style.background = visual.player.colors[1]
       expect(circle().style.background).toBe(probe.style.background)
     })
 
-    it('Escape closes the column', () => {
+    it('Escape closes it', () => {
       render(<Shell {...props()} />)
       fireEvent.click(circle())
       fireEvent.keyDown(circle(), { key: 'Escape' })
       expect(screen.queryByRole('button', { name: 'Breaker · 2' })).toBeNull()
     })
-  })
-
-  it('runs recenter and phase buttons', () => {
-    const p = props()
-    const repair = vi.fn()
-    render(<Shell {...p} hud={hud({ buttons: [{ label: 'Repair', onClick: repair }, { label: 'Rearrange', onClick: () => {} }] })} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Recenter' }))
-    fireEvent.click(screen.getByText('Repair'))
-    expect(p.onRecenter).toHaveBeenCalled()
-    expect(repair).toHaveBeenCalled()
-    expect(screen.getByText('Rearrange')).toBeTruthy()
   })
 
   it('shows Confirm only when due', () => {
@@ -228,329 +362,17 @@ describe('Shell', () => {
     expect(p.onConfirm).toHaveBeenCalledTimes(1)
   })
 
-  describe('minimap chip', () => {
-    it('replaces the Map button: no Stretch, no text Map button', () => {
-      render(<Shell {...props()} mapOpen />)
-      expect(screen.queryByText('Stretch')).toBeNull()
-      expect(screen.queryByText('Map')).toBeNull()
-    })
-
-    it('opens the map, and while open is a filled close chip that closes it', () => {
-      const p = props()
-      const { rerender } = render(<Shell {...p} />)
-      expect(screen.queryByText('Tap to jump · tap ✕ to close')).toBeNull()
-      fireEvent.click(screen.getByRole('button', { name: 'Map' }))
-      rerender(<Shell {...p} mapOpen />)
-      const chip = screen.getByRole('button', { name: 'Close map' })
-      expect(chip.textContent).toContain('✕')
-      expect((chip.firstElementChild as HTMLElement).style.background).toBe('rgb(34, 211, 238)')
-      expect(screen.getByText('Tap to jump · tap ✕ to close')).toBeTruthy()
-      fireEvent.click(chip)
-      expect(p.onMap).toHaveBeenCalledTimes(2)
-    })
-
-    it('has a tap area of at least 44px around the 30 x 74 chip', () => {
-      render(<Shell {...props()} />)
-      const chip = screen.getByRole('button', { name: 'Map' })
-      expect([chip.style.width, chip.style.height]).toEqual(['44px', '74px'])
-      expect([(chip.firstElementChild as HTMLElement).style.width, (chip.firstElementChild as HTMLElement).style.height]).toEqual(['30px', '74px'])
-    })
-
-    it('draws the camera frame on the thumbnail where the camera looks', () => {
-      const { rerender } = render(<Shell {...props()} minimap={{ frame: { top: 0.25, height: 0.5 } }} />)
-      const frame = () => screen.getByTestId('thumbnail-frame')
-      expect([frame().style.top, frame().style.height]).toEqual(['17.5px', '35px'])
-      rerender(<Shell {...props()} minimap={{ frame: { top: 0.5, height: 0.5 } }} />)
-      expect(frame().style.top).toBe('35px')
-      expect(screen.queryByTestId('thumbnail-fog')).toBeNull()
-    })
-
-    it('fogs the thumbnail in a blind build', () => {
-      render(<Shell {...props()} minimap={{ frame: { top: 0, height: 0.5 }, fog: { top: 0, height: 0.5 } }} />)
-      expect(screen.getByTestId('thumbnail-fog').style.height).toBe('35px')
-    })
-
-    it('sits at the corner nearest the viewer: bottom-right, or top-left when the stage is turned', () => {
-      const { rerender } = render(<Shell {...props()} />)
-      const at = () => screen.getByRole('button', { name: 'Map' }).style
-      expect([at().bottom, at().top !== '']).toEqual(['8px', false])
-      expect(at().right).not.toBe('')
-      rerender(<Shell {...props()} flipped />)
-      expect([at().top, at().bottom, at().left !== '']).toEqual(['8px', '', true])
-    })
-
-    it('dims the power-up circles while the map is open', () => {
-      render(<Shell {...props()} mapOpen />)
-      const probe = document.createElement('i')
-      probe.style.color = visual.tokens.dimOutline
-      expect(screen.getAllByRole('img', { name: /^[RS]\d/ }).map((b) => b.style.color === probe.style.color)).toEqual([true, true])
-    })
-  })
-
-  describe('Defence circle', () => {
-    beforeEach(() => vi.stubGlobal('matchMedia', () => ({ matches: false })))
-    afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); delete (Element.prototype as { animate?: unknown }).animate; delete (document as { elementFromPoint?: unknown }).elementFromPoint })
-    const items = (over: Record<string, Partial<ItemSpec>> = {}): ItemSpec[] => [
-      { item: 'wall', label: 'Wall · 2', disabled: false, pressed: true, ...over.wall },
-      { item: 'repulsor', label: 'Repulsor', disabled: false, pressed: false, ...over.repulsor },
-      { item: 'steal', label: 'Steal', disabled: false, pressed: false, ...over.steal },
-      { item: 'cannon', label: 'Cannon', disabled: true, pressed: false, soon: true },
-    ]
-    const model = (over: Partial<DefenceCircle> = {}): DefenceCircle => ({ building: false, items: items(), available: true, ...over })
-    it('shows the builder\'s balance on the circle, and nothing when the model has none', () => {
-      const r = render(<Shell {...props()} defence={model({ balance: { amount: 14, unit: 'Credits' } })} />)
-      expect(screen.getByRole('status', { name: '14 Credits' }).textContent).toBe('14')
-      r.rerender(<Shell {...props()} defence={model({ balance: { amount: 6, unit: 'wall points' } })} />)
-      expect(screen.getByRole('status', { name: '6 wall points' }).textContent).toBe('6')
-      r.rerender(<Shell {...props()} defence={model()} />)
-      expect(screen.queryByRole('status')).toBeNull()
-    })
-    const circle = () => screen.getByRole('button', { name: /^(Build|Leave building)$/ })
-    const setup = (m: DefenceCircle = model()) => {
-      vi.useFakeTimers()
-      const p = props()
-      const r = render(<Shell {...p} defence={m} />)
-      return { p, r }
-    }
-    const hold = () => { fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 }); act(() => { vi.advanceTimersByTime(visual.hud.holdMs + 1) }) }
-    const over = (name: string) => { document.elementFromPoint = () => screen.getByRole('button', { name: new RegExp(name) }) }
-    const tapCircle = () => { fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 }); fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 }) }
-
-    it('draws an icon for every piece, armed or not, and no placeholder letter', () => {
-      setup(model({ building: true, item: 'repulsor', items: items({ wall: { pressed: false }, repulsor: { pressed: true } }) }))
-      hold()
-      const icons = ['Repulsor', 'Steal', 'Cannon'].map((name) => {
-        const b = screen.getByRole('button', { name: new RegExp(`^${name}`) })
-        expect(b.firstElementChild?.tagName.toLowerCase()).toBe('svg')
-        expect(b.firstChild?.nodeType).not.toBe(Node.TEXT_NODE)
-        return b.firstElementChild!.innerHTML
-      })
-      expect(screen.getByRole('button', { name: /^Repulsor/ }).getAttribute('aria-pressed')).toBe('true')
-      expect(new Set(icons).size).toBe(3)
-    })
-
-    it('dims the power-up circles while the column is open', () => {
-      setup()
-      const probe = document.createElement('i')
-      probe.style.color = visual.tokens.dimOutline
-      const dimmed = () => screen.getAllByRole('img', { name: /^[RS]\d/ }).map((b) => b.style.color === probe.style.color)
-      expect(dimmed()).toEqual([false, false])
-      hold()
-      expect(dimmed()).toEqual([true, true])
-      // Lifting off both the circle and the column closes it.
-      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
-      expect(dimmed()).toEqual([false, false])
-    })
-
-    it('a tap toggles build mode, idle or building', () => {
-      const { p, r } = setup()
-      tapCircle()
-      expect(p.onDefenceToggle).toHaveBeenCalledTimes(1)
-      r.rerender(<Shell {...p} defence={model({ building: true, item: 'wall' })} />)
-      tapCircle()
-      expect(p.onDefenceToggle).toHaveBeenCalledTimes(2)
-    })
-
-    it('a hold opens the four pieces, Cannon greyed with soon, the armed one pressed', () => {
-      const { p } = setup(model({ building: true, item: 'wall' }))
-      hold()
-      expect(screen.getByRole('button', { name: 'Wall · 2' }).getAttribute('aria-pressed')).toBe('true')
-      expect(screen.getByRole('button', { name: 'Repulsor' }).getAttribute('aria-pressed')).toBe('false')
-      expect(screen.getByRole('button', { name: 'Steal' })).toBeTruthy()
-      const cannon = screen.getByRole('button', { name: 'Cannon' })
-      expect(cannon.getAttribute('aria-disabled')).toBe('true')
-      expect(cannon.textContent).toContain('soon')
-      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
-      expect(p.onDefenceToggle).not.toHaveBeenCalled()
-    })
-
-    it('a hold that moves past the tap slop first does not open', () => {
-      setup()
-      fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 })
-      fireEvent.pointerMove(circle(), { clientX: 5 + visual.input.tapSlopPx + 1, clientY: 5 })
-      act(() => { vi.advanceTimersByTime(visual.hud.holdMs + 1) })
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-    })
-
-    it('sliding onto a piece and lifting arms it and closes the column', () => {
-      const { p } = setup()
-      hold()
-      over('Repulsor')
-      fireEvent.pointerUp(circle(), { clientX: 5, clientY: -80 })
-      expect(p.onDefenceArm).toHaveBeenCalledWith('repulsor')
-      expect(p.onDefenceToggle).not.toHaveBeenCalled()
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-    })
-
-    it('lifting elsewhere closes the column without arming', () => {
-      const { p } = setup()
-      hold()
-      document.elementFromPoint = () => document.body
-      fireEvent.pointerUp(circle(), { clientX: 200, clientY: 200 })
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-      expect(p.onDefenceArm).not.toHaveBeenCalled()
-    })
-
-    it('lifting on the circle keeps the column open for a tap on a piece', () => {
-      const { p } = setup()
-      hold()
-      document.elementFromPoint = () => circle()
-      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
-      fireEvent.click(screen.getByRole('button', { name: 'Steal' }))
-      expect(p.onDefenceArm).toHaveBeenCalledWith('steal')
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-    })
-
-    it('tapping the circle with the column open closes it without toggling', () => {
-      const { p } = setup(model({ building: true, item: 'wall' }))
-      hold()
-      document.elementFromPoint = () => circle()
-      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
-      tapCircle()
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-      expect(p.onDefenceToggle).not.toHaveBeenCalled()
-    })
-
-    it('a disabled piece does nothing, tapped or slid onto', () => {
-      const { p } = setup(model({ items: items({ steal: { disabled: true } }) }))
-      hold()
-      fireEvent.click(screen.getByRole('button', { name: 'Steal' }))
-      fireEvent.click(screen.getByRole('button', { name: 'Cannon' }))
-      over('Steal')
-      fireEvent.pointerUp(circle(), { clientX: 5, clientY: -80 })
-      expect(p.onDefenceArm).not.toHaveBeenCalled()
-    })
-
-    it('when the viewer cannot build, a hold pulses the circle once instead of opening, and a tap does nothing', () => {
-      const animate = vi.fn()
-      Element.prototype.animate = animate
-      const { p } = setup(model({ available: false }))
-      expect(circle().getAttribute('aria-disabled')).toBe('true')
-      tapCircle()
-      expect(p.onDefenceToggle).not.toHaveBeenCalled()
-      hold()
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-      expect(animate).toHaveBeenCalledTimes(1)
-      expect(animate.mock.calls[0]![0].map((f: { transform: string }) => f.transform)).toEqual(['scale(1)', `scale(${visual.hud.defence.pulseScale})`, 'scale(1)'])
-      expect(animate.mock.calls[0]![1]).toMatchObject({ duration: visual.hud.defence.pulseMs })
-      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
-      expect(p.onDefenceToggle).not.toHaveBeenCalled()
-      hold()
-      expect(animate).toHaveBeenCalledTimes(2)
-    })
-
-    it('does not pulse under reduced motion', () => {
-      const animate = vi.fn()
-      Element.prototype.animate = animate
-      vi.stubGlobal('matchMedia', () => ({ matches: true }))
-      setup(model({ available: false }))
-      hold()
-      expect(animate).not.toHaveBeenCalled()
-    })
-
-    it('a long press does not open the context menu', () => {
-      setup()
-      expect(fireEvent.contextMenu(circle())).toBe(false)
-      hold()
-      expect(fireEvent.contextMenu(screen.getByRole('button', { name: 'Steal' }))).toBe(false)
-    })
-
-    it('a keyboard click toggles; a pointer click does not (the pointer path already did)', () => {
-      const { p } = setup()
-      fireEvent.click(circle(), { detail: 1 })
-      expect(p.onDefenceToggle).not.toHaveBeenCalled()
-      fireEvent.click(circle(), { detail: 0 })
-      expect(p.onDefenceToggle).toHaveBeenCalledTimes(1)
-    })
-
-    it('ArrowUp opens the column (ArrowDown when flipped); picking returns focus to the circle', () => {
-      const { p, r } = setup()
-      expect(circle().getAttribute('aria-haspopup')).toBe('menu')
-      fireEvent.keyDown(circle(), { key: 'ArrowDown' })
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-      fireEvent.keyDown(circle(), { key: 'ArrowUp' })
-      screen.getByRole('button', { name: 'Steal' }).focus()
-      fireEvent.click(screen.getByRole('button', { name: 'Steal' }))
-      expect(p.onDefenceArm).toHaveBeenCalledWith('steal')
-      expect(document.activeElement).toBe(circle())
-      r.rerender(<Shell {...p} flipped defence={model()} />)
-      fireEvent.keyDown(circle(), { key: 'ArrowDown' })
-      expect(screen.getByRole('button', { name: 'Steal' })).toBeTruthy()
-      fireEvent.keyDown(circle(), { key: 'Escape' })
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-      expect(document.activeElement).toBe(circle())
-    })
-
-    it('stays beside the selected structure\'s buttons, and still opens on a hold', () => {
-      const { p } = setup(model({ building: true, item: 'wall', selection: { buttons: [{ label: '↻', onClick: vi.fn() }, { label: '✕', onClick: vi.fn() }] } }))
-      expect(screen.getByRole('button', { name: '↻' })).toBeTruthy()
-      hold()
-      expect(screen.getByRole('button', { name: 'Steal' })).toBeTruthy()
-      expect(p.onDefenceToggle).not.toHaveBeenCalled()
-    })
-
-    it('opens over the pitch for Player 2: above the HUD rows, and the circle row is the innermost', () => {
-      vi.useFakeTimers()
-      const { container } = render(<Shell {...props()} flipped defence={model()} confirm />)
-      hold()
-      const column = screen.getByRole('button', { name: 'Steal' }).parentElement as HTMLElement
-      expect(column.style.zIndex).toBe(String(visual.hud.defence.columnZ))
-      const shell = container.firstElementChild as HTMLElement
-      expect(shell.style.flexDirection).toBe('column-reverse')
-      expect(shell.firstElementChild!.contains(circle())).toBe(true)
-    })
-
-    it('renders no circle without a menu (the play phase)', () => {
-      render(<Shell {...props()} />)
-      expect(screen.queryByRole('button', { name: /^(Build|Leave building)$/ })).toBeNull()
-    })
-
-    it('stays, greyed, on the opponent\'s build turn', () => {
-      setup(model({ available: false }))
-      expect(circle().getAttribute('aria-disabled')).toBe('true')
-    })
-
-    it('a hold does not open when building became unavailable meanwhile', () => {
-      const { p, r } = setup()
-      fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 })
-      r.rerender(<Shell {...p} defence={model({ available: false })} />)
-      act(() => { vi.advanceTimersByTime(visual.hud.holdMs + 1) })
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-    })
-
-    it('a press outside the circle and its column closes the column', () => {
-      setup()
-      hold()
-      document.elementFromPoint = () => circle()
-      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
-      expect(screen.getByRole('button', { name: 'Steal' })).toBeTruthy()
-      fireEvent.pointerDown(screen.getByRole('button', { name: 'Steal' }))
-      expect(screen.getByRole('button', { name: 'Steal' })).toBeTruthy()
-      fireEvent.pointerDown(document.body)
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-    })
-
-    it('closes the open column when building becomes unavailable', () => {
-      const { p, r } = setup()
-      hold()
-      r.rerender(<Shell {...p} defence={model({ available: false })} />)
-      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
-    })
-  })
-
-  it('names the demolish glyph button', () => {
-    const del = vi.fn()
-    render(<Shell {...props()} defence={{ building: false, items: [], available: true, selection: { buttons: [{ label: '🗑', onClick: del }] } }} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Demolish' }))
-    expect(del).toHaveBeenCalled()
+  it('shows the map hint while the map is open', () => {
+    const { rerender } = render(<Shell {...props()} />)
+    expect(screen.queryByText('Tap to jump · tap ✕ to close')).toBeNull()
+    rerender(<Shell {...props()} mapOpen />)
+    expect(screen.getByText('Tap to jump · tap ✕ to close')).toBeTruthy()
   })
 
   it('only its controls take pointer input, so gestures pass through the gaps to the pitch', () => {
-    const buttons = [{ label: 'Done', onClick: vi.fn() }]
-    const { container } = render(<Shell {...props()} hud={hud({ buttons })} defence={{ building: false, items: [], available: true }} confirm mapOpen><i>extra</i></Shell>)
+    const { container } = render(<Shell {...props()} hud={buildHud()} defence={defence({ selection: { buttons: [{ label: '✕', onClick: vi.fn() }] } })} strategies={[]} confirm mapOpen><i>extra</i></Shell>)
     const shell = container.firstElementChild as HTMLElement
     expect(shell.style.pointerEvents).toBe('none')
-    expect(shell.children.length).toBe(7)
     // The map's hint pill lets taps through to the map.
     const pill = screen.getByText('Tap to jump · tap ✕ to close')
     expect([...shell.children].filter((c) => c !== pill).every((c) => (c as HTMLElement).style.pointerEvents === 'auto')).toBe(true)
@@ -568,14 +390,16 @@ describe('Shell', () => {
     expect(shell.style.bottom).toBe('0px')
     rerender(<Shell {...props()} flipped />)
     expect(shell.style.top).toBe('0px')
+    expect(shell.style.flexDirection).toBe('column-reverse')
   })
 
-  it('lays the circles out Offence, Defence, Subterfuge', () => {
-    const defence: DefenceCircle = { building: false, items: [], available: true }
-    render(<Shell {...props()} defence={defence} subterfuge={{ available: true, queued: [], items: [] }} />)
-    const names = ['Offence', 'Build', 'Subterfuge'].map((n) => screen.getByRole('button', { name: new RegExp(`^${n}`) }))
-    const follows = (a: HTMLElement, b: HTMLElement) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
-    expect(follows(names[0]!, names[1]!)).toBe(true)
-    expect(follows(names[1]!, names[2]!)).toBe(true)
+  it('keeps the dock\'s inner edge padded when the turn flips, whichever side faces the screen edge', () => {
+    const { rerender } = render(<Shell {...props()} />)
+    const dock = () => screen.getByTestId('dock')
+    expect(dock().style.paddingTop).toBe(`${visual.hud.dock.padPx}px`)
+    rerender(<Shell {...props()} flipped />)
+    expect(dock().style.paddingBottom).toBe(`${visual.hud.dock.padPx}px`)
+    rerender(<Shell {...props()} />)
+    expect(dock().style.paddingTop).toBe(`${visual.hud.dock.padPx}px`)
   })
 })

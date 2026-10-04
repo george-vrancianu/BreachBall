@@ -130,21 +130,18 @@ describe('Boost ring and Bullseye', () => {
     expect([ring.fillStyle, bullseye.fillStyle]).toEqual([visual.pitch.boost.colors.ring, visual.pitch.boost.colors.bullseye])
   })
 
-  it('pulses the tint slowly, but not under reduced motion', () => {
-    const alphaAt = (reduced: boolean, ms: number) => {
+  it('pulses the tint slowly', () => {
+    const alphaAt = (ms: number) => {
       const p = new Pitch()
-      p.reduced = reduced
       p.update(ms / 1000)
       return fills(p, rules.boost.ring.radius)[0].alpha
     }
-    const quarter = visual.pitch.boost.pulse.periodMs / 4
-    expect(alphaAt(false, quarter)).toBeCloseTo(visual.pitch.boost.alpha + visual.pitch.boost.pulse.alphaSwing)
-    expect(alphaAt(true, quarter)).toBe(visual.pitch.boost.alpha)
+    expect(alphaAt(0)).toBe(visual.pitch.boost.alpha)
+    expect(alphaAt(visual.pitch.boost.pulse.periodMs / 4)).toBeCloseTo(visual.pitch.boost.alpha + visual.pitch.boost.pulse.alphaSwing)
   })
 
   it('tints the zone holding a Charged ball stronger, and only that one', () => {
     const p = new Pitch()
-    p.reduced = true
     p.charge = { zone: 'bullseye', factor: rules.boost.bullseye.factor }
     expect(fills(p, rules.boost.bullseye.radius)[0].alpha).toBe(visual.pitch.boost.litAlpha)
     expect(fills(p, rules.boost.ring.radius)[0].alpha).toBe(visual.pitch.boost.alpha)
@@ -152,7 +149,6 @@ describe('Boost ring and Bullseye', () => {
 
   it('animates an arrival for its time, flashing the zone and growing a ring out of it', () => {
     const p = new Pitch()
-    p.reduced = true
     p.arrive('ring')
     expect(p.arrivalCount).toBe(1)
     expect(fills(p, rules.boost.ring.radius)[0].alpha).toBe(visual.pitch.boost.arrive.flashAlpha)
@@ -215,15 +211,6 @@ describe('Bullseye credit', () => {
     p.reset()
     expect(p.creditCount).toBe(0)
     expect(bullseyeFlash(p)).toBe(visual.pitch.boost.alpha)
-    expect(labelY(p)).toBeUndefined()
-  })
-  it('under reduced motion keeps the flash (fading) but floats nothing', () => {
-    const p = new Pitch()
-    p.reduced = true
-    p.credit(1, 2)
-    expect(bullseyeFlash(p)).toBe(credit.flashAlpha)
-    p.update(credit.ms / 2000)
-    expect(bullseyeFlash(p)).toBeLessThan(credit.flashAlpha)
     expect(labelY(p)).toBeUndefined()
   })
 })

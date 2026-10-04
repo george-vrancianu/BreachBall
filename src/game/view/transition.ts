@@ -18,7 +18,7 @@ export const acrossTable = (t: Transition) => t.hudSeat !== t.shown
 const rot = (p: PlayerId) => (p === 1 ? 0 : 180)
 
 /** `handover` false = online: each player always sits at the bottom, so no flip or turn card, and `flip` is ignored. `flip` false or missing = hot-seat with Flip on turn off (the device default): the stage never turns, seat 1's end stays at the bottom, and the turn card still names the player. Read at each handover; a flip already under way is not changed. */
-export type Frame = { handover?: boolean; flip?: boolean; active: PlayerId; /** Round number for modes that have rounds; the first-play hints show on round 1. */ round?: number; inHand: boolean; phase: string; /** A Siege opening build is in progress (not a Rearrange turn); its end triggers the reveal. */ opening?: boolean; events: SimEvent[]; now: number; reduced: boolean }
+export type Frame = { handover?: boolean; flip?: boolean; active: PlayerId; /** Round number for modes that have rounds; the first-play hints show on round 1. */ round?: number; inHand: boolean; phase: string; /** A Siege opening build is in progress (not a Rearrange turn); its end triggers the reveal. */ opening?: boolean; events: SimEvent[]; now: number }
 
 /** Call each tick (with that tick's events) and once per frame. Pure; the sim never waits on it, the shell pauses `step` while `blocking`. */
 export function advance(t: Transition, f: Frame): Transition {
@@ -30,14 +30,14 @@ export function advance(t: Transition, f: Frame): Transition {
     if (ev.type === 'round-ended') due = true
     if (ev.type === 'repaired') overlay = { kind: 'sweep', at: f.now, player: ev.player, text: 'REPAIRED', ms: visual.transition.sweepMs, holds: true }
   }
-  // The second Done of a Siege opening build lifts the fog into a 1.5 s hold on the whole pitch; the same hold under reduced motion (it has no animation to drop).
+  // The second Done of a Siege opening build lifts the fog into a 1.5 s hold on the whole pitch.
   if (t.opening && !f.opening) (overlay = { kind: 'reveal', at: f.now, player: f.active, text: 'REVEAL', ms: visual.transition.revealMs }), (due = true)
   if (t.phase !== undefined && t.phase !== f.phase && overlay?.kind !== 'goal' && overlay?.kind !== 'reveal') overlay = { kind: 'sweep', at: f.now, player: f.active, text: f.phase.toUpperCase(), ms: visual.transition.sweepMs }
   // The handover waits for the REPAIRED sweep, so the flash and label are seen before the turn flips.
   const repairing = overlay?.kind === 'sweep' && !!overlay.holds
   if (f.handover === false) due = false
   else if ((due || f.active !== hudSeat) && !flip && !repairing && overlay?.kind !== 'goal' && overlay?.kind !== 'reveal' && overlay?.kind !== 'turn') {
-    const ms = f.reduced ? 0 : visual.transition.flipMs
+    const ms = visual.transition.flipMs
     // With the toggle off the bottom seat is always 1: the stage turns back once if it was left turned.
     const to = f.flip ? f.active : 1
     // Even when `to` is already shown the flip runs (rotating 0 degrees), so the hold and the turn card's fade-in are the same as ever.

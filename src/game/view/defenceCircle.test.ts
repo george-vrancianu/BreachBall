@@ -110,7 +110,7 @@ describe('selection', () => {
     const longer = { ...wall, ...hseg(10, 40, 2) }
     const s = placed()
     expect(legal(s, { spec: longer, id: 1, movable: true })).toBe(true)
-    expect(legal({ ...s, credits: { 1: 1, 2: 1 } }, { spec: longer, id: 1, movable: true })).toBe(false)
+    expect(legal({ ...s, credits: { 1: 0, 2: 0 } }, { spec: longer, id: 1, movable: true })).toBe(false)
     const siege = { ...c, mode: 'siege' as const }
     const base = initialState(1, siege)
     const rearrange = { ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: s.objects, built: s.built }
@@ -131,7 +131,7 @@ describe('Defence circle', () => {
     expect(m).toMatchObject({ building: false, available: true })
     expect(m.item).toBeUndefined()
     expect(m.selection).toBeUndefined()
-    expect(m.items.map((i) => [i.label, i.disabled, i.pressed])).toEqual([['Wall · 2/unit', false, false], ['Repulsor · 3', false, false], ['Steal · 2', false, false], ['Cannon', true, false]])
+    expect(m.items.map((i) => [i.label, i.disabled, i.pressed])).toEqual([['Wall · 1/unit', false, false], ['Repulsor · 5', false, false], ['Steal · 4', false, false], ['Cannon', true, false]])
     expect(m.items[3]!.soon).toBe(true)
   })
   it('building: the armed item is pressed; a tower the builder cannot afford is disabled', () => {
@@ -145,11 +145,26 @@ describe('Defence circle', () => {
   it('Siege towers read their bare name and grey on stock, not Credits', () => {
     const s = siegeBuild(1)
     const stock = emptied(s, 1, 'steal')
-    expect(menuOf(funded(stock, 1, 0), 1, {}, actions).items.map((i) => [i.label, i.disabled])).toEqual([['Wall · 2/unit', true], ['Repulsor', false], ['Steal', true], ['Cannon', true]])
+    expect(menuOf(funded(stock, 1, 0), 1, {}, actions).items.map((i) => [i.label, i.disabled])).toEqual([['Wall · 1/unit', true], ['Repulsor', false], ['Steal', true], ['Cannon', true]])
   })
-  it('is absent in play, when no build turn is running', () => {
-    expect(defenceCircle(funded(buildState(1), 1, 0), 1, { mine: hotSeat }, actions)).toBeDefined()
-    expect(defenceCircle({ ...buildState(1), match: { ...buildState(1).match, builder: null } }, 1, { mine: hotSeat }, actions)).toBeUndefined()
+  it('names each piece for its dock tile and badges it with its price (Rounds) or what is left of its stock (Siege)', () => {
+    expect(menuOf(buildState(1), 1, {}, actions).items.map((i) => [i.name, i.badge])).toEqual([['Wall', '1'], ['Repulsor', '5'], ['Steal', '4'], ['Cannon', undefined]])
+    const stock = emptied(siegeBuild(1), 1, 'steal')
+    expect(menuOf(stock, 1, {}, actions).items.map((i) => i.badge)).toEqual(['1', '×3', '×0', undefined])
+  })
+  it('in play, is offered to the shooter before the round\'s first shot at the in-play prices, with no selection controls', () => {
+    const play = { ...buildState(1), match: { ...buildState(1).match, builder: null }, possession: { shooter: 1 as const, shots: 3, inHand: false, live: false } }
+    const m = defenceCircle(play, 1, { mine: hotSeat, item: 'wall', selection: { spec: wall, movable: true } }, actions)!
+    expect(m).toMatchObject({ building: true, available: true, item: 'wall' })
+    expect(m.selection).toBeUndefined()
+    const { wallUnitCost, towerCost } = rules.playBuild
+    expect(m.items.map((i) => [i.label, i.badge])).toEqual([[`Wall · ${wallUnitCost}/unit`, String(wallUnitCost)], [`Repulsor · ${towerCost.repulsor}`, String(towerCost.repulsor)], [`Steal · ${towerCost.steal}`, String(towerCost.steal)], ['Cannon', undefined]])
+  })
+  it('is absent in play for the other player, and once the round\'s first shot is away', () => {
+    const play = { ...buildState(1), match: { ...buildState(1).match, builder: null }, possession: { shooter: 1 as const, shots: 3, inHand: false, live: false } }
+    expect(defenceCircle(play, 2, { mine: hotSeat }, actions)).toBeUndefined()
+    const shot = { ...play, match: { ...play.match, roundShots: 1 } }
+    expect(defenceCircle(shot, 1, { mine: hotSeat }, actions)).toBeUndefined()
   })
   it('is unavailable to the other player, and while blocked', () => {
     expect(menuOf(buildState(1), 2, {}, actions).available).toBe(false)

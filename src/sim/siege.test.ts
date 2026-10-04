@@ -45,7 +45,7 @@ describe('Siege', () => {
     expect(s.possession).toMatchObject({ shooter: coinFlip(1, 1), inHand: false })
     s = step(step(s, { placeWall: piece(first) }, siege).state, { done: first }, siege).state
     expect(s.match.builder).toBe(opponent(first))
-    expect(s.credits[opponent(first)]).toBe(siege.credits)
+    expect(s.credits[opponent(first)]).toBe(siege.openingCredits)
     s = step(step(s, { placeWall: piece(opponent(first)) }, siege).state, { done: opponent(first) }, siege).state
     expect(s.match.builder).toBeNull()
   })
@@ -314,20 +314,22 @@ describe('Siege build timeout', () => {
   })
 
   it('with too few wall points the fallback is a tower', () => {
-    const cfg = { ...timed, credits: 1 }
+    // 0 is below the slider's minimum: the branch is defensive.
+    const cfg = { ...timed, openingCredits: 0 }
     const { s } = idle(initialState(1, cfg), TICKS, cfg)
     expect(owned(s, first)).toMatchObject([{ kind: 'tower' }])
     expect(s.match.builder).toBe(opponent(first))
   })
 
   it('the fallback piece mirrors across the halfway line and always places, for either seat, wall or tower', () => {
-    for (const credits of [timed.credits, 1]) {
-      const cfg = { ...timed, credits }
+    // 0 wall points is below the slider's minimum: the tower branch is defensive.
+    for (const openingCredits of [timed.openingCredits, 0]) {
+      const cfg = { ...timed, openingCredits }
       const second = opponent(first)
       const { s } = idle(initialState(1, cfg), 2 * TICKS, cfg)
       const [a, b] = [owned(s, first), owned(s, second)]
       expect([a.length, b.length]).toEqual([1, 1])
-      expect(a[0].kind).toBe(credits === 1 ? 'tower' : 'wall')
+      expect(a[0].kind).toBe(openingCredits === 0 ? 'tower' : 'wall')
       const [p1, p2] = first === 1 ? [a[0], b[0]] : [b[0], a[0]]
       expect(isLegal(p1, [])).toBe(true)
       expect(isLegal(p2, [])).toBe(true)

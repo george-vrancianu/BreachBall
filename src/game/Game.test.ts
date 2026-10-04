@@ -85,7 +85,7 @@ describe('Game', () => {
         const px = game.camera.toCanvas(canvas as unknown as HTMLCanvasElement, p)
         canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: px.x, offsetY: px.y, clientX: px.x, clientY: px.y, pointerId: 1, pointerType: 'mouse', button: 0 }))
       }
-      game.actions.build.toggle()
+      // The build turn opens in build mode with the Wall armed.
       if (item === 'repulsor') game.actions.build.arm('repulsor')
       const mid = { x: (wall.a.x + wall.b.x) / 2, y: wall.a.y }
       at('pointerdown', item === 'wall' ? wall.a : mid)
@@ -119,6 +119,69 @@ describe('Game', () => {
     })
     it('are absent with the map open', () => {
       expect(built('wall', false, true)).toBeUndefined()
+    })
+  })
+
+  describe('build dock', () => {
+    afterEach(() => vi.restoreAllMocks())
+    /** A Siege (or Rounds) match with Player 1's opening build turn up and its card dismissed; `step` advances the clock and runs a frame. */
+    const opened = (mode: 'siege' | 'rounds' = 'siege') => {
+      vi.spyOn(Math, 'random').mockReturnValue(0)
+      let t = 1000
+      vi.spyOn(performance, 'now').mockImplementation(() => t)
+      let view: HudView | undefined
+      const game = new Game(new FakeCanvas() as unknown as HTMLCanvasElement, (sink) => new LocalDriver(sink), (v) => (view = v))
+      game.actions.start({ ...defaultSettings, mode })
+      frame(t)
+      t += 1500
+      frame(t)
+      game.actions.dismiss()
+      frame(t)
+      const step = (ms = 100) => ((t += ms), frame(t))
+      return { game, step, view: () => view! }
+    }
+
+    it('a build turn that places pieces opens in build mode with the Wall armed', () => {
+      const { view } = opened()
+      expect(view().defence).toMatchObject({ building: true, item: 'wall' })
+      expect(view().hud.dock).toBe('build')
+    })
+
+    it('the Strategies tray opens and closes, with a card per layout', () => {
+      const { game, step, view } = opened()
+      expect(view().strategies).toBeUndefined()
+      game.actions.strategies.toggle()
+      step()
+      expect(view().strategies?.map((c) => c.id)).toEqual(['bulwark', 'chevron', 'turrets', 'zigzag', 'fortress'])
+      game.actions.strategies.toggle()
+      step()
+      expect(view().strategies).toBeUndefined()
+    })
+
+    it('a Strategy goes down a piece a tick, closes the tray, and a second one replaces it at no extra cost', () => {
+      const { game, step, view } = opened('rounds')
+      const builder = game.state.match.builder!
+      const credits = game.state.credits[builder]
+      game.actions.strategies.toggle()
+      game.actions.strategies.apply('chevron')
+      for (let i = 0; i < 5; i++) step()
+      expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(3)
+      expect(view().strategies).toBeUndefined()
+      const spent = credits - game.state.credits[builder]
+      game.actions.strategies.apply('bulwark')
+      for (let i = 0; i < 8; i++) step()
+      expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(3)
+      expect(credits - game.state.credits[builder]).toBe(spent)
+    })
+
+    it('the tray does not open outside a build turn', () => {
+      const { game, step, view } = opened()
+      const builder = game.state.match.builder!
+      game.state = { ...game.state, match: { ...game.state.match, builder: null } }
+      game.actions.strategies.toggle()
+      step()
+      expect(view().strategies).toBeUndefined()
+      expect(builder).toBeDefined()
     })
   })
 
@@ -271,7 +334,7 @@ describe('Game', () => {
     frame(later)
     vi.spyOn(performance, 'now').mockReturnValue(later)
     game.actions.dismiss()
-    game.actions.build.toggle()
+    // The build turn opened in build mode with the Wall armed: a drag draws.
     const at = (type: string, offsetX: number) => canvas.dispatchEvent(Object.assign(new Event(type), { offsetX, offsetY: 320, clientX: offsetX, clientY: 320, pointerId: 1 }))
     at('pointerdown', 100)
     at('pointermove', 190)
@@ -289,6 +352,21 @@ describe('Game', () => {
     game.apply({ ...game.state, objects: [] }, [{ type: 'wall-destroyed', wall: { ...wall, hp: 0 }, at: { x: 20, y: 40 } }])
     expect(game.structures.count).toBe(1)
     expect(game.structures.get(99)!.isShattering).toBe(true)
+  })
+
+  it('counts Bullseye Credits per player for the Resource bar, from zero again on a rematch', () => {
+    const onView = vi.fn()
+    const game = make(onView)
+    const t = performance.now()
+    game.actions.start({ ...defaultSettings, mode: 'rounds' })
+    game.apply(game.state, [{ type: 'bullseye-credited', player: 2, credits: 2 }])
+    frame(t)
+    const bar = () => onView.mock.lastCall![0].hud.resourceBar
+    expect([bar()[1].bullseyes, bar()[2].bullseyes]).toEqual([0, 1])
+    game.actions.rematch()
+    frame(t)
+    expect(bar()[2].bullseyes).toBe(0)
+    game.destroy()
   })
 
   describe('Flip on turn', () => {

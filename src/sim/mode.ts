@@ -58,6 +58,8 @@ export type GameMode<M extends Match = Match> = {
   paysTowers(m: M): boolean
   /** Whether the Breaker is bought with Credits (`rules.breakerCost`) rather than drawn from the 3-each stock; Siege has no Credits economy, so it keeps the stock. */
   paysBreaker(m: M): boolean
+  /** Whether the shooter may still build in play this round (an in-play build: place only, at `rules.playBuild` prices): Rounds before the round's first shot; never in Siege. */
+  mayPlayBuild(m: M): boolean
   /** Whether the match is in its blind opening build phase (a build turn that is not a Rearrange); fog and the reveal key on it. */
   opening(m: M): boolean
   /** A build turn just opened for `m.builder`: the Credits they hold for it (they hold `ctx.credits` now) and the ids they may move. */
@@ -97,9 +99,10 @@ export const rounds: GameMode<RoundsMatch> = {
   maySubterfuge: () => true,
   paysTowers: () => true,
   paysBreaker: () => true,
+  mayPlayBuild: (m) => m.roundShots === 0,
   opening: () => false,
-  // Credits bank: each build turn adds the round's grant to what is left.
-  onBuildStart: (m, ctx, c) => ({ credits: (m.builder ? ctx.credits[m.builder] : 0) + c.credits, built: [] }),
+  // Credits bank: round 1's build turn holds the Opening Credits instead of the grant (nothing is banked yet); every later build turn adds the round's grant to what is left.
+  onBuildStart: (m, ctx, c) => ({ credits: m.round === 1 ? c.openingCredits : (m.builder ? ctx.credits[m.builder] : 0) + c.credits, built: [] }),
   // The last round is over and the score is not tied; a tie means sudden death.
   winner: (m, _ctx, c) => (m.round > c.rounds && m.score[1] !== m.score[2] ? (m.score[1] > m.score[2] ? 1 : 2) : null),
 }
@@ -130,7 +133,7 @@ export const siege: GameMode<SiegeMatch> = {
     const next = m.opening && builder === firstBuilder(m.seed, 1) ? opponent(builder) : null
     return { match: { ...m, builder: next, opening: m.opening && next !== null }, events: [] }
   },
-  // A builder with nothing owned has the full budget (a fresh piece demolished refunds in full), so affordability is judged from `credits`:
+  // A builder with nothing owned has the full budget (a fresh piece demolished refunds in full), so affordability is judged from `openingCredits`:
   // a 1-unit horizontal wall centred left-right just in front of their goal no-build zone if it is affordable, else a Repulsor (free, always in stock at the opening).
   // The spot mirrors across the halfway line and is legal for either seat: on their half, outside the zone and the Centre zone, and the builder owns
   // nothing yet, so nothing can cross it. Both pieces therefore always place (tested for each seat).
@@ -143,7 +146,7 @@ export const siege: GameMode<SiegeMatch> = {
     const wall: StructureSpec = { kind: 'wall', owner: builder, a: { x: x - half, y }, b: { x: x + half, y } }
     // The Repulsor's cell sits on the near side of the same line, so it stays clear of the zone too.
     const at = { gx: rules.gridCols / 2 - 1, gy: builder === 1 ? Math.floor(y / rules.cellSize) - 1 : Math.ceil(y / rules.cellSize) }
-    return structureCost(wall) <= c.credits ? wall : { kind: 'tower', owner: builder, at, power: 'repulsor' }
+    return structureCost(wall) <= c.openingCredits ? wall : { kind: 'tower', owner: builder, at, power: 'repulsor' }
   },
   mayEdit: (m) => m.opening,
   mayRefund: () => false,
@@ -151,9 +154,10 @@ export const siege: GameMode<SiegeMatch> = {
   maySubterfuge: () => false,
   paysTowers: () => false,
   paysBreaker: () => false,
+  mayPlayBuild: () => false,
   opening: (m) => m.opening && m.builder !== null,
   // A Rearrange turn has no wall points and every own structure counts as placed this turn, so all of them can be moved.
-  onBuildStart: (m, ctx, c) => (m.opening ? { credits: c.credits, built: [] } : { credits: 0, built: m.builder ? structuresOf(ctx.objects, m.builder).map((o) => o.id) : [] }),
+  onBuildStart: (m, ctx, c) => (m.opening ? { credits: c.openingCredits, built: [] } : { credits: 0, built: m.builder ? structuresOf(ctx.objects, m.builder).map((o) => o.id) : [] }),
   winner: (_m, ctx) => {
     const left = (p: PlayerId) => structuresOf(ctx.objects, p).length > 0
     if (left(1) && left(2)) return null

@@ -57,7 +57,7 @@ Siege's opening build, during which each viewer sees only their own half; the op
 _Avoid_: Hidden build, secret build
 
 **Reveal**:
-The 1.5 s hold after the second Done of a Siege opening build: the fog lifts and the map camera shows both layouts at once, then play begins. Same hold under reduced motion; Rounds and Rearrange have none.
+The 1.5 s hold after the second Done of a Siege opening build: the fog lifts and the map camera shows both layouts at once, then play begins. Rounds and Rearrange have none.
 _Avoid_: Unveil, showdown
 
 **Fog**:
@@ -65,8 +65,20 @@ The renderer's cover over the opponent's half (up to the halfway line, boards an
 _Avoid_: Mask, blackout
 
 **Minimap chip**:
-The small chip at the near band's bottom-right showing a thumbnail of the whole pitch with the main camera's frame on it (and the Fog over the opponent's half in a blind build). Tapping it opens the Map view; while open it is a filled ✕ that closes it.
+The small chip at the top-left, just under the far-edge bars (the ☰ button sits level with it at the top-right), showing a thumbnail of the whole pitch with the main camera's frame on it (and the Fog over the opponent's half in a blind build). Tapping it opens the Map view; while open it is a filled ✕ that closes it.
 _Avoid_: Radar, overview button
+
+**Dock**:
+The panel at the bottom of the screen holding the active viewer's controls, in two rows: the status row (balance chip, round and phase, clock, Recenter, and OK in a build turn) and the action row. The action row depends on the turn: the build dock has Build (a chess rook) on the left, the Defence pieces beside it and Strategies on the right; the play dock has the abilities on the left, Build (for an in-play build), Powerup (a bolt) and Subterfuge (a theatre mask), each opening in place to its options, and the shots and Refund on the right; a Rearrange turn shows a prompt and a defence choice shows Repair and Rearrange.
+_Avoid_: Bottom menu, HUD bar, toolbar
+
+**In-play build**:
+Placing Defence pieces in play, in Rounds, by the shooter before the round's first shot, at a premium (`rules.playBuild`): a wall 2 per unit, a Repulsor 6 and a Steal 5. The pieces are final: they can be neither moved nor demolished.
+_Avoid_: Mid-game build, quick build
+
+**Strategy**:
+A ready-made defence layout offered in the build dock's tray, drawn as a card with a preview of the builder's half and its net cost. Tapping one clears this turn's own pieces (refunded in full) and places the layout a piece a tick through the normal placing rules; a piece that does not fit or cannot be paid for is skipped. Each declares its core, the number of leading pieces that form its essential shape and fit one round's Credits per round (and, in Siege, the default Wall points (30) and the tower stock), so a full-budget Strategy tapped in a later, poorer round still drops its core. Authored on Player 1's half and point-reflected for Player 2.
+_Avoid_: Preset, template, formation, plan (the tile's short label is Plans)
 
 **Map view**:
 The whole pitch fitted above the HUD band, opened from the Minimap chip. The main camera's frame is drawn on it, dashed with solid corner brackets, and tapping the pitch jumps the main camera there. The Reveal holds the same camera.
@@ -97,11 +109,15 @@ The third family of actions, beside Offence and Defence: actions that cripple th
 _Avoid_: Sabotage, debuff, special
 
 **Credits**:
-The single resource every Offence, Defence and Subterfuge item is bought with, each item at its own price. A player gets a grant each round and keeps unspent Credits for the rest of the match.
+The single resource every Offence, Defence and Subterfuge item is bought with, each item at its own price. A player's round-1 build turn holds the Opening Credits; every later build turn adds a grant, and unspent Credits are kept for the rest of the match.
 _Avoid_: Build points, power-up points, resources, energy (and Wall points in Rounds; see below)
 
+**Opening Credits**:
+The Credits each player's round-1 build turn holds in Rounds, instead of (not on top of) the Credits-per-round grant; nothing is banked before it. From round 2 on every build turn adds the grant to the bank. A setting alongside Credits per round (10 to 80, default 40), shown in the Side menu. Siege's opening build holds it too, as Wall points (default 30).
+_Avoid_: Start points, starting credits
+
 **Wall points**:
-Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). Siege has no Credits economy, so it never says Credits.
+Siege's build balance: what its one opening build is paid in, spent on walls (Siege towers come from its fixed stock). It comes from the Opening Credits setting, labelled Wall points in Siege (default 30, so matches do not drag on), and Siege has no Credits-per-round slider. Siege has no Credits economy, so it never says Credits. It shares the Rounds wall price: 1 wall point per unit.
 _Avoid_: Credits (in Siege), build points
 
 **Refund**:
@@ -113,7 +129,7 @@ The family of items that power up your own shot, bought with Credits during your
 _Avoid_: Attack, power-ups (as the family name)
 
 **Defence**:
-The family of items you build on your half (walls, towers), bought with Credits during your build turn: a wall by its units, a Repulsor 3 and a Steal 2. A tower placed this turn is refunded in full if demolished, as a wall is. Siege keeps its fixed tower stock instead.
+The family of items you build on your half (walls, towers), bought with Credits during your build turn: a wall by its units (1 each), a Repulsor 5 and a Steal 4. A tower placed this turn is refunded in full if demolished, as a wall is. Siege keeps its fixed tower stock instead.
 _Avoid_: Build menu, structures (as the family name)
 
 **Wall**:
@@ -121,7 +137,7 @@ The Defence item drawn on your half as one straight segment in a single drag: it
 _Avoid_: Straight wall, L wall, piece (for a placed wall; "build piece" and "fallback piece" stay), block, barrier
 
 **Unit**:
-The length a wall is measured in and priced by: every unit costs the same Credits at any angle. One unit is the old straight wall's length end to end.
+The length a wall is measured in and priced by: every unit costs the same Credits at any angle (1 in a build turn, 2 in an in-play build). One unit is the old straight wall's length end to end.
 _Avoid_: Segment, cell (for wall length), tile
 
 **Centre zone**:

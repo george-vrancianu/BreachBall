@@ -67,7 +67,7 @@ export const visual = {
     /** The centre circle (the Centre zone, in the rules config) and the Bullseye's outline inside it (radius in the rules config; line width and dash, px), and the dot radius, px. */
     centre: { widthPx: 3, bullseyeWidthPx: 2, bullseyeDashPx: [4, 6], dotRadiusPx: 6 },
     /**
-     * The Boost ring and Bullseye zones: each one's colour; the tint's alpha at rest and while it holds a Charged ball (`litAlpha`); the slow pulse (period and alpha swing, none under reduced motion);
+     * The Boost ring and Bullseye zones: each one's colour; the tint's alpha at rest and while it holds a Charged ball (`litAlpha`); the slow pulse (period and alpha swing);
      * the arrival of a shot that comes to rest in one (the zone flashes at `flashAlpha`, and a ring grows `grow` times the zone's radius outward over `ms`, `widthPx` wide); and the "x1.5" / "x2" labels (px, alpha, weight, and each one's distance from the centre spot as a fraction of its zone's radius).
      */
     boost: {
@@ -75,7 +75,7 @@ export const visual = {
       alpha: 0.1, litAlpha: 0.3,
       pulse: { periodMs: 3000, alphaSwing: 0.04 },
       arrive: { ms: 700, grow: 0.6, widthPx: 3, flashAlpha: 0.4 },
-      /** The Bullseye Credit: the zone flashes and a "+Credits" in the shooter's colour floats up `rise` world units, over `ms`. Reduced motion keeps the flash and drops the float. */
+      /** The Bullseye Credit: the zone flashes and a "+Credits" in the shooter's colour floats up `rise` world units, over `ms`. */
       credit: { ms: 900, flashAlpha: 0.6, rise: 5, px: 16, weight: 800 },
       label: { px: 12, alpha: 0.7, weight: 700, ringAt: 0.75, bullseyeAt: 0.55 },
     },
@@ -144,7 +144,7 @@ export const visual = {
     stealMs: 300,
     /** The ball-in-hand placement disc. */
     placementAlpha: 0.5,
-    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period; the glow is static under reduced motion), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), the badge's pop-in (`popMs`, growing from `popScale`), and the launch trail, brighter and `trailWidth` wide. */
+    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), the badge's pop-in (`popMs`, growing from `popScale`), and the launch trail, brighter and `trailWidth` wide. */
     charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 2500 }, badge: { size: 1.6, offset: 2.6, weight: 700 }, popMs: 250, popScale: 0.5, trailWidth: 4 },
     /** The Breaker outline. */
     armed: { radius: 1.5, swing: 0.25, periodMs: 120, width: 0.3 },
@@ -183,12 +183,18 @@ export const visual = {
     queued: { px: 28, edgePx: 4, gapPx: 8, fontPx: 12 },
     /** The near band's shared row (px unless noted): its height, the clock ring and the disc inside it, the urgent halo's width and colour, the round line's and phase label's font sizes, the round line's and phase label's letter spacing (em), the Recenter circle's size, border and crosshair icon (size, stroke), the right padding left for the minimap chip at the band's bottom-right, the gap between its items, and the row's pills (Done, Repair, Rearrange): height, side padding, border, and the tap target around them (the pill is drawn smaller than the hit area). Width budget at a 390 px viewport: 390 - 2x8 shell padding - 44 chip padding = 330 for the row; clock 36 + Move dots (3 x 9 + 2 x 4 gaps = 35) + Recenter 36 + Done ~64 + 4 gaps x 8 = 203, so the text block keeps ~127 and truncates with an ellipsis past that. Siege's Repair and Rearrange do not fit beside it and go on their own row above. */
     sharedRow: { heightPx: 36, ringPx: 36, discPx: 28, haloPx: 3, haloColor: '#7f1d1d', roundPx: 14, labelPx: 10, roundSpacingEm: 0.08, labelSpacingEm: 0.16, recenterPx: 36, recenterBorderPx: 2, iconPx: 20, iconStroke: 2, chipPadPx: 44, gapPx: 8, pillPx: 36, pillPadPx: 14, pillBorderPx: 2, hitPx: 44 },
+    /**
+     * The dock: the bottom panel holding the viewer's controls (px). `tilePx` is an action tile (Build, a piece, Strategies, Powerup, Subterfuge) with its corner `radiusPx`, `iconPx` and the label under the icon; the play dock's ability tiles (Build, Powerup, Subterfuge) share one width, `abilityPx`, fitting the longest label (SUBTERFUGE, at the option tiles' label size) and keeping the row within a 360 px screen;
+     * `rowGapPx` between the dock's two rows and `gapPx` between tiles; the status row's `chipPx` height (Credits, OK, Refund); the panel's fill, top border and corner radius;
+     * the Strategies tray's cards (`cardW` x `cardH`, the preview's height) and its z-index over the pitch.
+     */
+    dock: { tilePx: 52, abilityPx: 64, radiusPx: 14, iconPx: 22, labelPx: 9, labelSpacingEm: 0.08, rowGapPx: 8, gapPx: 6, padPx: 8, chipPx: 40, fill: 'rgba(14,19,33,0.94)', border: '#232b42', cornerPx: 18, dividerPx: 1, card: { w: 84, h: 126, radiusPx: 16 }, trayZ: 9, creditFontPx: 20, okMinPx: 84 },
     /** Move point dots: size and ring in px; a refund buzzes `vibration` ms, a refund that cannot happen buzzes `denied`. */
     refund: { dotPx: 9, ringPx: 2, gap: 4, vibration: 20, denied: [15, 40, 15] }, shadow: '#0008', gap: 8, /** The gap between the Offence, Defence and Subterfuge circles in their row (px). */ circleGapPx: 10,
     /** The minimap chip (px): the chip and its thumbnail, the chip's border and radius, its inset from the band's corner and its tap area, the glyph's font size and the thumbnail's line width; the frame's fill over the thumbnail, the fog's fill, and the map view's hint pill (height, side padding, border, font size). */
     minimap: { chipW: 30, chipH: 74, thumbW: 21, thumbH: 70, borderPx: 2, radiusPx: 6, insetPx: 8, hitPx: 44, fontPx: 18, linePx: 1, frame: 'rgba(232,234,240,0.12)', fog: 'rgba(11,15,26,0.7)', pill: { heightPx: 36, padPx: 18, borderPx: 2, fontPx: 13 } },
-    /** The far-edge bars (Defence bar, then the Resource bar) share this look: the strip's height, a segment's height and widest width (a segment never narrows below twice the slant), the gap between segments, how far a segment's ends slant (px), the end digit's size and width, the P2 stripe's two band widths at 45 degrees (px) and its dark stripe, and the empty fill. The Resource bar sits under the Defence bar in a row `resourceRowPx` tall, its bar `resourcePx` thick, and eases a share change over `resourceMs` (none under reduced motion). */
-    bar: { heightPx: 28, segmentPx: 12, segmentMaxPx: 36, gapPx: 3, slantPx: 4, digitPx: 16, digitWidthPx: 28, stripePx: [4, 2], stripeDark: '#7c2d12', empty: pitchDots, resourceRowPx: 20, resourcePx: 12, resourceMs: 400 } },
+    /** The far-edge bars (Defence bar, then the Resource bar) share this look: the strip's height, a segment's height and widest width (a segment never narrows below twice the slant), the gap between segments, how far a segment's ends slant (px), the end digit's size and width, the P2 stripe's two band widths at 45 degrees (px) and its dark stripe, and the empty fill. The Resource bar sits under the Defence bar in a row `resourceRowPx` tall, its bar `resourcePx` thick, and eases a share change over `resourceMs`. A player's Credits digit flashes on a Bullseye Credit: it grows to `flash.scale` and glows white, settling back over `flash.ms`. */
+    bar: { heightPx: 28, segmentPx: 12, segmentMaxPx: 36, gapPx: 3, slantPx: 4, digitPx: 16, digitWidthPx: 28, stripePx: [4, 2], stripeDark: '#7c2d12', empty: pitchDots, resourceRowPx: 20, resourcePx: 12, resourceMs: 400, flash: { ms: 300, scale: 1.5 } } },
   /** The Side menu: a press within `edgePx` of the viewer's left edge and a drag in `swipePx` opens it (screen px); the ☰ ghost button's size, its inset from the stage's left and from the Defence bar (which it sits just inside), the glyph size, `buttonZ` (above the Defence circle's column, so it can't cover the button), the panel's width cap and share (%), padding and gaps, and the layer's z-index (above the HUD and the Defence circle's column, under the full-screen screens). */
   sideMenu: { edgePx: 20, swipePx: 40, buttonPx: 40, buttonInsetPx: 8, panelMaxPx: 320, panelWidthPct: 80, panelPadPx: 16, gapPx: 12, rowGap: '4px 12px', glyphPx: 20, buttonZ: 12, z: 15 },
   /** The Title screen: the dot grid's cell and dot (px), the Play and Online pills' heights, the ghost circles' size, and the widest the pills grow. */

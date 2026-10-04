@@ -19,7 +19,7 @@ describe('tower shape', () => {
     ])
   })
   it('has a Credit price per power and configurable hp', () => {
-    expect(rules.towerCost).toEqual({ repulsor: 3, steal: 2 })
+    expect(rules.towerCost).toEqual({ repulsor: 5, steal: 4 })
     expect(rules.towerHp).toBe(3)
   })
 })

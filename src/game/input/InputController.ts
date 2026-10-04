@@ -2,10 +2,10 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
 import { canPlaceBall } from '../../sim/possession'
-import { canAffordTower, canArm, canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
+import { canArm, canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
 import { snapWallBetween, snapWallEnd, type StructureSpec } from '../../sim/wall'
 import { screenDown, type Camera } from '../entities/Camera'
-import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapBody, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/defenceCircle'
+import { anchorOf, builderNow, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapBody, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/defenceCircle'
 import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, type AimGesture, type GestureView } from './gesture'
 import { startsAtEdge, swipedIn } from './edgeSwipe'
 
@@ -134,13 +134,14 @@ export class InputController {
     toggle: () => {
       // Not mid-gesture, not under a blocking hold or the map, and not the other peer's turn.
       if (this.live || this.host.blocked() || this.host.mapOpen() || this.watching) return
+      const s = this.host.state()
       if (this.item) this.leaveBuild()
-      else if (canEdit(this.host.state())) this.item = 'wall'
+      else if (builderNow(s) && canEdit(s)) this.item = 'wall'
     },
     arm: (item: Item) => {
       if (this.live || this.host.blocked() || this.host.mapOpen() || this.watching) return
       const s = this.host.state()
-      const builder = s.match.builder
+      const builder = builderNow(s)
       if (builder && !itemDisabled(s, builder, item) && (this.item || canEdit(s))) this.item = item
     },
     rotate: () => {
@@ -166,8 +167,13 @@ export class InputController {
 
   /** A build turn this device does not play (online, the other peer's): every build input is ignored, the board is only for looking at. */
   private get watching(): boolean {
-    const { builder } = this.host.state().match
+    const builder = builderNow(this.host.state())
     return !!builder && !this.host.mine(builder)
+  }
+
+  /** Who the board builds for now: the build turn's builder, else, while an item is armed, the shooter of an in-play build. Null otherwise: the board aims and places the ball. */
+  private builderOf(state: SimState): PlayerId | null {
+    return state.match.builder ?? (this.item ? builderNow(state) : null)
   }
 
   /** Leaves build mode: the armed item and the selection go. */
@@ -233,7 +239,8 @@ export class InputController {
       // What the sim took becomes the selection (unless the builder has already moved on to something else).
       const taken = landedAs(state, this.landing)
       this.landing = undefined
-      if (taken && !this.selection && !this.live) this.selection = taken
+      // An in-play build is final, so it is not selected for moving.
+      if (taken && !this.selection && !this.live && taken.movable) this.selection = taken
       // A piece lifted while the landing was in flight could not be sent then: send it now.
       else if (this.selection?.id === undefined && !this.live) this.place()
     }
@@ -244,9 +251,11 @@ export class InputController {
       const { selection } = this
       if (selection) legal(state, selection) ? this.place() : (this.selection = { ...selection, spec: origin })
     }
+    // An in-play build is over (the round's first shot is away, or the possession changed hands): build mode goes.
+    if (this.item && !state.match.builder && !builderNow(state)) this.leaveBuild()
     // The armed tower is no longer affordable (its Credits or, in Siege, its stock are spent): fall back to the wall.
-    const builder = state.match.builder
-    if (this.item && this.item !== 'wall' && builder && !canAffordTower(state, builder, this.item)) this.item = 'wall'
+    const builder = this.builderOf(state)
+    if (this.item && this.item !== 'wall' && builder && itemDisabled(state, builder, this.item)) this.item = 'wall'
     // The shot clock fired the held aim: the gesture is spent.
     if (this.aim && state.possession.live) this.dropAim()
     if (this.selection !== before) this.refreshCursor()
@@ -271,6 +280,11 @@ export class InputController {
     this.dropAim()
   }
 
+  /** A build turn that places pieces opened for this device: it starts in build mode with the Wall armed, so the first drag draws. */
+  enterBuild(): void {
+    if (!this.watching && canEdit(this.host.state())) this.item = 'wall'
+  }
+
   /** The build turn changed hands or ended: a new piece is gone, a moved one never left its spot in the sim. */
   resetBuild(): void {
     this.selection = this.landing = this.press = this.item = this.deferredOrigin = undefined
@@ -279,7 +293,7 @@ export class InputController {
 
   /** While dragging or drawing near the top or bottom tenth of the view, scroll toward any of the builder's half that is off screen. */
   edgeScroll(dt: number): void {
-    const builder = this.host.state().match.builder
+    const builder = this.builderOf(this.host.state())
     const held = this.live
     if (!held || held.kind === 'twoEnd' || !builder) return
     const { visibleHeight } = this.view
@@ -357,7 +371,7 @@ export class InputController {
 
   // The wall's start stays put; its end snaps live to the nearest allowed angle and unit. Under half a unit there is no piece.
   private drawTo(press: Extract<Live, { kind: 'draw' }>, px: number, py: number): void {
-    const builder = this.host.state().match.builder
+    const builder = this.builderOf(this.host.state())
     if (!builder) return
     const b = snapWallEnd(press.a, this.pxToWorld(px, py))
     this.selection = b ? { spec: { kind: 'wall', owner: builder, a: press.a, b }, movable: true } : undefined
@@ -394,7 +408,7 @@ export class InputController {
     const { canvas } = this.host
     const { press, mouse } = this
     if (!mouse) return
-    const builder = this.host.state().match.builder
+    const builder = this.builderOf(this.host.state())
     const held = press?.kind === 'end' || press?.kind === 'body'
     const over = !press || press.kind === 'pending'
     const cursor = held ? 'grabbing' : over && builder && !this.host.blocked() && !this.host.mapOpen() && this.handleAt(this.pxToWorld(mouse.x, mouse.y)) ? 'grab' : ''
@@ -493,7 +507,7 @@ export class InputController {
   private promote(press: Extract<Press, { kind: 'pending' }>, px: number, py: number): void {
     if (Math.hypot(px - press.startPx.x, py - press.startPx.y) <= (press.pointerType === 'mouse' ? visual.input.dragSlopPx : visual.input.tapSlopPx)) return
     const state = this.host.state()
-    const builder = state.match.builder
+    const builder = this.builderOf(state)
     const { selection, item } = this
     const [id, at] = [press.id, press.startWorld]
     const { hit } = press
@@ -535,7 +549,7 @@ export class InputController {
 
   /** A press lifted before it became a gesture: select what is under it, or drop what is not; an armed tower goes down under the finger. */
   private tapped(press: Extract<Press, { kind: 'pending' }>): void {
-    const builder = this.host.state().match.builder
+    const builder = this.builderOf(this.host.state())
     const { hit } = press
     if (!builder) return
     if (hit && hit.sel === this.selection) return
@@ -570,7 +584,8 @@ export class InputController {
     const end = this.handleAt(at)
     if (selection && end) return { kind: 'handle', end, sel: selection }
     if (selection && onPiece(selection.spec, at, tolerance)) return { kind: 'body', sel: selection }
-    const own = pick(state, builder, at, tolerance)
+    // In play nothing already standing can be moved or demolished, so only the piece in hand answers.
+    const own = state.match.builder ? pick(state, builder, at, tolerance) : undefined
     return own && { kind: 'other', sel: own }
   }
 
@@ -607,7 +622,7 @@ export class InputController {
       return
     }
     const state = this.host.state()
-    const builder = state.match.builder
+    const builder = this.builderOf(state)
     if (builder && this.watching) {
       this.press = { kind: 'pan', id: e.pointerId }
       return

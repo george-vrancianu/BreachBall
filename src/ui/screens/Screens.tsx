@@ -1,7 +1,7 @@
 import { type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import type { PlayerId } from '../../game/Game'
-import { expiryPicker, modePicker, sliderRows, type Settings } from '../../game/view/settings'
+import { expiryPicker, modePicker, sliderRows, withMode, type Settings } from '../../game/view/settings'
 import { ButtonRow, FlipToggle, FONT, ghostCircle } from '../ButtonRow'
 import { AttractHero } from './Attract'
 
@@ -103,7 +103,7 @@ export function SettingsScreen({ settings, onChange, flipOnTurn, onFlipOnTurn, o
   return (
     <Screen {...look}>
       <div style={{ fontSize: 28 }}>Settings</div>
-      <ButtonRow specs={modePicker(settings.mode, (mode) => onChange({ ...settings, mode }))} />
+      <ButtonRow specs={modePicker(settings.mode, (mode) => onChange(withMode(settings, mode)))} />
       {sliderRows(settings).map(({ key, label, min, max, value }) => (
         <label key={key} style={{ display: 'block', width: 'min(80vw,320px)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>

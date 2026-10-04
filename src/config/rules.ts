@@ -15,13 +15,13 @@ const base = {
   /** A Steal tower is fragile. */
   stealHp: 1,
   /** Credits each tower costs in Rounds (Siege draws them from its stock instead). */
-  towerCost: { repulsor: 3, steal: 2 },
+  towerCost: { repulsor: 5, steal: 4 },
   /**
    * Walls are drawn segments. `unit` is one unit's length in world units, end to end at any angle (4 cells);
    * `units` are the allowed lengths in units; `angles` the allowed directions in degrees (direction is modulo 180);
    * `unitCost` the Credits per unit, the same at any angle.
    */
-  wall: { unit: 4 * cellSize, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 2, shapeTol: 0.01 } as WallRules['wall'],
+  wall: { unit: 4 * cellSize, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 1, shapeTol: 0.01 } as WallRules['wall'],
   /** Radius of the no-build circle around the centre spot, in world units (3 cells). */
   centreZoneRadius,
   /** The Boost ring (same radius as the Centre zone) and the Bullseye, both centred on the centre spot: a shot that comes to rest with the ball's centre inside Charges it, the Bullseye winning, and the next shot's speed is multiplied by `factor`. */
@@ -32,6 +32,11 @@ const base = {
   kickoffGap: 5,
   /** Half the drawn wall thickness; the ball cannot be placed on it. */
   wallHalf: 0.35,
+  /**
+   * An in-play build: in Rounds the shooter may place pieces in play before the round's first shot, at a premium over the build turn's prices.
+   * Such a piece is final: it is never in `built`, so it cannot be moved or demolished.
+   */
+  playBuild: { wallUnitCost: 2, towerCost: { repulsor: 6, steal: 5 } },
   /** Credits it costs to demolish a piece placed in an earlier turn. */
   demolishCost: 1,
   /** Credits an armed Breaker shot costs when it fires (Rounds); Siege has no Credits economy and spends the stock instead. */

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import type { GameActions, HudView } from '../game/Game'
 
 // Game needs a real canvas; the seam under test is how App creates, feeds and drives it.
-const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, flipOnTurn: false, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, resourceBar: null, refundable: false, score: null, phase: 'Play' }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
+const freshView = vi.hoisted(() => () => ({ angle: 0, flipped: false, flipOnTurn: false, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, resourceBar: null, refundable: false, score: null, phase: 'Play', dock: 'play', balance: null, refundRate: null }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
 const games = vi.hoisted(() => [] as { destroyed: boolean; onView: (v: HudView) => void; actions: { [K in 'start' | 'rematch' | 'map' | 'menu' | 'restart' | 'quit' | 'flipOnTurn']: Mock<GameActions[K]> } }[])
 vi.mock('../game/Game', () => ({
   Game: class {
@@ -89,6 +89,8 @@ it('keeps the settings across Menu and Play', () => {
 
 it('draws the overlay under the shell, so the controls stay tappable during a card', () => {
   render(<App />)
+  fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+  fireEvent.click(screen.getByText('Start'))
   act(() => games[0]!.onView(view({ overlay: { kind: 'turn', placement: 'center', band: false, text: 'Player 2', color: '#fff', opacity: 1, progress: 0, dismissable: true } })))
   const card = screen.getByText('Player 2').parentElement!
   const map = screen.getByRole('button', { name: 'Map' })
@@ -143,9 +145,20 @@ describe('Side menu', () => {
     expect(flipped.style.top).toBe('')
   })
 
+  it('the ☰ button sits at the top-right, level with the minimap chip at the top-left, under the bars', () => {
+    inMatch()
+    const menu = screen.getByRole('button', { name: 'Menu' })
+    const chip = screen.getByRole('button', { name: 'Map' })
+    expect(chip.style.top).toBe(menu.style.top)
+    expect([menu.style.right, menu.style.left]).toEqual(['8px', ''])
+    expect(chip.style.left).toBe('8px')
+    fireEvent.click(chip)
+    expect(games[0]!.actions.map).toHaveBeenCalled()
+  })
+
   it('the ☰ button moves down by the Resource bar\'s height when that bar is shown', () => {
     inMatch()
-    const bar = { 1: { credits: 3, share: 0.5 }, 2: { credits: 3, share: 0.5 } }
+    const bar = { 1: { credits: 3, share: 0.5, bullseyes: 0 }, 2: { credits: 3, share: 0.5, bullseyes: 0 } }
     const hud = { ...freshView().hud, resourceBar: bar }
     act(() => games[0]!.onView(view({ hud })))
     expect(screen.getByRole('button', { name: 'Menu' }).style.top).toBe('56px')

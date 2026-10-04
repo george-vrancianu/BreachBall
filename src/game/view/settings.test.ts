@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultSettings, modePicker, sliderRows } from './settings'
+import { defaultSettings, modePicker, sliderRows, withMode } from './settings'
 
 describe('mode picker', () => {
   it('marks only the chosen mode as pressed and picks on click', () => {
@@ -18,9 +18,14 @@ describe('slider rows', () => {
     expect(siege.find((r) => r.key === 'shots')!.value).toBe(2)
     expect(sliderRows({ ...defaultSettings, mode: 'rounds' }).map((r) => r.key)).toContain('rounds')
   })
-  it('names the Credits slider for Rounds and keeps wall points in Siege', () => {
-    const label = (mode: 'rounds' | 'siege') => sliderRows({ ...defaultSettings, mode }).find((r) => r.key === 'credits')!.label
-    expect(label('rounds')).toBe('Credits per round')
+  it('names the Opening Credits slider Opening Credits in Rounds and Wall points in Siege, and Siege has no Credits per round', () => {
+    const label = (mode: 'rounds' | 'siege') => sliderRows({ ...defaultSettings, mode }).find((r) => r.key === 'openingCredits')!.label
+    expect(label('rounds')).toBe('Opening Credits')
     expect(label('siege')).toBe('Wall points')
+    expect(sliderRows({ ...defaultSettings, mode: 'siege' }).map((r) => r.key)).not.toContain('credits')
+  })
+  it('a mode switch applies the new mode\'s Opening default', () => {
+    expect(withMode(defaultSettings, 'rounds').openingCredits).toBe(40)
+    expect(sliderRows(withMode(defaultSettings, 'siege')).find((r) => r.key === 'openingCredits')!.value).toBe(30)
   })
 })
