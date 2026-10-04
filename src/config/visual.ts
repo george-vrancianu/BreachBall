@@ -144,8 +144,8 @@ export const visual = {
     defence: { circlePx: 60, borderPx: 3, itemPx: 56, pillPx: 32, gap: 10, pulseMs: 300, pulseScale: 1.18, columnZ: 10, circleFontPx: 24, itemFontPx: 20, pillFontPx: 13, pillOffsetPx: 8, pillPadPx: 12, pillBorderPx: 2, itemBorderPx: 2, shadowPx: { y: 2, blur: 8 } },
     /** Move point dots: size and ring in px; a refund buzzes `vibration` ms, a refund that cannot happen buzzes `denied`. */
     refund: { dotPx: 12, ringPx: 2, gap: 4, vibration: 20, denied: [15, 40, 15] }, shadow: '#0008', gap: 8,
-    /** The far-edge bars (Defence bar, then the Resource bar) share this look: the strip's height, a segment's height, the gap between segments, how far a segment's ends slant (px), the end digit's size and width, the P2 stripe's two band widths at 45 degrees (px) and its dark stripe, and the empty fill. */
-    bar: { heightPx: 28, segmentPx: 12, gapPx: 3, slantPx: 4, digitPx: 16, digitWidthPx: 28, stripePx: [4, 2], stripeDark: '#7c2d12', empty: pitchDots } },
+    /** The far-edge bars (Defence bar, then the Resource bar) share this look: the strip's height, a segment's height and widest width (a segment never narrows below twice the slant), the gap between segments, how far a segment's ends slant (px), the end digit's size and width, the P2 stripe's two band widths at 45 degrees (px) and its dark stripe, and the empty fill. */
+    bar: { heightPx: 28, segmentPx: 12, segmentMaxPx: 36, gapPx: 3, slantPx: 4, digitPx: 16, digitWidthPx: 28, stripePx: [4, 2], stripeDark: '#7c2d12', empty: pitchDots } },
   /** The Title screen: the dot grid's cell and dot (px), the Play and Online pills' heights, the ghost circles' size, and the widest the pills grow. */
   titleScreen: { gridPx: 26, dotPx: 1.3, playPx: 64, onlinePx: 56, ghostPx: 48, pillMaxPx: 300, halo: tokens.halo },
   /** The Attract loop on the Title screen, in the hero's SVG units (the ring is r150): the pieces' sizes, how many circle at once and how fast, the shot's timing, the ricochet cheat and the effects' lengths. */

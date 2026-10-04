@@ -8,11 +8,11 @@ const IDS: PlayerId[] = [1, 2]
 
 /** One player's half: the end digit, then the segments running from the middle out to it. Player 1 sits left and its segments fill from the right, so the two halves mirror. */
 function Side({ id, side }: { id: PlayerId; side: DefenceSide }) {
-  const { segmentPx, gapPx, digitPx, digitWidthPx } = visual.hud.bar
+  const { segmentPx, segmentMaxPx, slantPx, gapPx, digitPx, digitWidthPx } = visual.hud.bar
   const digit = <div style={{ width: digitWidthPx, textAlign: 'center', fontFamily: visual.hud.display, fontSize: digitPx, lineHeight: 1, color: visual.player.colors[id] }}>{side.count}</div>
   const segments = (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: id === 1 ? 'row-reverse' : 'row', gap: gapPx }}>
-      {side.segments.map((filled, i) => <div key={i} data-filled={filled} style={{ flex: 1, minWidth: 0, maxWidth: segmentPx * 3, height: segmentPx, clipPath: slanted(), ...barFill(id, filled) }} />)}
+      {side.segments.map((filled, i) => <div key={i} data-filled={filled} style={{ flex: 1, minWidth: slantPx * 2, maxWidth: segmentMaxPx, height: segmentPx, clipPath: slanted(), ...barFill(id, filled) }} />)}
     </div>
   )
   return <div role="img" aria-label={`Player ${id} structures: ${side.count}`} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: gapPx * 2 }}>{id === 1 ? <>{digit}{segments}</> : <>{segments}{digit}</>}</div>

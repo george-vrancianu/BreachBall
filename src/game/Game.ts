@@ -19,7 +19,7 @@ import { routeEvents } from './events'
 import { reducedMotion, tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
 import { defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
-import { growSlots } from './view/defenceBar'
+import { countDestroyed, type Destroyed } from './view/defenceBar'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
 import { phaseButtons } from './view/phaseButtons'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
@@ -115,7 +115,7 @@ export class Game implements Sink {
   private dead = false
   private lastView = ''
   /** The most structures each player has stood this match: the Defence bar keeps a segment for each that falls. */
-  private slots: Record<PlayerId, number> = { 1: 0, 2: 0 }
+  private destroyed: Destroyed = { 1: 0, 2: 0 }
 
   constructor(private canvas: HTMLCanvasElement, makeDriver: DriverFactory, private onView?: (view: HudView) => void) {
     this.driver = makeDriver(this)
@@ -189,6 +189,7 @@ export class Game implements Sink {
   /** One sim tick's state and events, from the driver. */
   apply(state: SimState, events: SimEvent[]): void {
     this.state = state
+    this.destroyed = countDestroyed(this.destroyed, events)
     const { camera, input } = this
     this.seeBlind()
     input.settle(state, events.some((ev) => ev.type === 'refused'))
@@ -215,7 +216,7 @@ export class Game implements Sink {
     this.camera.recenter()
     this.camera.y = s.ball.pos.y
     this.lastBuilder = undefined
-    this.slots = { 1: 0, 2: 0 }
+    this.destroyed = { 1: 0, 2: 0 }
     this.apply(s, [])
     this.push()
   }
@@ -323,9 +324,8 @@ export class Game implements Sink {
     const builder = state.match.builder
     const { shooter, inHand } = state.possession
     const placing = placingOf(input.selection)
-    this.slots = growSlots(this.slots, state.objects)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), armed: input.armed, tappable: canArm(state, shooter), placing, slots: this.slots }),
+      hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), armed: input.armed, tappable: canArm(state, shooter), placing, destroyed: this.destroyed }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),

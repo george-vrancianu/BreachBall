@@ -26,8 +26,8 @@ describe('hudModel', () => {
       const bar = hudModel(s, defaultConfig, view).defenceBar
       expect([bar[1].count, bar[2].count]).toEqual(['2', '1'])
     })
-    it('keeps an empty segment for a structure that is gone', () => {
-      const bar = hudModel(initialState(1), defaultConfig, { ...view, slots: { 1: 2, 2: 0 } }).defenceBar
+    it('keeps an empty segment for a structure destroyed in play', () => {
+      const bar = hudModel(initialState(1), defaultConfig, { ...view, destroyed: { 1: 2, 2: 0 } }).defenceBar
       expect(bar[1]).toEqual({ count: '0', segments: [false, false] })
     })
   })
@@ -79,7 +79,7 @@ describe('hudModel', () => {
     })
     it('puts "?" on the Defence bar for the opponent too, until play starts', () => {
       const s = afterFirst()
-      const bar = hudModel(s, c, { ...view, viewer: second, slots: { 1: 5, 2: 5 } }).defenceBar
+      const bar = hudModel(s, c, { ...view, viewer: second, destroyed: { 1: 5, 2: 5 } }).defenceBar
       expect(bar[first]).toEqual({ count: '?', segments: [] })
       expect(bar[second].count).toBe('0')
       expect(hudModel(afterSecond(), c, { ...view, viewer: second }).defenceBar[first].count).toBe('2')

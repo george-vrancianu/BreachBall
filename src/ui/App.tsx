@@ -40,7 +40,7 @@ export function App() {
         <canvas ref={canvas} />
         {view && (
           <>
-            <Overlay view={view.overlay} onTap={() => actions().dismiss()} />
+            <Overlay view={view.overlay} flipped={view.flipped} onTap={() => actions().dismiss()} />
             <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} />
             <Shell
               hud={view.hud}
