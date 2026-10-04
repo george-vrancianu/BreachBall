@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { BuildMenu, ItemSpec } from '../../game/view/buildMenu'
 import type { HudModel } from '../../game/view/hudModel'
 import { visual } from '../../config/visual'
 import { Shell } from './Shell'
@@ -11,7 +12,7 @@ const hud = (over: Partial<HudModel> = {}): HudModel => ({
   players: { 1: { digit: '3', inventory: { breaker: 1, repulsor: 0, steal: 2 } }, 2: { digit: '?', inventory: { breaker: 4, repulsor: 4, steal: 4 } } },
   active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, phase: 'Play', breaker: { armed: false, tappable: true }, ...over,
 })
-const props = () => ({ hud: hud(), confirm: false, mapOpen: false, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onPowerUp: vi.fn(), onConfirm: vi.fn(), onMapStretch: vi.fn(), onMapClose: vi.fn(), onBuildToggle: vi.fn(), onRefund: vi.fn() })
+const props = () => ({ hud: hud(), confirm: false, mapOpen: false, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onPowerUp: vi.fn(), onConfirm: vi.fn(), onMapStretch: vi.fn(), onMapClose: vi.fn(), onBuildToggle: vi.fn(), onBuildArm: vi.fn(), onRefund: vi.fn() })
 
 describe('Shell', () => {
   describe('Move point dots', () => {
@@ -136,28 +137,145 @@ describe('Shell', () => {
     expect([p.onConfirm, p.onMapStretch, p.onMapClose].map((f) => f.mock.calls.length)).toEqual([1, 1, 1])
   })
 
-  it('renders the build menu: the opener toggles, an open menu lists pieces', () => {
-    const toggle = vi.fn()
-    const pick = vi.fn()
-    const { rerender } = render(<Shell {...props()} menu={{ kind: 'menu', open: false, items: [] }} onBuildToggle={toggle} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Build' }))
-    expect(toggle).toHaveBeenCalled()
-    rerender(<Shell {...props()} menu={{ kind: 'menu', open: true, items: [{ label: 'Straight', onClick: pick }] }} onBuildToggle={toggle} />)
-    fireEvent.click(screen.getByText('Straight'))
-    expect(pick).toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Leave building' })).toBeTruthy()
+  describe('Defence circle', () => {
+    afterEach(() => { vi.useRealTimers(); delete (document as { elementFromPoint?: unknown }).elementFromPoint })
+    const items = (over: Record<string, Partial<ItemSpec>> = {}): ItemSpec[] => [
+      { item: 'wall', label: 'Wall · 2', disabled: false, pressed: true, ...over.wall },
+      { item: 'repulsor', label: 'Repulsor', disabled: false, pressed: false, ...over.repulsor },
+      { item: 'steal', label: 'Steal', disabled: false, pressed: false, ...over.steal },
+      { item: 'cannon', label: 'Cannon', disabled: true, pressed: false, soon: true },
+    ]
+    const model = (over: Partial<BuildMenu> = {}): BuildMenu => ({ building: false, items: items(), available: true, ...over })
+    const circle = () => screen.getByRole('button', { name: /^(Build|Leave building)$/ })
+    const setup = (m: BuildMenu = model()) => {
+      vi.useFakeTimers()
+      const p = props()
+      const r = render(<Shell {...p} menu={m} />)
+      return { p, r }
+    }
+    const hold = () => { fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 }); act(() => { vi.advanceTimersByTime(visual.hud.holdMs + 1) }) }
+    const over = (name: string) => { document.elementFromPoint = () => screen.getByRole('button', { name: new RegExp(name) }) }
+    const tapCircle = () => { fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 }); fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 }) }
+
+    it('a tap toggles build mode, idle or building', () => {
+      const { p, r } = setup()
+      tapCircle()
+      expect(p.onBuildToggle).toHaveBeenCalledTimes(1)
+      r.rerender(<Shell {...p} menu={model({ building: true, item: 'wall' })} />)
+      tapCircle()
+      expect(p.onBuildToggle).toHaveBeenCalledTimes(2)
+    })
+
+    it('a hold opens the four pieces, Cannon greyed with soon, the armed one pressed', () => {
+      const { p } = setup(model({ building: true, item: 'wall' }))
+      hold()
+      expect(screen.getByRole('button', { name: 'Wall · 2' }).getAttribute('aria-pressed')).toBe('true')
+      expect(screen.getByRole('button', { name: 'Repulsor' }).getAttribute('aria-pressed')).toBe('false')
+      expect(screen.getByRole('button', { name: 'Steal' })).toBeTruthy()
+      const cannon = screen.getByRole('button', { name: 'Cannon' })
+      expect(cannon.getAttribute('aria-disabled')).toBe('true')
+      expect(cannon.textContent).toContain('soon')
+      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
+      expect(p.onBuildToggle).not.toHaveBeenCalled()
+    })
+
+    it('a hold that moves past the tap slop first does not open', () => {
+      setup()
+      fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 })
+      fireEvent.pointerMove(circle(), { clientX: 5 + visual.input.tapSlopPx + 1, clientY: 5 })
+      act(() => { vi.advanceTimersByTime(visual.hud.holdMs + 1) })
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+    })
+
+    it('sliding onto a piece and lifting arms it and closes the menu', () => {
+      const { p } = setup()
+      hold()
+      over('Repulsor')
+      fireEvent.pointerUp(circle(), { clientX: 5, clientY: -80 })
+      expect(p.onBuildArm).toHaveBeenCalledWith('repulsor')
+      expect(p.onBuildToggle).not.toHaveBeenCalled()
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+    })
+
+    it('lifting elsewhere closes the menu without arming', () => {
+      const { p } = setup()
+      hold()
+      document.elementFromPoint = () => document.body
+      fireEvent.pointerUp(circle(), { clientX: 200, clientY: 200 })
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+      expect(p.onBuildArm).not.toHaveBeenCalled()
+    })
+
+    it('lifting on the circle keeps the menu open for a tap on a piece', () => {
+      const { p } = setup()
+      hold()
+      document.elementFromPoint = () => circle()
+      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
+      fireEvent.click(screen.getByRole('button', { name: 'Steal' }))
+      expect(p.onBuildArm).toHaveBeenCalledWith('steal')
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+    })
+
+    it('tapping the circle with the menu open closes it without toggling', () => {
+      const { p } = setup(model({ building: true, item: 'wall' }))
+      hold()
+      document.elementFromPoint = () => circle()
+      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
+      tapCircle()
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+      expect(p.onBuildToggle).not.toHaveBeenCalled()
+    })
+
+    it('a disabled piece does nothing, tapped or slid onto', () => {
+      const { p } = setup(model({ items: items({ steal: { disabled: true } }) }))
+      hold()
+      fireEvent.click(screen.getByRole('button', { name: 'Steal' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Cannon' }))
+      over('Steal')
+      fireEvent.pointerUp(circle(), { clientX: 5, clientY: -80 })
+      expect(p.onBuildArm).not.toHaveBeenCalled()
+    })
+
+    it('when the viewer cannot build, a hold pulses the circle once instead of opening, and a tap does nothing', () => {
+      const { p } = setup(model({ available: false }))
+      expect(circle().getAttribute('aria-disabled')).toBe('true')
+      tapCircle()
+      expect(p.onBuildToggle).not.toHaveBeenCalled()
+      hold()
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+      expect(circle().className).toContain('defence-pulse')
+      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
+      expect(p.onBuildToggle).not.toHaveBeenCalled()
+      act(() => { vi.advanceTimersByTime(visual.hud.defence.pulseMs + 1) })
+      expect(circle().className).not.toContain('defence-pulse')
+    })
+
+    it('stays beside the selected structure\'s buttons, and still opens on a hold', () => {
+      const { p } = setup(model({ building: true, item: 'wall', selection: { buttons: [{ label: '↻', onClick: vi.fn() }, { label: '✕', onClick: vi.fn() }] } }))
+      expect(screen.getByRole('button', { name: '↻' })).toBeTruthy()
+      hold()
+      expect(screen.getByRole('button', { name: 'Steal' })).toBeTruthy()
+      expect(p.onBuildToggle).not.toHaveBeenCalled()
+    })
+
+    it('closes the open menu when building becomes unavailable', () => {
+      const { p, r } = setup()
+      hold()
+      r.rerender(<Shell {...p} menu={model({ available: false })} />)
+      expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
+    })
   })
 
   it('names the demolish glyph button', () => {
     const del = vi.fn()
-    render(<Shell {...props()} menu={{ kind: 'selected', buttons: [{ label: '🗑', onClick: del }] }} />)
+    render(<Shell {...props()} menu={{ building: false, items: [], available: true, selection: { buttons: [{ label: '🗑', onClick: del }] } }} />)
     fireEvent.click(screen.getByRole('button', { name: 'Demolish' }))
     expect(del).toHaveBeenCalled()
   })
 
   it('only its controls take pointer input, so gestures pass through the gaps to the pitch', () => {
     const buttons = [{ label: 'Done', onClick: vi.fn() }]
-    const { container } = render(<Shell {...props()} hud={hud({ buttons })} menu={{ kind: 'menu', open: false, items: [] }} confirm mapOpen><i>extra</i></Shell>)
+    const { container } = render(<Shell {...props()} hud={hud({ buttons })} menu={{ building: false, items: [], available: true }} confirm mapOpen><i>extra</i></Shell>)
     const shell = container.firstElementChild as HTMLElement
     expect(shell.style.pointerEvents).toBe('none')
     expect(shell.children.length).toBe(7)
