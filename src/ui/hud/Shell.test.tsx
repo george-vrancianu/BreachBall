@@ -178,6 +178,12 @@ describe('Shell', () => {
       expect(follows(build, power) && follows(power, trick) && follows(trick, shots) && follows(shots, refund())).toBe(true)
     })
 
+    it('makes the three ability tiles one width, whatever their labels', () => {
+      render(<Shell {...props()} hud={hud({ refundRate: 2 })} subterfuge={{ available: true, queued: [], items: [] }} />)
+      const widths = [screen.getByRole('button', { name: 'Build' }), screen.getByRole('button', { name: /^Offence/ }), screen.getByRole('button', { name: 'Subterfuge' })].map((b) => b.style.width)
+      expect(widths).toEqual(Array(3).fill(`${visual.hud.dock.abilityPx}px`))
+    })
+
     it('greys Build when the viewer cannot build in play (no model), and it does nothing', () => {
       const p = props()
       render(<Shell {...p} />)

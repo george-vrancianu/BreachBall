@@ -23,10 +23,10 @@ export type Ability = 'build' | 'powerup' | 'subterfuge'
 /** One option tile beside an open ability: an icon, a short name, a corner badge (price or stock); greyed when it cannot be used, filled when pressed (armed). */
 export type OptionSpec = { key: string; aria: string; name: string; icon: ReactNode; badge?: string; disabled: boolean; pressed: boolean; onPick(): void }
 
-/** An ability tile (Build, Powerup, Subterfuge): an icon over its label. `open` fills it; `active` (the Breaker armed) fills it too. */
-function AbilityTile({ label, aria, icon, color, available, open, active, width, onTap }: { label: string; aria: string; icon: ReactNode; color: string; available: boolean; open: boolean; active?: boolean; width?: number; onTap(): void }) {
+/** An ability tile (Build, Powerup, Subterfuge): an icon over its label, all three `abilityPx` wide. `open` fills it; `active` (the Breaker armed) fills it too. */
+function AbilityTile({ label, aria, icon, color, available, open, active, onTap }: { label: string; aria: string; icon: ReactNode; color: string; available: boolean; open: boolean; active?: boolean; onTap(): void }) {
   return (
-    <button aria-label={aria} aria-expanded={open} aria-pressed={open || !!active} aria-disabled={!available} onClick={onTap} onContextMenu={noMenu} style={tileStyle({ color, active: (open || !!active) && available, available, width })}>
+    <button aria-label={aria} aria-expanded={open} aria-pressed={open || !!active} aria-disabled={!available} onClick={onTap} onContextMenu={noMenu} style={tileStyle({ color, active: (open || !!active) && available, available, width: dock.abilityPx })}>
       {icon}
       <span style={tileLabel}>{label}</span>
     </button>
@@ -55,7 +55,7 @@ function Options({ options, color }: { options: OptionSpec[]; color: string }) {
 /** A slot that folds to nothing (width and opacity) while another ability is open, so the open one slides to the left edge. */
 function Fold({ hidden, children }: { hidden: boolean; children: ReactNode }) {
   const t = reducedMotion() ? 'none' : `max-width ${SLIDE_MS}ms ease, opacity ${SLIDE_MS * 0.7}ms ease, margin ${SLIDE_MS}ms ease`
-  const style: CSSProperties = { flex: 'none', maxWidth: hidden ? 0 : 96, opacity: hidden ? 0 : 1, marginRight: hidden ? 0 : dock.gapPx, overflow: hidden ? 'hidden' : 'visible', transition: t, pointerEvents: hidden ? 'none' : undefined }
+  const style: CSSProperties = { flex: 'none', maxWidth: hidden ? 0 : dock.abilityPx, opacity: hidden ? 0 : 1, marginRight: hidden ? 0 : dock.gapPx, overflow: hidden ? 'hidden' : 'visible', transition: t, pointerEvents: hidden ? 'none' : undefined }
   return <div aria-hidden={hidden || undefined} style={style}>{children}</div>
 }
 
@@ -101,11 +101,11 @@ export function AbilityBar({ defence, offence, subterfuge, color, trailing, onDe
         <AbilityTile label="Build" aria={building ? 'Leave building' : 'Build'} icon={TOWER(dock.iconPx)} color={color} available={!!defence?.available} open={open === 'build'} onTap={() => defence?.available && onDefenceToggle()} />
       </Fold>
       <Fold hidden={!!open && open !== 'powerup'}>
-        <AbilityTile label="Powerup" aria={offence.armed ? 'Offence, Breaker armed' : 'Offence'} icon={BOLT(dock.iconPx)} color={color} available={offence.available} open={open === 'powerup'} active={offence.armed} width={66} onTap={() => toggle('powerup')} />
+        <AbilityTile label="Powerup" aria={offence.armed ? 'Offence, Breaker armed' : 'Offence'} icon={BOLT(dock.iconPx)} color={color} available={offence.available} open={open === 'powerup'} active={offence.armed} onTap={() => toggle('powerup')} />
       </Fold>
       {subterfuge && (
         <Fold hidden={!!open && open !== 'subterfuge'}>
-          <AbilityTile label="Subterfuge" aria="Subterfuge" icon={MASK(dock.iconPx)} color={color} available={subterfuge.available} open={open === 'subterfuge'} width={74} onTap={() => toggle('subterfuge')} />
+          <AbilityTile label="Subterfuge" aria="Subterfuge" icon={MASK(dock.iconPx)} color={color} available={subterfuge.available} open={open === 'subterfuge'} onTap={() => toggle('subterfuge')} />
         </Fold>
       )}
       {open && <span aria-hidden style={{ flex: 'none', width: dock.dividerPx, height: dock.tilePx - 16, background: dock.border, marginRight: dock.gapPx + 2 }} />}
