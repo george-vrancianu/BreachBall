@@ -361,3 +361,11 @@ describe('snapWallBetween', () => {
     }
   })
 })
+
+describe('isLegal with custom wall rules', () => {
+  it('reads the rules it is given: a three-unit wall is legal only where three units are allowed', () => {
+    const w: WallSpec = { kind: 'wall', owner: 1, ...hseg(1, 40, 3) }
+    expect(isLegal(w)).toBe(false)
+    expect(isLegal(w, [], { ...rules, wall: { ...rules.wall, units: [1, 2, 3] } })).toBe(true)
+  })
+})
