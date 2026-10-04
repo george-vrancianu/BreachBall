@@ -4,7 +4,7 @@ import { modeFor } from '../../sim/mode'
 import { nearestOnWall } from '../../sim/near'
 import { halfSpan, type PlayerId, type Point } from '../../sim/pitch'
 import { canAffordTower, canEdit, canMove, canPlayBuild, placeable, type SimInput, type SimState } from '../../sim/step'
-import { rotatedWall, translatedWall, vertexToWorld, wallCost, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
+import { distToSegment, rotatedWall, translatedWall, vertexToWorld, wallCost, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
 import type { ButtonSpec } from './hudModel'
 
 /**
@@ -42,11 +42,14 @@ export const towerAt = (power: TowerPower, owner: PlayerId, at: Point): Structur
 export const towerGrab: Point = { x: rules.cellSize / 2, y: rules.cellSize / 2 }
 
 /** Whether `at` lands on `spec`, within `tolerance` world units of its segments. */
-export const onPiece = (spec: StructureSpec, at: Point, tolerance: number) => nearestOnWall(spec, at).dist <= tolerance
+export const onPiece = (spec: StructureSpec, at: Point, tolerance: number) => footprintDist(spec, at) <= tolerance
+
+/** How far `at` is from a piece: a wall's full footprint, from a to b with its Gaps (a Gap is still part of the wall for selecting it), a tower's edges. */
+const footprintDist = (o: StructureSpec, at: Point): number => (o.kind === 'wall' ? distToSegment(o, at) : nearestOnWall(o, at).dist)
 
 /** The builder's own structure under `at`, nearest first, selected as it stands. */
 export function pick(s: SimState, builder: PlayerId, at: Point, tolerance: number): Selection | undefined {
-  const hits = s.objects.filter((o) => o.owner === builder).map((o) => ({ o, d: nearestOnWall(o, at).dist })).filter((h) => h.d <= tolerance)
+  const hits = s.objects.filter((o) => o.owner === builder).map((o) => ({ o, d: footprintDist(o, at) })).filter((h) => h.d <= tolerance)
   const near = hits.sort((a, b) => a.d - b.d)[0]?.o
   if (!near) return undefined
   const spec: StructureSpec = near.kind === 'wall' ? { kind: 'wall', owner: near.owner, a: near.a, b: near.b } : { kind: 'tower', owner: near.owner, power: near.power, at: near.at }

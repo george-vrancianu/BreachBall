@@ -46,6 +46,13 @@ describe('countDestroyed', () => {
     const taken = defenceBar([], countDestroyed(none, [{ type: 'refunded', player: 1, count: 1 }]), null)
     expect(taken[1]).toEqual({ count: '0', segments: [] })
   })
+  it('a broken wall segment (a Gap) empties no bar segment: only the whole wall going does', () => {
+    const w = wall(1, 1)
+    const broken: SimEvent = { type: 'segment-broken', id: 1, segment: 0, wall: w as never, at }
+    const d = countDestroyed(none, [broken])
+    expect(d).toEqual(none)
+    expect(defenceBar([w], d, null)[1].segments).toEqual([true])
+  })
   it('leaves an empty segment for a structure destroyed in play', () => {
     const d = countDestroyed(none, [{ type: 'wall-destroyed', wall: wall(1, 1), at }])
     expect(defenceBar([wall(2, 1)], d, null)[1].segments).toEqual([true, false])

@@ -152,6 +152,14 @@ describe('moving and refunding this turn\'s items', () => {
       expect(r.state.credits[1]).toBe(8)
       expect(step(r.state, { demolish: { player: 1, wall: 1 } }, c).state.credits[1]).toBe(10)
     })
+    it('a resize re-creates full segments, while a plain move keeps the health and Gaps as they are', () => {
+      let s = run({ ...buildState(1), credits: { 1: 10, 2: 10 } }, { placeWall: wall(1, 2) })
+      s = { ...s, objects: s.objects.map((o) => (o.kind === 'wall' ? { ...o, segments: [0, 1] } : o)) }
+      const slid = step(s, { moveStructure: { player: 1, id: 1, ...hseg(11, 40, 2) } }, c).state
+      expect((slid.objects[0] as Wall).segments).toEqual([0, 1])
+      const cut = step(s, { moveStructure: { player: 1, id: 1, ...hseg(10, 40, 1) } }, c).state
+      expect((cut.objects[0] as Wall).segments).toEqual([3])
+    })
     it('refuses a longer wall the builder cannot afford, changing nothing', () => {
       const s = withCredits(0)
       const r = step(s, { moveStructure: longer }, c)

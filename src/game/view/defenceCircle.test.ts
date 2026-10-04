@@ -86,6 +86,9 @@ describe('pick', () => {
     expect(pick(s, 1, { x: 21, y: 80.5 }, 1)).toEqual({ spec: wall, id: 1, movable: true })
     expect(pick({ ...s, built: [] }, 1, { x: 21, y: 80.5 }, 1)?.movable).toBe(false)
     expect(pick(s, 1, { x: 21, y: 83 }, 1)).toBeUndefined()
+    // A Gap is still part of the wall: touching it selects the wall.
+    const gapped = { ...s, objects: [{ id: 1, kind: 'wall' as const, owner: 1 as const, segments: [0, 3], a: { x: 20, y: 80 }, b: { x: 36, y: 80 } }] }
+    expect(pick(gapped, 1, { x: 22, y: 80.5 }, 1)).toMatchObject({ id: 1 })
     expect(pick(s, 2, { x: 21, y: 80.5 }, 1)).toBeUndefined()
   })
 })
