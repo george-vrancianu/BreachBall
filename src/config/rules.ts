@@ -72,8 +72,8 @@ export type Tier = {
 
 /** Tiers are data: a new tier is a new entry. Indexed by the Shot's `tier`. */
 const tiers: readonly Tier[] = [
-  { name: 'Touch', holdMs: 0, radiusPx: 220, curve: 'direct', power: [0.15, 0.45], ghost: { until: { contacts: 1 }, scale: 1 }, splash: false },
-  { name: 'Power', holdMs: 1000, radiusPx: 90, curve: 'inverted', power: [0.5, 1], ghost: { until: { contacts: 1 }, scale: 0.3 }, splash: true },
+  { name: 'Touch', holdMs: 0, radiusPx: 150, curve: 'direct', power: [0.15, 0.45], ghost: { until: { contacts: 1 }, scale: 1 }, splash: false },
+  { name: 'Power', holdMs: 1000, radiusPx: 84, curve: 'inverted', power: [0.5, 1], ghost: { until: { contacts: 1 }, scale: 0.3 }, splash: true },
 ]
 
 const mapTop = -base.board - base.netDepth

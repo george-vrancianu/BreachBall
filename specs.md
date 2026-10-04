@@ -154,8 +154,8 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 
 | Tier | Hold | Control radius | Curve | Power | Ghost | Splash |
 |---|---|---|---|---|---|---|
-| Touch | none | 220 px | longer drag is stronger | 15-45% | full path to the first contact, green | no |
-| Power | 1 s | 90 px | shorter drag is stronger | 50-100% | first 30% of that path, red | yes |
+| Touch | none | 150 px | longer drag is stronger | 15-45% | full path to the first contact, green | no |
+| Power | 1 s | 84 px | shorter drag is stronger | 50-100% | first 30% of that path, red | yes |
 
 - Drag length is in screen pixels from the press, eased (quadratic) through the tier's curve, with the full range starting at the slop edge. Dragging past the control radius keeps steering at the edge power. The weakest Power shot is always stronger than the strongest Touch shot.
 - The Ghost is the ball's predicted path, from the same step function the game runs, so it never lies. It is recomputed only when the aim changes.

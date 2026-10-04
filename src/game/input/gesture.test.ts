@@ -21,7 +21,7 @@ describe('aim gesture press', () => {
   })
 })
 
-// Touch: radius 220 px, power [0.15, 0.45], slop 8 px, eased (quadratic) direct curve.
+// Touch: radius 150 px, power [0.15, 0.45], slop 8 px, eased (quadratic) direct curve.
 const dragTo = (x: number, y: number) => aimMove(press(), p(x, y), 100)
 
 describe('aim gesture drag', () => {
@@ -34,10 +34,10 @@ describe('aim gesture drag', () => {
     expect(aimOf(dragTo(100, 308.001))!.power).toBeCloseTo(0.15)
   })
   it('reaches the top of the range at the control radius', () => {
-    expect(aimOf(dragTo(100, 300 + 220))!.power).toBeCloseTo(0.45)
+    expect(aimOf(dragTo(100, 300 + 150))!.power).toBeCloseTo(0.45)
   })
   it('eases in between: halfway along the drag is a quarter of the way up the range', () => {
-    expect(aimOf(dragTo(100, 300 + 8 + 106))!.power).toBeCloseTo(0.225)
+    expect(aimOf(dragTo(100, 300 + 8 + 71))!.power).toBeCloseTo(0.225)
   })
   it('keeps steering at the edge power past the control radius', () => {
     const aim = aimOf(dragTo(100, 300 + 450))!
@@ -52,7 +52,7 @@ describe('aim gesture drag', () => {
   })
 })
 
-// Power: held still for 1000 ms; radius 90 px, power [0.5, 1], eased inverted curve.
+// Power: held still for 1000 ms; radius 84 px, power [0.5, 1], eased inverted curve.
 describe('aim gesture tiers', () => {
   const held = (ms: number) => aimTick(press(), ms)
   const tier = (g: AimGesture) => aimViewOf(g)?.tier
@@ -82,16 +82,16 @@ describe('aim gesture tiers', () => {
     expect(powerTo(308.001).power).toBeCloseTo(1)
   })
   it('is weakest at the Power control radius, and stays there past it', () => {
-    expect(powerTo(300 + 90).power).toBeCloseTo(0.5)
+    expect(powerTo(300 + 84).power).toBeCloseTo(0.5)
     expect(powerTo(300 + 200).power).toBeCloseTo(0.5)
   })
   it('mirrors the Touch easing: halfway along the drag is a quarter of the way up the range', () => {
-    expect(powerTo(300 + 8 + 41).power).toBeCloseTo(0.625)
+    expect(powerTo(300 + 8 + 38).power).toBeCloseTo(0.625)
   })
   it('shows how far the hold has climbed towards the next tier', () => {
     expect(aimViewOf(held(0))?.holdProgress).toBe(0)
     expect(aimViewOf(held(250))?.holdProgress).toBeCloseTo(0.25)
-    expect(aimViewOf(held(1000))).toMatchObject({ tier: 1, radiusPx: 90, holdProgress: 1 })
+    expect(aimViewOf(held(1000))).toMatchObject({ tier: 1, radiusPx: 84, holdProgress: 1 })
     expect(aimViewOf(held(3000))?.holdProgress).toBe(1)
   })
 })
@@ -118,11 +118,11 @@ describe('aim gesture view', () => {
     expect(aimViewOf(press(p(0, 0)))).toBeUndefined()
   })
   it('shows the Touch control radius and no direction before the drag', () => {
-    expect(aimViewOf(press())).toEqual({ phase: 'holding', tier: 0, holdProgress: 0, radiusPx: 220, ghost: { until: { contacts: 1 }, scale: 1 } })
+    expect(aimViewOf(press())).toEqual({ phase: 'holding', tier: 0, holdProgress: 0, radiusPx: 150, ghost: { until: { contacts: 1 }, scale: 1 } })
   })
   it('shows the aim once dragging', () => {
     const v = aimViewOf(dragTo(100, 520))
-    expect(v).toMatchObject({ phase: 'aiming', tier: 0, radiusPx: 220, dir: { x: 0, y: -1 } })
+    expect(v).toMatchObject({ phase: 'aiming', tier: 0, radiusPx: 150, dir: { x: 0, y: -1 } })
     expect(v?.power).toBeCloseTo(0.45)
   })
 })
