@@ -47,7 +47,7 @@ export function App() {
               mapOpen={view.mapOpen}
               minimap={view.minimap}
               flipped={view.flipped}
-              onMap={() => actions().map(!view.mapOpen)}
+              onMap={() => actions().map()}
               onRecenter={() => actions().recenter()}
               onPowerUp={(p) => actions().powerUp(p)}
               onRefund={(n) => actions().refund(n)}

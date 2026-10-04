@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { visual } from '../../config/visual'
 import type { DefenceCircle as DefenceCircleView, Item } from '../../game/view/defenceCircle'
 import type { HudModel } from '../../game/view/hudModel'
-import type { Minimap as MinimapView } from '../../game/view/minimap'
+import type { MinimapView } from '../../game/view/minimap'
 import type { PlayerId, PowerUp } from '../../game/Game'
 import { Button, ButtonRow, FONT } from '../ButtonRow'
 import { DefenceCircle } from './DefenceCircle'
@@ -113,8 +113,8 @@ export function Shell({ hud: m, defence, confirm, mapOpen, minimap, flipped, onM
   const color = visual.player.colors[m.active]
   const live = m.breaker.tappable
   // The power-ups dim to outlines while the Defence circle's column or the map is open over the pitch.
-  const [open, setColumnOpen] = useState(false)
-  const columnOpen = open || mapOpen
+  const [columnOpen, setColumnOpen] = useState(false)
+  const dimmed = columnOpen || mapOpen
   const dim = visual.tokens.dimOutline
   const row: CSSProperties = { ...FONT, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, pointerEvents: 'auto' }
   const auto: CSSProperties = { pointerEvents: 'auto' }
@@ -137,9 +137,9 @@ export function Shell({ hud: m, defence, confirm, mapOpen, minimap, flipped, onM
           const n = m.players[m.active].inventory[p]
           const armed = p === 'breaker' && m.breaker.armed
           return (
-            <Button key={p} spec={{ label: ICONS[p], onClick: () => onPowerUp(p), disabled: p === 'breaker' && !live }} style={{ position: 'relative', width: 44, height: 44, padding: 0, borderRadius: '50%', border: `2px solid ${columnOpen ? dim : color}`, color: columnOpen ? dim : armed ? visual.hud.dark : color, background: armed && !columnOpen ? color : 'none', opacity: n > 0 ? 1 : 0.35 }}>
+            <Button key={p} spec={{ label: ICONS[p], onClick: () => onPowerUp(p), disabled: p === 'breaker' && !live }} style={{ position: 'relative', width: 44, height: 44, padding: 0, borderRadius: '50%', border: `2px solid ${dimmed ? dim : color}`, color: dimmed ? dim : armed ? visual.hud.dark : color, background: armed && !dimmed ? color : 'none', opacity: n > 0 ? 1 : 0.35 }}>
               {ICONS[p]}
-              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: columnOpen ? dim : color, color: visual.hud.dark, fontSize: 12 }}>{n}</span>
+              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: dimmed ? dim : color, color: visual.hud.dark, fontSize: 12 }}>{n}</span>
             </Button>
           )
         })}

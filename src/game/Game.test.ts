@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { rules } from '../config/rules'
 import { visual } from '../config/visual'
 import { defaultSettings } from '../sim/settings'
 import { LocalDriver, type Driver } from './driver'
@@ -168,12 +169,15 @@ describe('Game', () => {
     const game = make(onView)
     const t = performance.now()
     frame(t)
-    const before = onView.mock.lastCall![0].minimap.frame
     // The opening turn card holds the camera on the ball.
     game.actions.dismiss()
     frame(t + 5000)
-    game.camera.pan(20)
+    // Start held at mid-pitch, clear of both clamps wherever the follow had settled, so the pan below always moves the view.
+    game.camera.pan(rules.pitchHeight / 2 - game.camera.y)
     frame(t + 5016)
+    const before = onView.mock.lastCall![0].minimap.frame
+    game.camera.pan(10)
+    frame(t + 5032)
     const after = onView.mock.lastCall![0].minimap.frame
     expect(after.top).toBeGreaterThan(before.top)
     expect(after.height).toBe(before.height)

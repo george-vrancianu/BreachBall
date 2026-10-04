@@ -20,7 +20,7 @@ import { reducedMotion, tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
 import { defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
-import { minimapOf, type Minimap } from './view/minimap'
+import { minimapOf, type MinimapView } from './view/minimap'
 import { phaseButtons } from './view/phaseButtons'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
 
@@ -40,7 +40,7 @@ export type HudView = {
   confirm: boolean
   mapOpen: boolean
   /** The minimap chip's thumbnail: where the main camera looks, live. */
-  minimap: Minimap
+  minimap: MinimapView
   winner?: PlayerId
   /** The end screen's result line. */
   result: string
@@ -303,9 +303,7 @@ export class Game implements Sink {
       ctx.setLineDash([])
       ctx.lineWidth = mapBracket.linePx * this.dpr
       const arm = mapBracket.armPx * this.dpr
-      ctx.beginPath()
-      for (const [x, dx] of [[o.x, 1], [o.x + o.w, -1]] as const) for (const [y, dy] of [[o.y, 1], [o.y + o.h, -1]] as const) (ctx.moveTo(x + dx * arm, y), ctx.lineTo(x, y), ctx.lineTo(x, y + dy * arm))
-      ctx.stroke()
+      strokeBrackets(ctx, o, arm)
     }
   }
 
@@ -333,4 +331,17 @@ export class Game implements Sink {
     this.lastView = key
     this.onView?.(view)
   }
+}
+
+/** Solid corner brackets on the rectangle `o`, each corner's two arms `arm` long. */
+function strokeBrackets(ctx: CanvasRenderingContext2D, o: { x: number; y: number; w: number; h: number }, arm: number): void {
+  ctx.beginPath()
+  for (const [x, dx] of [[o.x, 1], [o.x + o.w, -1]] as const) {
+    for (const [y, dy] of [[o.y, 1], [o.y + o.h, -1]] as const) {
+      ctx.moveTo(x + dx * arm, y)
+      ctx.lineTo(x, y)
+      ctx.lineTo(x, y + dy * arm)
+    }
+  }
+  ctx.stroke()
 }
