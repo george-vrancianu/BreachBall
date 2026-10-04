@@ -3,7 +3,8 @@ import { bullseyeEntered, chargeAt, goalCrossed, kickoffSpot, type BoostZone, ty
 import type { GameModeName, Match } from './match'
 import { modeFor, modeNamed, type DefenceChoice, type ModeContext } from './mode'
 import { initialPlayers, type Player, type PowerUp } from './player'
-import { rollBall, type Ball } from './ball'
+import { type Ball } from './ball'
+import { initialPallets, rollWithPallets, type Pallet, type PalletSpot } from './pallet'
 import { canPlaceBall, centreRestart, handOver, opponent, resolveRest, type Possession } from './possession'
 import { splashDamage, splashOf } from './splash'
 import { damageSegment, isLegal, newStructure, segmentCount, structureCost, wallCost, wallUnits, type Structure, type Tower, type Wall, type TowerPower, type StructureSpec, type Vertex } from './wall'
@@ -109,6 +110,8 @@ export type SimEvent =
   | { type: 'ball-hit-wall'; wall: number; speed: number; at: Point }
   /** The ball bounced off a board or net. */
   | { type: 'ball-hit-board'; speed: number; at: Point }
+  /** A Pallet's arm struck the ball, which left at `speed` (once per Pallet per tick). */
+  | { type: 'pallet-hit'; pallet: number; speed: number; at: Point }
   /** An illegal placement or demolition was dropped. */
   | { type: 'refused' }
   /** `from` is the ball's position at launch. */
@@ -162,6 +165,8 @@ export type SimState = {
   /** The shot in flight is a Breaker shot that has not broken anything yet. */
   breaker: boolean
   subterfuge: SubterfugeState
+  /** The map's Pallets: neutral, never in `objects`; they spin every tick but only touch the ball while a shot is live. */
+  pallets: Pallet[]
 }
 
 /** An aim: `dir` is a world-space unit vector (the way the ball goes), `tier` an index into `rules.shot.tiers`, `power` 0-1 of maxSpeed. */
@@ -219,6 +224,8 @@ export type SimConfig = {
   buildTime: number
   /** What an expiring shot clock does: 'shoot' shoots the held aim (burning if there is none), 'burn' always burns the shot. */
   expiry: 'shoot' | 'burn'
+  /** Pivots of the map's Pallets; none by default. */
+  pallets: PalletSpot[]
 }
 
 export const defaultConfig: SimConfig = {
@@ -241,6 +248,7 @@ export const defaultConfig: SimConfig = {
   shotClock: 15,
   buildTime: 0,
   expiry: 'shoot',
+  pallets: [],
 }
 
 export function initialState(seed = 1, config: SimConfig = defaultConfig): SimState {
@@ -250,7 +258,7 @@ export function initialState(seed = 1, config: SimConfig = defaultConfig): SimSt
   // The first builder's turn opens here, so it gets its grant as every later build turn does in step; the other player holds nothing yet.
   const none = { 1: 0, 2: 0 }
   const credits = { ...none, ...(b && { [b]: mode.onBuildStart(start.match, ctxOf([], start.possession, start.possession.shooter, none), config).credits }) }
-  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: kickoffSpot(start.possession.shooter), vel: { x: 0, y: 0 }, rolled: 0 }, charge: null, bullseyePaid: false, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false } }
+  return { tick: 0, objects: [], players: initialPlayers(), credits, nextId: 1, built: [], ball: { pos: kickoffSpot(start.possession.shooter), vel: { x: 0, y: 0 }, rolled: 0 }, charge: null, bullseyePaid: false, possession: start.possession, match: start.match, clock: { left: (config.buildTime || config.shotClock) * config.tickHz, expiries: 0 }, breaker: false, subterfuge: { queued: { 1: null, 2: null }, spent: false }, pallets: initialPallets(config.pallets, seed) }
 }
 
 const spend = (players: SimState['players'], id: PlayerId, power: PowerUp, n = 1): SimState['players'] => ({ ...players, [id]: { ...players[id], inventory: { ...players[id].inventory, [power]: players[id].inventory[power] - n } } })
@@ -445,7 +453,7 @@ export function step(
       events.push(...r.events)
     } else if (input.done) events.push({ type: 'refused' })
   }
-  const rolled = rollBall(ball, objects, config, breaker, possession.shooter)
+  const rolled = rollWithPallets(ball, objects, state.pallets, config, { live: possession.live, breaker, shooter: possession.shooter })
   events.push(...rolled.events)
   // Entering the Bullseye from outside pays the shooter once per shot, however the shot ends; the swept segment keeps a fast ball from skipping it.
   // The straight start-to-end segment is exact: walls and towers sit more than `centreZoneRadius` from the centre and a ball moves at most `maxSpeed * charge.factor / tickHz` per tick, so no bounce can happen near the Bullseye within one tick.
@@ -519,5 +527,5 @@ export function step(
   if (expired || fired || ended || (chose && !match.builder) || (state.possession.live && !possession.live) || possession.shooter !== state.possession.shooter) clock = { ...clock, left: config.shotClock * config.tickHz }
   // A goal opens the choice: its window is the build window, set after the resets above.
   if (match.choosing && !state.match.choosing && config.buildTime) clock = { left: config.buildTime * config.tickHz, expiries: 0 }
-  return { state: { ...state, possession, match, clock, tick: state.tick + 1, charge, bullseyePaid, players, subterfuge, breaker: rolled.breaker && possession.live, objects: rolled.objects, credits, nextId, built, ball: landed }, events }
+  return { state: { ...state, possession, match, clock, tick: state.tick + 1, charge, bullseyePaid, players, subterfuge, breaker: rolled.breaker && possession.live, objects: rolled.objects, pallets: rolled.pallets, credits, nextId, built, ball: landed }, events }
 }

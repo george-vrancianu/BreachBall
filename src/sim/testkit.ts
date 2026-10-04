@@ -1,5 +1,5 @@
 import { rules } from '../config/rules'
-import { defaultConfig, initialState, step, type SimState } from './step'
+import { defaultConfig, initialState, step, type SimConfig, type SimState } from './step'
 import type { RoundsMatch } from './match'
 import { sliderDefault } from './settings'
 import type { PlayerId, Point } from './pitch'
@@ -7,8 +7,8 @@ import type { PowerUp } from './player'
 import type { Structure, StructureSpec } from './wall'
 
 /** A fresh state already in the play phase (build turns are skipped), both players holding one round's Credits. */
-export const playState = (seed = 1): SimState => {
-  const s = initialState(seed)
+export const playState = (seed = 1, config: SimConfig = defaultConfig): SimState => {
+  const s = initialState(seed, config)
   return { ...s, match: { ...s.match, builder: null }, credits: { 1: defaultConfig.credits, 2: defaultConfig.credits } }
 }
 

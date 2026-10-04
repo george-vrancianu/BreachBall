@@ -46,6 +46,16 @@ const base = {
   jamCost: 2,
   /** Where a timed-out blind opening build drops its 1-unit horizontal wall for P1: `gap` is the distance in world units from the goal no-build zone to its line; P2's mirrors across the halfway line. */
   fallbackPiece: { gap: 1 },
+  /**
+   * A Pallet (ADR-0009). `ringRadius` is its Activation ring and `length` the arm's reach from the pivot, in world units; the arm tapers from `rootRadius` to `tipRadius`.
+   * `swingSpeed` and `aimRate` (the fast re-aim while tracking) and `idleSpin` are rad/s; `swingArc` is the swing's width in degrees.
+   * `restitution` is the bounce off the arm; `cooldownTicks` is the pause after a swing; `substeps` splits a tick near a Pallet.
+   * `sweetSpot` is where on the reach (a fraction) it plans to meet the ball; `trackSlack` is how far past the ring (world units) it keeps tracking.
+   * `hitSpeed` is the relative normal speed (units/s, arm included) above which a contact is a swat (the prototype's 120 px/s at a 9 px ball, scaled to a 1-unit ball); slower is a plain bounce.
+   * A swat's exit speed is clamped to `exitSpeed` times maxSpeed.
+   * `ringRadius >= length + tipRadius + 2 * ballRadius` must hold: the ring is the no-build zone, so a ball pinned between the arm and a wall at its edge must not crush it.
+   */
+  pallet: { ringRadius: 5, length: 2.5, rootRadius: 0.5, tipRadius: 0.25, swingSpeed: 18, swingArc: 140, idleSpin: 0.8, aimRate: 30, restitution: 0.85, cooldownTicks: 7, substeps: 10, sweetSpot: 0.72, trackSlack: 1, hitSpeed: 13, exitSpeed: [1, 2] },
   /** Splash radius is `radiusBase * ballRadius * (1 + radiusGrowth * power)`; pressure above `heavy` / `light` costs more hp. */
   splash: { radiusBase: 2, radiusGrowth: 4, heavy: 0.8, light: 0.4 },
 } as const
