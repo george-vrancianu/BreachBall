@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig as c, step, type SimState } from '../../sim/step'
 import { buildState, funded, hseg, siegeBuild } from '../../sim/testkit'
-import { kickoffSpot } from '../../sim/pitch'
-import { distToSegment, isLegal, wallSegments, structureCost } from '../../sim/wall'
+import { kickoffSpot, type Point } from '../../sim/pitch'
+import { distToSegment, isLegal, wallSegments, structureCost, type TowerPower } from '../../sim/wall'
 import { sliderDefault } from '../../sim/settings'
 import { rules } from '../../config/rules'
 import { piecesFor, planStrategy, STRATEGIES, strategyCards, type StrategyPiece } from './strategies'
-import type { TowerPower } from '../../sim/wall'
-import type { Point } from '../../sim/pitch'
 
 const apply = (s: SimState, inputs: ReturnType<typeof planStrategy>['inputs']) => inputs.reduce((st, i) => step(st, i, { ...c, buildTime: 0 }).state, s)
 
@@ -147,7 +145,7 @@ describe('Strategies', () => {
     }
   })
 
-  // The shapes issue #123 names for each Strategy, pinned where the layout is easy to get wrong.
+  // The shapes the issue names for each Strategy, pinned where the layout is easy to get wrong.
   const byId = (id: string) => STRATEGIES.find((st) => st.id === id)!
   const wallsOf = (pieces: readonly StrategyPiece[]) => pieces.filter((p): p is Extract<StrategyPiece, { kind: 'wall' }> => p.kind === 'wall')
   const towersOf = (pieces: readonly StrategyPiece[], power: TowerPower) => pieces.filter((p): p is Extract<StrategyPiece, { kind: 'tower' }> => p.kind === 'tower' && p.power === power)
@@ -169,7 +167,7 @@ describe('Strategies', () => {
     }
   })
 
-  it('Bastion\'s core is "a box with chamfered corners just outside the goal arc", closed, with a forward screen up the pitch', () => {
+  it('Bastion\'s core is a closed box with chamfered corners just outside the goal no-build zone, with a forward screen up the pitch', () => {
     const st = byId('bastion')
     const box = st.pieces.slice(0, st.core)
     const walls = wallsOf(box)
@@ -182,7 +180,7 @@ describe('Strategies', () => {
     expect([...ends.values()]).toEqual(Array(8).fill(2))
     // Four straight sides and four diagonal (chamfered) corners.
     expect(walls.filter((w) => Math.abs(w.a.x - w.b.x) > 0.01 && Math.abs(w.a.y - w.b.y) > 0.01)).toHaveLength(4)
-    // Just outside the goal arc: its nearest point is within a cell of the goal no-build zone.
+    // Just outside: its nearest point is within a cell of the goal no-build zone.
     const goal = { x: rules.pitchWidth / 2, y: rules.pitchHeight }
     const nearest = Math.min(...walls.map((w) => distToSegment(w, goal)))
     expect(nearest).toBeGreaterThan(rules.noBuildRadius)
@@ -231,7 +229,7 @@ describe('Strategies', () => {
 
   it('in Siege towers come from the stock and walls from wall points', () => {
     const s = siegeBuild(1)
-    const plan = planStrategy(s, 1, STRATEGIES.find((st) => st.id === 'turrets')!, c)
+    const plan = planStrategy(s, 1, byId('turrets'), c)
     expect(plan.placed).toBe(plan.total)
     // Its walls only: 9 units against the 30 default Wall points.
     expect(plan.cost).toBe(9)

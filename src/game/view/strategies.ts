@@ -65,7 +65,7 @@ export const STRATEGIES: readonly Strategy[] = [
       tower('steal', 9, 45), tower('repulsor', 15, 30),
     ],
   },
-  // Wall-heavy. "A box with chamfered corners just outside the goal arc, plus a forward screen" (#123): the closed box, chamfered at all four corners, is the core; the screen is three rows with alternating gaps
+  // Wall-heavy. A box with chamfered corners just outside the goal no-build zone, plus a forward screen: the closed box, chamfered at all four corners, is the core; the screen is three rows with alternating gaps
   // (middle, edges, middle) and short stubs ahead of it, then posts at the goal corners and two Repulsors up front.
   {
     id: 'bastion',
@@ -92,7 +92,7 @@ export const STRATEGIES: readonly Strategy[] = [
       wall(0, 60, 16, 60), wall(24, 60, 40, 60),
     ],
   },
-  // Wall-heavy. Long offset baffles, each leaving one end open and alternating sides, force an S-shaped path before the goal arc (the two goal-side baffles are the core), with a Steal and a Repulsor up front.
+  // Wall-heavy. Long offset baffles, each leaving one end open and alternating sides, force an S-shaped path before the goal no-build zone (the two goal-side baffles are the core), with a Steal and a Repulsor up front.
   {
     id: 'labyrinth',
     name: 'Labyrinth',
@@ -218,7 +218,7 @@ export const STRATEGIES: readonly Strategy[] = [
       wall(4, 64, 12, 64), wall(28, 64, 36, 64), wall(0, 80, 8, 80), wall(32, 80, 40, 80),
     ],
   },
-  // Tower-heavy. "3 Repulsors spread across the forward line, backed by a row of short walls" (#123): the core is two of the Repulsors; four Steals (two in the gaps, two behind them)
+  // Tower-heavy. Three Repulsors spread across the forward line, backed by one row of short walls: the core is two of the Repulsors; four Steals (two in the gaps, two behind them)
   // make up the budget, and one row of four short walls backs them, open in the middle.
   {
     id: 'watchtowers',
