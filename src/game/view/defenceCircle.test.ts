@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { canEdit, defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
 import { buildState, emptied, hseg } from '../../sim/testkit'
+import type { PlayerId } from '../../sim/pitch'
 import type { WallSpec } from '../../sim/wall'
 import { anchorOf, defenceCircle, commit, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapBody, snapStart, towerAt, type BuildActions } from './defenceCircle'
 
-const menuOf = (...a: Parameters<typeof defenceCircle>) => defenceCircle(...a)!
+const hotSeat = () => true
+const menuOf = (s: SimState, viewer: PlayerId, v: Partial<Parameters<typeof defenceCircle>[2]>, a: typeof actions) => defenceCircle(s, viewer, { mine: hotSeat, ...v }, a)!
 const noop = () => {}
 const actions: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'> = { cancel: noop, rotate: noop, remove: noop }
 const wall: WallSpec = { kind: 'wall', owner: 1, ...hseg(10, 40) }
 const placed = (): SimState => step(buildState(1), { placeWall: wall }, c).state
-const labels = (s: SimState, v: Parameters<typeof defenceCircle>[2]) => {
+const labels = (s: SimState, v: Partial<Parameters<typeof defenceCircle>[2]>) => {
   return menuOf(s, 1, v, actions).selection?.buttons.map((b) => b.label)
 }
 
@@ -136,12 +138,17 @@ describe('Defence circle', () => {
     expect(m.items.map((i) => [i.item, i.pressed, i.disabled])).toEqual([['wall', false, false], ['repulsor', true, false], ['steal', false, true], ['cannon', false, true]])
   })
   it('is absent in play, when no build turn is running', () => {
-    expect(defenceCircle(emptied(buildState(1), 1, 'steal'), 1, {}, actions)).toBeDefined()
-    expect(defenceCircle({ ...buildState(1), match: { ...buildState(1).match, builder: null } }, 1, {}, actions)).toBeUndefined()
+    expect(defenceCircle(emptied(buildState(1), 1, 'steal'), 1, { mine: hotSeat }, actions)).toBeDefined()
+    expect(defenceCircle({ ...buildState(1), match: { ...buildState(1).match, builder: null } }, 1, { mine: hotSeat }, actions)).toBeUndefined()
   })
   it('is unavailable to the other player, and while blocked', () => {
     expect(menuOf(buildState(1), 2, {}, actions).available).toBe(false)
     expect(menuOf(buildState(1), 1, { blocked: true }, actions).available).toBe(false)
+  })
+  it('is unavailable, with no selection controls, when this device does not play the builder (online)', () => {
+    const m = menuOf(placed(), 1, { mine: (p) => p === 2, selection: { spec: wall, id: 1, movable: true } }, actions)
+    expect(m.available).toBe(false)
+    expect(m.selection).toBeUndefined()
   })
   it('a new wall gets Rotate and cancel; a new tower only cancel', () => {
     expect(labels(buildState(1), { selection: { spec: wall, movable: true } })).toEqual(['↻', '✕'])

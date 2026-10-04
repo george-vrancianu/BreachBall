@@ -346,7 +346,7 @@ describe('Shell', () => {
       expect(screen.queryByRole('button', { name: 'Steal' })).toBeNull()
     })
 
-    it('closes the open menu when building becomes unavailable', () => {
+    it('closes the open column when building becomes unavailable', () => {
       const { p, r } = setup()
       hold()
       r.rerender(<Shell {...p} defence={model({ available: false })} />)
