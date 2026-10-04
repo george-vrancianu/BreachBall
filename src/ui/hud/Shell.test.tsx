@@ -11,7 +11,7 @@ afterEach(cleanup)
 
 const hud = (over: Partial<HudModel> = {}): HudModel => ({
   players: { 1: { digit: '3', inventory: { breaker: 1, repulsor: 0, steal: 2 } }, 2: { digit: '?', inventory: { breaker: 4, repulsor: 4, steal: 4 } } },
-  active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, phase: 'Play', ...over,
+  active: 1, round: null, rounds: 3, clock: { seconds: 12, fraction: 0.5 }, shotsLeft: 2, shotsMax: 3, refundable: false, score: null, phase: 'Play', ...over,
 })
 const offence = (over: Partial<OffenceCircle> = {}): OffenceCircle => ({ armed: false, available: true, shooter: 1, items: [{ item: 'breaker', label: 'Breaker · 2', disabled: false, pressed: false }, { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true }], ...over })
 const props = () => ({ hud: hud(), offence: offence(), confirm: false, mapOpen: false, flipped: false, onMap: vi.fn(), onRecenter: vi.fn(), onOffenceArm: vi.fn(), onConfirm: vi.fn(), onMapStretch: vi.fn(), onMapClose: vi.fn(), onDefenceToggle: vi.fn(), onDefenceArm: vi.fn(), onRefund: vi.fn() })
@@ -101,6 +101,40 @@ describe('Shell', () => {
     expect(screen.getByText('?')).toBeTruthy()
   })
 
+  describe('shared row', () => {
+    it('reads the round and score over the phase label, and the score digit shows once', () => {
+      render(<Shell {...props()} hud={hud({ round: 3, rounds: 7, score: '2–1', phase: 'Build phase', players: { 1: { digit: '2', inventory: { breaker: 5, repulsor: 6, steal: 7 } }, 2: { digit: '1', inventory: { breaker: 5, repulsor: 6, steal: 7 } } } })} />)
+      expect(screen.getByText('Round 3/7 · 2–1')).toBeTruthy()
+      expect(screen.getByText('Build phase')).toBeTruthy()
+      expect(screen.getAllByText('2')).toHaveLength(1)
+      expect(screen.queryByText('1')).toBeNull()
+    })
+    it('Siege shows the phase label alone', () => {
+      render(<Shell {...props()} hud={hud({ round: null, phase: 'Play phase' })} />)
+      expect(screen.queryByText(/Round/)).toBeNull()
+      expect(screen.getByText('Play phase')).toBeTruthy()
+    })
+    it('holds the phase buttons, the Recenter circle and the Move points', () => {
+      const p = props()
+      const done = vi.fn()
+      render(<Shell {...p} hud={hud({ buttons: [{ label: 'Done', onClick: done }] })} />)
+      const row = screen.getByTestId('shared-row')
+      expect(row.contains(screen.getByText('Done'))).toBe(true)
+      expect(row.contains(screen.getByRole('button', { name: 'Recenter' }))).toBe(true)
+      expect(row.contains(screen.getByText('12'))).toBe(true)
+    })
+    it('moves Siege\'s Repair and Rearrange above the row, which keeps Map and Done', () => {
+      render(<Shell {...props()} hud={hud({ buttons: [{ label: 'Repair', onClick: vi.fn() }, { label: 'Rearrange', onClick: vi.fn() }] })} />)
+      const row = screen.getByTestId('shared-row')
+      expect(row.contains(screen.getByText('Repair'))).toBe(false)
+      expect(row.contains(screen.getByText('Map'))).toBe(true)
+    })
+    it('keeps right padding clear for the minimap chip', () => {
+      render(<Shell {...props()} />)
+      expect(screen.getByTestId('shared-row').style.paddingRight).toBe(`${visual.hud.sharedRow.chipPadPx}px`)
+    })
+  })
+
   it('shows the active viewer the tower power-ups with counts; the Breaker is in the Offence circle', () => {
     render(<Shell {...props()} />)
     expect(screen.getAllByRole('img', { name: /^[RS]\d/ })).toHaveLength(2)
@@ -169,7 +203,7 @@ describe('Shell', () => {
     const repair = vi.fn()
     render(<Shell {...p} hud={hud({ buttons: [{ label: 'Repair', onClick: repair }, { label: 'Rearrange', onClick: () => {} }] })} />)
     fireEvent.click(screen.getByText('Map'))
-    fireEvent.click(screen.getByText('Recenter'))
+    fireEvent.click(screen.getByRole('button', { name: 'Recenter' }))
     fireEvent.click(screen.getByText('Repair'))
     expect(p.onMap).toHaveBeenCalled()
     expect(p.onRecenter).toHaveBeenCalled()
@@ -444,7 +478,7 @@ describe('Shell', () => {
     const { container } = render(<Shell {...props()} hud={hud({ buttons })} defence={{ building: false, items: [], available: true }} confirm mapOpen><i>extra</i></Shell>)
     const shell = container.firstElementChild as HTMLElement
     expect(shell.style.pointerEvents).toBe('none')
-    expect(shell.children.length).toBe(7)
+    expect(shell.children.length).toBe(6)
     expect([...shell.children].every((c) => (c as HTMLElement).style.pointerEvents === 'auto')).toBe(true)
   })
 
