@@ -371,6 +371,14 @@ describe('Siege defence turn: Rearrange', () => {
     }
   })
 
+  it('refuses any change of length when moving a wall, and accepts the same length', () => {
+    const s = rearranging()
+    const longer = step(s, { moveStructure: { player: 1, id: 1, ...hseg(2, 40, 2) } }, siege)
+    expect(longer.events).toContainEqual({ type: 'refused' })
+    expect(longer.state.objects).toEqual(s.objects)
+    expect(step(s, move(1, 6, 40), siege).events).toEqual([])
+  })
+
   it('refuses placement and demolish', () => {
     const s = rearranging()
     const place = step(s, { placeWall: { kind: 'wall', owner: 1, ...hseg(25, 45) } }, siege)

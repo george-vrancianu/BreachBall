@@ -6,7 +6,7 @@ import { initialPlayers, type Player, type PowerUp } from './player'
 import { rollBall, type Ball } from './ball'
 import { canPlaceBall, handOver, opponent, resolveRest, type Possession } from './possession'
 import { splashDamage, splashOf } from './splash'
-import { damageWall, isLegal, maxHp, structureCost, type Structure, type Tower, type StructureSpec, type Vertex } from './wall'
+import { damageWall, isLegal, maxHp, structureCost, wallCost, type Structure, type Tower, type StructureSpec, type Vertex } from './wall'
 
 const ctxOf = (objects: readonly Structure[], possession: Possession, shooter: PlayerId, credits: Record<PlayerId, number>): ModeContext => ({ objects, possession, shooter, credits })
 
@@ -187,8 +187,14 @@ export function step(
     const it = objects.find((o) => o.id === move.id)
     const others = objects.filter((o) => o.id !== move.id)
     const moved = it && (it.kind === 'wall' ? ('a' in move ? { ...it, a: move.a, b: move.b } : undefined) : 'at' in move ? { ...it, at: move.at } : undefined)
-    if (moved && move.player === match.builder && it.owner === move.player && built.includes(move.id) && isLegal(moved, others)) objects = objects.map((o) => (o.id === move.id ? moved : o))
-    else events.push({ type: 'refused' })
+    // A wall's length may change by its ends: the Credit difference is charged (or refunded), and a Rearrange turn refuses any change.
+    const diff = moved && it.kind === 'wall' && moved.kind === 'wall' ? wallCost(moved) - wallCost(it) : 0
+    const owner = it?.owner
+    const affordable = diff === 0 || (edit && owner !== undefined && credits[owner] >= diff)
+    if (moved && move.player === match.builder && it.owner === move.player && built.includes(move.id) && affordable && isLegal(moved, others)) {
+      objects = objects.map((o) => (o.id === move.id ? moved : o))
+      if (diff !== 0) credits = { ...credits, [it.owner]: credits[it.owner] - diff }
+    } else events.push({ type: 'refused' })
   }
   if (demolish) {
     const it = objects.find((w) => w.id === demolish.wall)

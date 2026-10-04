@@ -119,6 +119,34 @@ describe('moving and refunding this turn\'s items', () => {
     const s = run(buildState(1), { placeWall: wall(1) })
     expect(step(s, { moveStructure: { player: 1, id: 1, ...hseg(11, 40) } }, c).events).toEqual([])
   })
+  describe('changing a wall\'s length by its ends', () => {
+    const withCredits = (n: number) => {
+      const s = run({ ...buildState(1), credits: { 1: 10, 2: 10 } }, { placeWall: wall(1) })
+      return { ...s, credits: { ...s.credits, 1: n === 10 ? s.credits[1] : n } }
+    }
+    const longer = { player: 1 as const, id: 1, ...hseg(10, 40, 2) }
+    it('charges the difference for a longer wall, and demolishing then refunds everything paid', () => {
+      const s = withCredits(10)
+      expect(s.credits[1]).toBe(8)
+      const r = step(s, { moveStructure: longer }, c)
+      expect(r.events).toEqual([])
+      expect(r.state.credits[1]).toBe(6)
+      expect(step(r.state, { demolish: { player: 1, wall: 1 } }, c).state.credits[1]).toBe(10)
+    })
+    it('refuses a longer wall the builder cannot afford, changing nothing', () => {
+      const s = withCredits(1)
+      const r = step(s, { moveStructure: longer }, c)
+      expect(r.events).toEqual([{ type: 'refused' }])
+      expect(r.state.objects).toEqual(s.objects)
+      expect(r.state.credits).toEqual(s.credits)
+    })
+    it('refunds the difference for a shorter wall', () => {
+      let s = run({ ...buildState(1), credits: { 1: 10, 2: 10 } }, { placeWall: wall(1, 2) })
+      expect(s.credits[1]).toBe(6)
+      s = step(s, { moveStructure: { player: 1, id: 1, ...hseg(10, 40, 1) } }, c).state
+      expect(s.credits[1]).toBe(8)
+    })
+  })
   it('refuses moving an older item, another player\'s item, or to an illegal spot', () => {
     const s = run(buildState(1), { placeWall: wall(1) })
     const older = { ...s, built: [] }
