@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
-import { buildState, hseg } from '../../sim/testkit'
+import { buildState, emptied, hseg } from '../../sim/testkit'
 import type { WallSpec } from '../../sim/wall'
 import { anchorOf, buildMenu, commit, landed, movedTo, edgeScrollDy, legal, pick, rotated, snapStart, towerAt, type BuildActions } from './buildMenu'
 
@@ -50,6 +50,11 @@ describe('pick', () => {
 })
 
 describe('selection', () => {
+  it('a new tower is illegal with no stock', () => {
+    const sel = { spec: towerAt('steal', 1, { x: 20, y: 80 }), movable: true }
+    expect(legal(buildState(1), sel)).toBe(true)
+    expect(legal(emptied(buildState(1), 1, 'steal'), sel)).toBe(false)
+  })
   it('moving is free; a new piece must be affordable', () => {
     const s = { ...placed(), credits: { 1: 0, 2: 0 } }
     const spec = { ...wall, ...hseg(4, 40) }

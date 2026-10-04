@@ -5,7 +5,7 @@ import { canArm, canPlaceBall } from '../../sim/possession'
 import { canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
 import { snapWallEnd } from '../../sim/wall'
 import { screenDown, type Camera } from '../entities/Camera'
-import { anchorOf, commit, edgeScrollDy, landedAs, legal, movedTo, onPiece, pick, rotated, snapStart, towerAt, type BuildActions, type Item, type Selection } from '../view/buildMenu'
+import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapStart, towerAt, type BuildActions, type Item, type Selection } from '../view/buildMenu'
 import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, type AimGesture, type GestureView } from './gesture'
 
 /** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
@@ -35,6 +35,8 @@ export class InputController {
   selection?: Selection
   /** A committed selection stays drawn until the sim has it (online it runs a few ticks later) or refuses it. */
   landing?: Selection
+  // Ticks the landing has been in flight, so a dropped input cannot block the turn for good.
+  private landingTicks = 0
   /** The Defence item armed for drawing: set while in build mode (Rounds, Siege opening), never in a Rearrange turn. */
   item?: Item
   /** Ball-in-hand: where the shooter has put the ball, before Confirm. */
@@ -62,13 +64,13 @@ export class InputController {
   constructor(private host: InputHost) {
     const { canvas } = host
     const on = (target: EventTarget, type: string, fn: (e: never) => void, passive?: boolean) => target.addEventListener(type, fn as EventListener, { signal: this.stop.signal, passive })
-    // Desktop keys: M map, Space recenter, R rotate, Enter confirm, Esc close the map or cancel the selection.
+    // Desktop keys: M map, Space recenter, R rotate, Enter confirm, Esc close the map, else drop the selection, else leave building.
     on(globalThis as unknown as EventTarget, 'keydown', (e: KeyboardEvent) => this.key(e))
     on(canvas, 'wheel', (e: WheelEvent) => (e.preventDefault(), this.panBy(-e.deltaY)), false)
     on(canvas, 'pointermove', (e: PointerEvent) => this.move(e))
     on(canvas, 'pointerup', (e: PointerEvent) => this.up(e))
-    // A cancelled pointer (the browser took the gesture) ends like a release.
-    on(canvas, 'pointercancel', (e: PointerEvent) => this.up(e))
+    // A cancelled pointer (the browser took the gesture) aborts: it never places.
+    on(canvas, 'pointercancel', (e: PointerEvent) => this.cancel(e))
     on(canvas, 'pointerdown', (e: PointerEvent) => this.down(e))
   }
 
@@ -103,10 +105,13 @@ export class InputController {
       else if (canEdit(this.host.state())) this.item = 'wall'
     },
     arm: (item: Item) => {
-      if (this.item) this.item = item
+      const s = this.host.state()
+      const builder = s.match.builder
+      if (this.item && !(builder && itemDisabled(s, builder, item))) this.item = item
     },
     rotate: () => {
-      if (!this.selection?.movable) return
+      // Mid-gesture the piece is still the finger's: rotating would place a second one.
+      if (this.draw || this.drag || !this.selection?.movable) return
       this.selection = rotated(this.selection)
       this.place()
     },
@@ -127,7 +132,7 @@ export class InputController {
   private place(): void {
     const { selection } = this
     const input = !this.landing && selection && legal(this.host.state(), selection) && commit(selection)
-    if (input) (this.host.send(input), (this.landing = selection), (this.selection = undefined))
+    if (input) (this.host.send(input), (this.landing = selection), (this.landingTicks = 0), (this.selection = undefined))
   }
 
   /** The aim to draw, while pressing on the ball or dragging back from it. */
@@ -168,12 +173,17 @@ export class InputController {
   settle(state: SimState, refused: boolean): void {
     if (!canArm(state, state.possession.shooter)) this.armed = false
     if (!state.possession.inHand || state.match.choosing) this.placement = undefined
-    if (this.landing && (landedAs(state, this.landing) || refused)) {
+    if (this.landing && (landedAs(state, this.landing) || refused || ++this.landingTicks >= visual.input.landingTimeoutTicks)) {
       // What the sim took becomes the selection (unless the builder has already moved on to something else).
       const taken = landedAs(state, this.landing)
       this.landing = undefined
       if (taken && !this.selection && !this.draw && !this.drag) this.selection = taken
+      // A piece lifted while the landing was in flight could not be sent then: send it now.
+      else if (this.selection?.id === undefined && !this.draw && !this.drag) this.place()
     }
+    // The last of an armed tower's stock is down: fall back to the wall.
+    const builder = state.match.builder
+    if (this.item && this.item !== 'wall' && builder && state.players[builder].inventory[this.item] <= 0) this.item = 'wall'
     // The shot clock fired the held aim: the gesture is spent.
     if (this.aim && state.possession.live) this.dropAim()
   }
@@ -237,9 +247,15 @@ export class InputController {
     const key = e.key.toLowerCase()
     if (e.code === 'Space') (e.preventDefault(), this.host.camera.recenter())
     if (key === 'm') this.host.toggleMap()
-    else if (key === 'escape') this.host.mapOpen() ? this.host.toggleMap(false) : this.selection ? (this.selection = undefined) : ((this.placement = undefined), this.leaveBuild())
+    else if (key === 'escape') this.host.mapOpen() ? this.host.toggleMap(false) : this.draw || this.drag ? this.abortGesture() : this.selection ? (this.selection = undefined) : ((this.placement = undefined), this.leaveBuild())
     else if (key === 'r') this.build.rotate()
     else if (key === 'enter' && !this.host.state().match.builder) this.confirmBall()
+  }
+
+  /** Stops a live draw or drag without placing: an unplaced piece goes, a placed structure stays selected as it is. */
+  private abortGesture(): void {
+    if (this.draw || this.drag?.fresh || this.selection?.id === undefined) this.selection = undefined
+    this.draw = this.drag = undefined
   }
 
   private move(e: PointerEvent): void {
@@ -259,6 +275,15 @@ export class InputController {
     }
   }
 
+  /** The browser took the pointer: whatever it was drawing or dragging is abandoned, never placed. */
+  private cancel(e: PointerEvent): void {
+    if (this.draw?.id === e.pointerId || this.drag?.id === e.pointerId) this.abortGesture()
+    this.draggingBall = false
+    this.tap = undefined
+    this.release(e)
+    if (this.aim?.id === e.pointerId) this.dropAim()
+  }
+
   private up(e: PointerEvent): void {
     this.draggingBall = false
     if (this.drag?.id === e.pointerId) {
@@ -273,8 +298,7 @@ export class InputController {
     }
     if (this.tap && Math.hypot(e.clientX - this.tap.x, e.clientY - this.tap.y) <= visual.input.tapSlopPx) this.placement = this.pxToWorld(e.offsetX, e.offsetY)
     this.tap = undefined
-    this.pointers.delete(e.pointerId)
-    this.panOnly = false
+    this.release(e)
     if (this.aim?.id !== e.pointerId) return
     const { gesture, player } = this.aim
     const result = aimRelease(aimMove(gesture, { x: e.offsetX, y: e.offsetY }, performance.now()))
@@ -289,7 +313,14 @@ export class InputController {
     }
   }
 
+  /** The pointer is gone: forget it, and a cancelled aim goes without a shot. */
+  private release(e: PointerEvent): void {
+    this.pointers.delete(e.pointerId)
+    this.panOnly = false
+  }
+
   private down(e: PointerEvent): void {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
     const { canvas, camera, mapCam } = this.host
     // The Map and Close buttons still work; everything else is ignored behind a blocking hold, so a tap there cannot carry into the next player's turn.
     if (this.host.blocked() && !this.host.mapOpen()) return

@@ -3,7 +3,7 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
 import { defaultConfig as c, initialState, step, type SimInput, type SimState } from '../../sim/step'
-import { buildState, hseg } from '../../sim/testkit'
+import { buildState, emptied, hseg } from '../../sim/testkit'
 import type { Structure } from '../../sim/wall'
 import { Camera } from '../entities/Camera'
 import { InputController } from './InputController'
@@ -23,6 +23,7 @@ let state: SimState
 let sent: SimInput[]
 let pending: SimInput[]
 let ctl: InputController
+let keydown: (e: unknown) => void
 
 const make = (s: SimState) => {
   state = s
@@ -45,7 +46,8 @@ const make = (s: SimState) => {
   })
 }
 beforeEach(() => {
-  vi.stubGlobal('addEventListener', () => {})
+  keydown = () => {}
+  vi.stubGlobal('addEventListener', (type: string, fn: (e: unknown) => void) => void (type === 'keydown' && (keydown = fn)))
   make(buildState(1))
 })
 
@@ -55,18 +57,73 @@ const tick = () => {
   ctl.settle(state, false)
 }
 const px = (p: Point) => camera.toCanvas(canvas as unknown as HTMLCanvasElement, p)
-const fire = (type: string, p: Point, id = 1) => {
+const fire = (type: string, p: Point, id = 1, extra: object = {}) => {
   const at = px(p)
-  canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: at.x, offsetY: at.y, clientX: at.x, clientY: at.y, pointerId: id }))
+  canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: at.x, offsetY: at.y, clientX: at.x, clientY: at.y, pointerId: id, ...extra }))
 }
 const down = (p: Point, id = 1) => fire('pointerdown', p, id)
 const move = (p: Point, id = 1) => fire('pointermove', p, id)
 const up = (p: Point, id = 1) => fire('pointerup', p, id)
 const drag = (from: Point, to: Point) => (down(from), move(to), up(to))
+const cancel = (p: Point, id = 1) => fire('pointercancel', p, id)
+const key = (k: string) => keydown({ key: k, code: k })
 const unit = rules.wall.unit
 
 describe('drawing a wall', () => {
   beforeEach(() => ctl.build.toggle())
+
+  it('a cancelled pointer aborts the draw and never places', () => {
+    down({ x: 10, y: 80 })
+    move({ x: 10 + unit, y: 80 })
+    expect(ctl.selection).toBeDefined()
+    cancel({ x: 10 + unit, y: 80 })
+    expect(sent).toEqual([])
+    expect(ctl.selection).toBeUndefined()
+  })
+
+  it('rotate during a live draw does not place a second piece', () => {
+    down({ x: 10, y: 80 })
+    move({ x: 10 + unit, y: 80 })
+    ctl.build.rotate()
+    move({ x: 10 + 2 * unit, y: 80 })
+    up({ x: 10 + 2 * unit, y: 80 })
+    expect(sent).toEqual([{ placeWall: { kind: 'wall', owner: 1, a: { x: 10, y: 80 }, b: { x: 10 + 2 * unit, y: 80 } } }])
+    expect(ctl.selection).toBeUndefined()
+  })
+
+  it('Esc during a draw stops it', () => {
+    down({ x: 10, y: 80 })
+    move({ x: 10 + unit, y: 80 })
+    key('Escape')
+    move({ x: 10 + 2 * unit, y: 80 })
+    up({ x: 10 + 2 * unit, y: 80 })
+    expect(sent).toEqual([])
+    expect(ctl.selection).toBeUndefined()
+  })
+
+  it('ignores a non-primary mouse button', () => {
+    fire('pointerdown', { x: 10, y: 80 }, 1, { pointerType: 'mouse', button: 2 })
+    move({ x: 10 + unit, y: 80 })
+    up({ x: 10 + unit, y: 80 })
+    expect(sent).toEqual([])
+    expect(ctl.selection).toBeUndefined()
+  })
+
+  it('a lift while the last one is still landing commits when it settles', () => {
+    drag({ x: 10, y: 80 }, { x: 10 + unit, y: 80 })
+    drag({ x: 10, y: 90 }, { x: 10 + unit, y: 90 })
+    expect(sent).toHaveLength(1)
+    tick()
+    expect(sent).toHaveLength(2)
+    expect(sent[1]).toEqual({ placeWall: { kind: 'wall', owner: 1, a: { x: 10, y: 90 }, b: { x: 10 + unit, y: 90 } } })
+  })
+
+  it('a landing the sim never reports is dropped after the timeout', () => {
+    drag({ x: 10, y: 80 }, { x: 10 + unit, y: 80 })
+    pending.length = 0
+    for (let i = 0; i < visual.input.landingTimeoutTicks; i++) ctl.settle(state, false)
+    expect(ctl.landing).toBeUndefined()
+  })
 
   it('arms the wall on entering build mode', () => {
     expect(ctl.item).toBe('wall')
@@ -222,6 +279,37 @@ describe('towers', () => {
   })
 })
 
+describe('tower stock', () => {
+  it('arm ignores a tower with no stock', () => {
+    make(emptied(buildState(1), 1, 'steal'))
+    ctl.build.toggle()
+    ctl.build.arm('steal')
+    expect(ctl.item).toBe('wall')
+  })
+
+  it('placing the last one re-arms the wall on settle', () => {
+    const s = buildState(1)
+    make({ ...s, players: { ...s.players, 1: { ...s.players[1], inventory: { ...s.players[1].inventory, steal: 1 } } } })
+    ctl.build.toggle()
+    ctl.build.arm('steal')
+    expect(ctl.item).toBe('steal')
+    down({ x: 20.4, y: 80.3 })
+    up({ x: 20.4, y: 80.3 })
+    expect(sent).toHaveLength(1)
+    tick()
+    expect(ctl.item).toBe('wall')
+  })
+
+  it('a cancelled tower press leaves nothing', () => {
+    ctl.build.toggle()
+    ctl.build.arm('steal')
+    down({ x: 20.4, y: 80.3 })
+    cancel({ x: 20.4, y: 80.3 })
+    expect(sent).toEqual([])
+    expect(ctl.selection).toBeUndefined()
+  })
+})
+
 describe('rearrange turn', () => {
   const siege = { ...c, mode: 'siege' as const }
   const base = initialState(1, siege)
@@ -238,6 +326,13 @@ describe('rearrange turn', () => {
   it('selects an own structure, translates it and commits a move on lift', () => {
     drag({ x: 24, y: 80 }, { x: 24, y: 70 })
     expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 20, y: 70 }, b: { x: 28, y: 70 } } }])
+  })
+
+  it('a cancelled drag sends no move', () => {
+    down({ x: 24, y: 80 })
+    move({ x: 24, y: 70 })
+    cancel({ x: 24, y: 70 })
+    expect(sent).toEqual([])
   })
 
   it('pans on empty pitch', () => {

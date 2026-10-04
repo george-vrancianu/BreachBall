@@ -56,6 +56,8 @@ export const movedTo = (spec: StructureSpec, to: Point): StructureSpec =>
 /** Legal where it stands (ignoring itself when moved) and, for a new piece, affordable. */
 export function legal(s: SimState, sel: Selection): boolean {
   const others = s.objects.filter((o) => o.id !== sel.id)
+  // A new tower spends stock the sim would refuse when there is none.
+  if (sel.id === undefined && sel.spec.kind === 'tower' && s.players[sel.spec.owner].inventory[sel.spec.power] <= 0) return false
   return isLegal(sel.spec, others) && (sel.id !== undefined || s.credits[sel.spec.owner] >= structureCost(sel.spec))
 }
 
@@ -94,6 +96,11 @@ export type BuildMenu = { kind: 'menu'; open: boolean; /** The armed item while 
 
 export type BuildActions = { toggle(): void; arm(item: Item): void; cancel(): void; rotate(): void; remove(): void }
 
+/** Whether the palette entry for `item` is greyed out: no Credits for a unit of wall, no stock of the tower. */
+export const itemDisabled = (s: SimState, b: PlayerId, item: Item): boolean => (item === 'wall' ? s.credits[b] < oneUnitCost() : s.players[b].inventory[item] < 1)
+
+const oneUnitCost = () => wallCost({ a: { x: 0, y: 0 }, b: { x: rules.wall.unit * Math.min(...rules.wall.units), y: 0 } })
+
 const POWER_LABEL: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: 'Steal' }
 
 export function buildMenu(s: SimState, b: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection }, a: BuildActions): BuildMenu | undefined {
@@ -102,16 +109,14 @@ export function buildMenu(s: SimState, b: PlayerId, v: { /** The armed item; und
   const edit = canEdit(s)
   if (!sel && !edit) return undefined
   if (!sel) {
-    const credits = s.credits[b]
     // The price on the item is one unit's; a longer wall is drawn and costed live.
-    const oneUnit = wallCost({ a: { x: 0, y: 0 }, b: { x: rules.wall.unit * Math.min(...rules.wall.units), y: 0 } })
     return {
       kind: 'menu',
       open: v.item !== undefined,
       item: v.item,
       items: [
-        { label: `Wall · ${rules.wall.unitCost}/unit`, disabled: credits < oneUnit, pressed: v.item === 'wall', onClick: () => a.arm('wall') },
-        ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => ({ label: `${POWER_LABEL[power]} ×${s.players[b].inventory[power]}`, disabled: s.players[b].inventory[power] < 1, pressed: v.item === power, onClick: () => a.arm(power) })),
+        { label: `Wall · ${rules.wall.unitCost}/unit`, disabled: itemDisabled(s, b, 'wall'), pressed: v.item === 'wall', onClick: () => a.arm('wall') },
+        ...(Object.keys(POWER_LABEL) as TowerPower[]).map((power) => ({ label: `${POWER_LABEL[power]} ×${s.players[b].inventory[power]}`, disabled: itemDisabled(s, b, power), pressed: v.item === power, onClick: () => a.arm(power) })),
       ],
     }
   }
