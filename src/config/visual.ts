@@ -64,8 +64,19 @@ export const visual = {
     goal: { chevronPx: [24, 12], chevronWidthPx: 3, chevronAlpha: 0.35, netLines: 7, netAlpha: 0.45, netWidthPx: 1, lineWidthPx: 4 },
     /** The keep-out arc around each goal: line width and dash, px. */
     keepOut: { widthPx: 2, dashPx: [6, 6] },
-    /** The centre circle (the Centre zone, in the rules config) with its inner ring as a fraction of its radius, and the dot radius, px. */
-    centre: { widthPx: 3, innerRatio: 46 / 70, innerWidthPx: 2, innerDashPx: [4, 6], dotRadiusPx: 6 },
+    /** The centre circle (the Centre zone, in the rules config) and the Bullseye ring inside it (radius in the rules config; line width and dash, px), and the dot radius, px. */
+    centre: { widthPx: 3, innerWidthPx: 2, innerDashPx: [4, 6], dotRadiusPx: 6 },
+    /**
+     * The Boost ring and Bullseye zones: each one's colour; the tint's alpha at rest and while it holds a Charged ball (`litAlpha`); the slow pulse (period and alpha swing, none under reduced motion);
+     * the arrival of a shot that comes to rest in one (the zone flashes at `flashAlpha`, and a ring grows `grow` times the zone's radius outward over `ms`, `widthPx` wide); and the "x1.5" / "x2" labels (px, alpha, weight, and each one's distance from the centre spot as a fraction of its zone's radius).
+     */
+    boost: {
+      colors: { ring: '#fbbf24', bullseye: '#f472b6' },
+      alpha: 0.1, litAlpha: 0.3,
+      pulse: { periodMs: 3000, alphaSwing: 0.04 },
+      arrive: { ms: 700, grow: 0.6, widthPx: 3, flashAlpha: 0.4 },
+      label: { px: 12, alpha: 0.7, weight: 700, ringAt: 0.75, bullseyeAt: 0.55 },
+    },
     /** The build-zone edge on the halfway line, drawn during a build in the builder's colour. */
     buildEdge: { widthPx: 2, dashPx: [10, 8], alpha: 0.35 },
     /** Ticks on both sidelines at the quarter lines: length and width, px. */
@@ -131,6 +142,8 @@ export const visual = {
     stealMs: 300,
     /** The ball-in-hand placement disc. */
     placementAlpha: 0.5,
+    /** A Charged ball: its glow ring (offset past the ball's radius, width, and the pulse swing and period, still under reduced motion), the "x1.5" / "x2" badge (size, height above the ball, weight; world units), the badge's pop-in (`popMs`, growing from `popScale`), and the launch trail, brighter and `trailWidth` wide. */
+    charged: { glow: { offset: 0.5, width: 0.2, swing: 0.15, periodMs: 400 }, badge: { size: 1.6, offset: 2.6, weight: 700 }, popMs: 250, popScale: 0.5, trailWidth: 4 },
     /** The Breaker outline. */
     armed: { radius: 1.5, swing: 0.25, periodMs: 120, width: 0.3 },
     /** The faint control-radius ring while aiming. */
@@ -146,7 +159,7 @@ export const visual = {
     /** Within this many screen px of any canvas edge the aim is cancel-armed: releasing cancels, moving back out re-arms. */
     edgeCancelPx: 24,
     /** The Ghost: the ball's predicted path while aiming. */
-    ghost: { width: 0.3 },
+    ghost: { width: 0.3, /** A Charged ball's Ghost: drawn this much wider, with its "x1.5" / "x2" badge at the tip (size and distance past it, world units). */ chargedWidth: 0.6, badge: { size: 1.6, offset: 1.6, weight: 700 } },
     /** Each tier's colour, by name: the Ghost and the hold ring. */
     tierColors: { Touch: '#4ade80', Power: '#f87171' } satisfies Record<TierName, string>,
     /** Cancel-armed: the Ghost greys out and an ✕ (half-size `size`, world units) sits on the ball. */

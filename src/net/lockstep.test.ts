@@ -27,6 +27,7 @@ function match(seed: number, lag: number, ticks: number, play: (s: SimState, me:
   const shots: unknown[] = []
   const inbox: { f: Frame; at: number }[][] = [[], []]
   let now = 0
+  const decided = [-1, -1]
   const peers = [1, 2].map((me, i) => lockstep((f) => (frames++, inbox[1 - i].push({ f, at: now + lag })), me as PlayerId, DELAY))
   const states = [start(seed), start(seed)]
   while (states.some((s) => s.tick < ticks) && now < ticks * 20) {
@@ -35,7 +36,9 @@ function match(seed: number, lag: number, ticks: number, play: (s: SimState, me:
       for (const m of inbox[i].filter((m) => m.at <= now)) net.receive(m.f)
       inbox[i] = inbox[i].filter((m) => m.at > now)
       if (states[i].tick >= ticks) return
-      net.submit(play(states[i], (i + 1) as PlayerId))
+      // A peer stalled on a late frame must not decide again for the same tick: a repeated shot would be queued twice and land when the ball is free again.
+      if (decided[i] !== states[i].tick) net.submit(play(states[i], (i + 1) as PlayerId))
+      decided[i] = states[i].tick
       const input = net.advance(states[i].possession.shooter)
       if (input) {
         const r = step(states[i], input, cfg)

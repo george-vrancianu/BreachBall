@@ -236,7 +236,7 @@ export class Game implements Sink {
     }
     this.announce(events)
     this.aim.sync(state, this.config)
-    routeEvents(events, { camera, structures: this.structures, ball: this.ball, aim: this.aim, vibrate: (p) => navigator.vibrate?.(p) }, state.objects, reducedMotion())
+    routeEvents(events, { camera, structures: this.structures, ball: this.ball, aim: this.aim, pitch: this.pitch, vibrate: (p) => navigator.vibrate?.(p) }, state.objects, reducedMotion())
     this.structures.sync(state.objects)
   }
 
@@ -244,7 +244,7 @@ export class Game implements Sink {
   private newMatch(seed = (Math.random() * 2 ** 31) | 0): void {
     const s = this.driver.start(this.config, seed)
     // Sim ids restart, so the last match's visual state must not leak into this one.
-    for (const e of [this.camera, this.structures, this.ball, this.aim]) e.reset()
+    for (const e of [this.camera, this.structures, this.ball, this.aim, this.pitch]) e.reset()
     this.input.resetBuild()
     this.menuOpen = false
     this.transition = newTransition(s.possession.shooter, this.flips())
@@ -342,6 +342,9 @@ export class Game implements Sink {
     this.ball.reduced = reduced
     structures.mark()
     this.pitch.builder = builder ?? undefined
+    this.pitch.charge = this.ball.charge = state.charge
+    this.pitch.reduced = reduced
+    this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.transition.shown === 2
     // During the goal hold the ball rests in the net (the sim has already reset it).
     const inNet = goalBall(this.transition)
     this.ball.sync(inNet ? { ...state.ball, pos: inNet, vel: { x: 0, y: 0 } } : state.ball)

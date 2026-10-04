@@ -5,7 +5,9 @@ import { predictPath } from '../../sim/predict'
 import { splashOf } from '../../sim/splash'
 import type { SimConfig, SimState } from '../../sim/step'
 import type { GestureView } from '../input/gesture'
+import { boostColor, boostLabel } from '../feedback'
 import { Entity } from './Entity'
+import { drawLabel } from './label'
 
 /** The aim in progress, as far as the Ghost needs it: `dir` and `power` once the shooter is dragging, the ghost config in effect; `cancel` while cancel-armed. */
 export type AimLine = Pick<GestureView, 'tier' | 'dir' | 'power' | 'ghost' | 'cancel'>
@@ -34,6 +36,8 @@ function cut(points: Point[], scale: number): Point[] {
 /** The aim's Ghost (the ball's predicted path) and the expanding Splash ring of a fired Power shot. */
 export class Aim extends Entity {
   aim?: AimLine
+  /** Turns the Charged badge upright for Player 2's view. */
+  flipped = false
   private state?: SimState
   private config?: SimConfig
   private rings: { origin: Point; radius: number; born: number }[] = []
@@ -76,6 +80,19 @@ export class Aim extends Entity {
     return points
   }
 
+  /** The factor the ball's next shot is multiplied by (1 = not Charged): the Ghost is drawn wider and badged. */
+  get charge(): number {
+    return this.state?.charge ?? 1
+  }
+
+  private drawBadge(ctx: CanvasRenderingContext2D, ghost: Point[]): void {
+    const { size, offset, weight } = visual.aim.ghost.badge
+    const [a, b] = [ghost.at(-2) ?? ghost[0], ghost.at(-1)!]
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
+    const at = { x: b.x + ((b.x - a.x) / len) * offset, y: b.y + ((b.y - a.y) / len) * offset }
+    drawLabel(ctx, boostLabel(this.charge), at, { size, weight, font: visual.hud.font, color: boostColor(this.charge), flipped: this.flipped })
+  }
+
   /** While cancel is armed: an ✕ on the ball, and the Ghost drawn in the same grey. */
   get cancel(): { at: Point; color: string } | undefined {
     const { aim, state } = this
@@ -100,8 +117,10 @@ export class Aim extends Entity {
       ghost.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
       ctx.lineCap = ctx.lineJoin = 'round'
       ctx.strokeStyle = ghostColor
-      ctx.lineWidth = visual.aim.ghost.width
+      ctx.lineWidth = this.charge > 1 ? visual.aim.ghost.chargedWidth : visual.aim.ghost.width
       ctx.stroke()
+      // A Charged ball's Ghost carries its factor at the tip, past the last point along the path's end direction.
+      if (this.charge > 1 && !cancel) this.drawBadge(ctx, ghost)
     }
     if (cancel) {
       const { size, width } = visual.aim.cancel

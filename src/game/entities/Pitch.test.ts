@@ -107,3 +107,58 @@ describe('Pitch markings', () => {
     })
   })
 })
+
+describe('Boost ring and Bullseye', () => {
+  const arcsAt = (calls: Call[], radius: number) => calls.filter((c) => c.fn === 'arc' && c.args[2] === radius)
+  const fills = (pitch: Pitch, radius: number) => {
+    const { ctx, calls } = recorder()
+    pitch.draw(ctx)
+    return arcsAt(calls, radius)
+  }
+
+  it('draws the Bullseye ring at the rules radius and the Boost ring at the Centre zone radius', () => {
+    const { ctx, calls } = recorder()
+    new Pitch().draw(ctx)
+    expect(arcsAt(calls, rules.boost.bullseye.radius).length).toBeGreaterThan(0)
+    expect(arcsAt(calls, rules.boost.ring.radius).length).toBeGreaterThan(0)
+    expect(rules.boost.ring.radius).toBe(rules.centreZoneRadius)
+  })
+
+  it('tints each zone in its own colour', () => {
+    const [ring] = fills(new Pitch(), rules.boost.ring.radius)
+    const [bullseye] = fills(new Pitch(), rules.boost.bullseye.radius)
+    expect([ring.fillStyle, bullseye.fillStyle]).toEqual([visual.pitch.boost.colors.ring, visual.pitch.boost.colors.bullseye])
+  })
+
+  it('pulses the tint slowly, but not under reduced motion', () => {
+    const alphaAt = (reduced: boolean, ms: number) => {
+      const p = new Pitch()
+      p.reduced = reduced
+      p.update(ms / 1000)
+      return fills(p, rules.boost.ring.radius)[0].alpha
+    }
+    const quarter = visual.pitch.boost.pulse.periodMs / 4
+    expect(alphaAt(false, quarter)).toBeCloseTo(visual.pitch.boost.alpha + visual.pitch.boost.pulse.alphaSwing)
+    expect(alphaAt(true, quarter)).toBe(visual.pitch.boost.alpha)
+  })
+
+  it('tints the zone holding a Charged ball stronger, and only that one', () => {
+    const p = new Pitch()
+    p.reduced = true
+    p.charge = rules.boost.bullseye.factor
+    expect(fills(p, rules.boost.bullseye.radius)[0].alpha).toBe(visual.pitch.boost.litAlpha)
+    expect(fills(p, rules.boost.ring.radius)[0].alpha).toBe(visual.pitch.boost.alpha)
+  })
+
+  it('animates an arrival for its time, flashing the zone and growing a ring out of it', () => {
+    const p = new Pitch()
+    p.reduced = true
+    p.arrive(rules.boost.ring.factor)
+    expect(p.arrivalCount).toBe(1)
+    expect(fills(p, rules.boost.ring.radius)[0].alpha).toBe(visual.pitch.boost.arrive.flashAlpha)
+    p.update((visual.pitch.boost.arrive.ms - 1) / 1000)
+    expect(p.arrivalCount).toBe(1)
+    p.update(0.002)
+    expect(p.arrivalCount).toBe(0)
+  })
+})

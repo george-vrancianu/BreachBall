@@ -1,4 +1,5 @@
 const cellSize = 2
+const centreZoneRadius = 3 * cellSize
 
 const base = {
   pitchWidth: 40,
@@ -22,7 +23,9 @@ const base = {
    */
   wall: { unit: 4 * cellSize, units: [1, 2], angles: [0, 45, 90, 135], unitCost: 2, shapeTol: 0.01 } as WallRules['wall'],
   /** Radius of the no-build circle around the centre spot, in world units (3 cells). */
-  centreZoneRadius: 3 * cellSize,
+  centreZoneRadius,
+  /** The Boost ring (same radius as the Centre zone) and the Bullseye, both centred on the centre spot: a shot that comes to rest with the ball's centre inside Charges it, the Bullseye winning, and the next shot's speed is multiplied by `factor`. */
+  boost: { ring: { radius: centreZoneRadius, factor: 1.5 }, bullseye: { radius: 2, factor: 2 } },
   /** Distance in world units from a goal line to the Kick-off spot of the kicker defending it (inside their keep-out arc, so no wall can block the ball). */
   kickoffGap: 5,
   /** Half the drawn wall thickness; the ball cannot be placed on it. */

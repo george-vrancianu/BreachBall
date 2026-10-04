@@ -134,6 +134,12 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 - Place the ball anywhere on your own half where it does not overlap a wall or tower. The ball's center must be strictly on your side of the halfway line. The no-build zone does not apply.
 - Tap a legal point to set the placement (a half-transparent ball), drag it to move it (dragging elsewhere pans), tap Confirm to fix it. The placement goes red where it is illegal.
 
+### Boost ring, Bullseye and Charged
+
+- `rules.boost`: the Boost ring (radius `centreZoneRadius`, x1.5) and the Bullseye (radius 2, x2), both centred on the centre spot and measured against the ball's centre; the Bullseye wins. They apply in every game mode.
+- A shot that comes to rest in a ring Charges the ball (`SimState.charge`, 1 = not Charged) and the sim emits `{ type: 'charged', factor, at }`. Being put there by a restart, a kick-off or a placement does not, and neither does passing through or rolling out from the centre spot (ADR-0006). Any move of the ball other than a shot's own roll (a restart, kick-off, placement) loses the charge; so does the next shot, which spends it.
+- The charge belongs to the ball: whoever shoots next uses it, including the opponent when the ball rested on their half. The next shot's launch speed is `power * maxSpeed * factor`, no cap, in either Tier (its `shot-fired` event carries `charge`). The Splash is not multiplied. A shot burned by the shot clock keeps the charge. The Ghost is predicted through the real step, so it uses the multiplied speed.
+
 ### Shot clock
 
 - One 15-second clock per shot, starting when the shot (or, after a Steal, ball-in-hand) is granted. It covers placement and the shot. The clock turns red and pulses for the last 5 seconds.
@@ -232,7 +238,7 @@ The third family of actions (see `GLOSSARY.md`): items that cripple the opponent
 - Corner brackets in the owner's colour at 50% opacity (2 px, round elbows, 15 px in from the corner) at each end.
 - Goal mouths: the goal line (4 px, in the owner's colour) is drawn over the outline across the mouth, with the net box behind it, where a scored ball visibly lands: chevrons in the owner's colour at 35% (24x12 px, 3 px stroke, pointing into the pitch) and 7 vertical net lines at 45%, 1 px. The box size follows the sim's `goalWidth` and `netDepth`, not the handoff's 160x40.
 - Keep-out arc around each goal (the no-build radius): 2 px dashed 6/6, always drawn, neutral `#3b4f7a`; during a build it takes the builder's colour.
-- Centre line 3 px `#3b4f7a`, centre circle (the Centre zone radius) with a dashed inner ring (4/6) and a centre dot.
+- Centre line 3 px `#3b4f7a`, centre circle (the Centre zone radius) tinted as the Boost ring, with the Bullseye ring (its rules radius) dashed (4/6) and tinted inside it, a centre dot, and their "x1.5" and "x2" labels. Both tints pulse slowly (not under reduced motion) and the one holding a Charged ball is stronger. A shot coming to rest in a zone flashes it and sends a ring out of it (`visual.pitch.boost`).
 - Build-zone edge: during a build only, the halfway line is overdrawn dashed 10/8, 2 px, in the builder's colour at 35%. It is only a marker; building is allowed on the whole half.
 - Quarter marks: 14 px ticks inward on both sidelines at the quarter lines, 3 px `#3b4f7a`.
 
@@ -240,6 +246,8 @@ The third family of actions (see `GLOSSARY.md`): items that cripple the opponent
 
 - A short trail of fading discs at previous positions, length proportional to speed, gone at rest.
 - A single darker dot on the disc that orbits with distance travelled so the ball appears to roll. No squash.
+
+A Charged ball wears a pulsing glow ring and a "x1.5" / "x2" badge that pops in on arrival, and its launch trail runs bright and wide until it stops. While aiming, the Ghost is drawn wider with the badge at its tip. Under reduced motion the pop, the outward ring and the pulses are dropped; the tint, glow, badge and wider Ghost stay (`visual.ball.charged`, `visual.aim.ghost`).
 
 ### Aim and Shot
 
