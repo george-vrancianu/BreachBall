@@ -133,8 +133,6 @@ export const visual = {
     illegal,
     /** The Title screen's Attract ball trail colour. */
     trail: 'rgba(255,255,255,0.5)',
-    /** After a Repulsor fires, the tracer's white core runs bright (`tracer.brightCore`) for this long. */
-    trailMs: 500,
     /**
      * The Tracer: the glowing tail behind a shot, its sparks and its bounce flashes, drawn additively. Sizes are screen px (converted with the camera's px per world unit),
      * speeds screen px per second, times ms.
@@ -148,7 +146,7 @@ export const visual = {
       maxPoints: 240,
       /** The tail's width at the ball, by the tier that fired: Power's is heavier. */
       widthPx: { Touch: 14, Power: 20 } satisfies Record<TierName, number>,
-      /** The narrowest a tail segment is drawn. */
+      /** The narrowest a tail segment is drawn, screen px. */
       minWidthPx: 0.5,
       /** The ribbon's three passes, back to front: a wide glow and a narrower band in the tier's colour, then the white core. Each has its width (share of the tail width) and peak alpha; width and alpha shrink with age and with distance back along the tail. */
       glow: { width: 1, alpha: 0.35 },
@@ -156,18 +154,18 @@ export const visual = {
       core: { width: 0.18, alpha: 1, color: white },
       /** The core's width (share of the tail width) while a Repulsor has just fired or a Charged shot is in flight. */
       brightCore: 0.35,
+      /** After a Repulsor fires, the core runs bright for this long. */
+      brightMs: 500,
       /** The tail's colour once the ball has rested (or before any shot), while its last points fade. */
       idle: cream,
-      /** The transparent end of the flash and halo gradients (black adds nothing when drawn additively). */
-      clear: 'rgba(0,0,0,0)',
-      /** Sparks: at most `max` alive (past it, new sparks take over old ones' slots); each lives a random time in `lifeMs` with a radius in `radiusPx`, flies at the burst's speed times a random share in `spread`, and keeps `drag` of its speed per second. The tail sheds one every `everyPx` travelled, at `trailSpeedPx`. */
-      sparks: { max: 120, lifeMs: [250, 600], radiusPx: [1, 2.8], spread: [0.4, 1.4], drag: 0.002, everyPx: 24, trailSpeedPx: 40 },
+      /** Sparks: at most `max` alive (past it, new sparks take over old ones' slots); each lives a random time in `lifeMs` with a radius in `radiusPx`, flies at the burst's speed times a random share in `spread`, and keeps `drag` of its speed per second. It shrinks as it fades, from `1 + shrink` to `shrink` times its radius. The tail sheds one every `everyPx` travelled, at `trailSpeedPx`. */
+      sparks: { max: 120, lifeMs: [250, 600], radiusPx: [1, 2.8], spread: [0.4, 1.4], drag: 0.002, shrink: 0.5, everyPx: 24, trailSpeedPx: 40 },
       /** The burst at launch, by the tier that fired: how many sparks, at what speed. */
       launch: { count: { Touch: 8, Power: 18 } satisfies Record<TierName, number>, speedPx: { Touch: 140, Power: 220 } satisfies Record<TierName, number> },
       /** The spray at a bounce, by the tier that fired: how many sparks, at what speed. Wall hits spray `wall` (white), board hits the tier's colour. */
       bounce: { count: { Touch: 10, Power: 16 } satisfies Record<TierName, number>, speedPx: 160, wall: white },
-      /** A bounce flash, gone after `ms` (at most `max` at once): a radial glow `glowPx` wide, white at `glowAlpha` in the middle, and a ring in the tier's colour that snaps out from `ringFromPx` to `ringToPx`, thinning from `ringWidthPx[1]` to `ringWidthPx[0]`. */
-      flash: { ms: 360, max: 12, glowPx: 26, glowAlpha: 0.8, ringFromPx: 6, ringToPx: 28, ringWidthPx: [0.5, 3] },
+      /** A bounce flash, gone after `ms` (at most `max` at once): a radial glow `glowPx` wide, white at `glowAlpha` in the middle, and a ring in the tier's colour that snaps out from `ringFromPx` to `ringToPx` (easing out with power `ringEase`: higher snaps harder), thinning from `ringWidthPx[1]` to `ringWidthPx[0]`. */
+      flash: { ms: 360, max: 12, glowPx: 26, glowAlpha: 0.8, ringFromPx: 6, ringToPx: 28, ringEase: 3, ringWidthPx: [0.5, 3] },
       /** The halo around a moving ball: `radius` ball radii out, fading from `inner` ball radii; its alpha rises with speed to `alpha` at `fullSpeedPx`. */
       halo: { radius: 3, inner: 0.5, alpha: 0.5, fullSpeedPx: 600 },
     },

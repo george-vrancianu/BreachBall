@@ -5,11 +5,11 @@ import { Ball } from './Ball'
 const ms = (b: Ball, n: number) => b.update(n / 1000)
 
 describe('Ball', () => {
-  it('brightens its trail for trailMs after a pulse', () => {
+  it('runs bright for brightMs after a pulse', () => {
     const b = new Ball()
     expect(b.bright).toBe(false)
     b.pulse()
-    ms(b, visual.ball.trailMs - 1)
+    ms(b, visual.ball.tracer.brightMs - 1)
     expect(b.bright).toBe(true)
     ms(b, 2)
     expect(b.bright).toBe(false)
@@ -107,6 +107,12 @@ describe('Ball tracer', () => {
     expect(b.tracer.points).toBe(21)
   })
 
+  it('keeps no more than its most tail points, however far the ball jumps', () => {
+    const b = fired(0)
+    at(b, 20, -10000)
+    expect(b.tracer.points).toBe(visual.ball.tracer.maxPoints)
+  })
+
   it('drops tail points older than 520 ms', () => {
     const b = fired(0)
     at(b, 20, 70)
@@ -172,7 +178,7 @@ describe('Ball tracer', () => {
     expect(b.brightCore).toBe(false)
     b.pulse()
     expect(b.brightCore).toBe(true)
-    ms(b, visual.ball.trailMs + 1)
+    ms(b, visual.ball.tracer.brightMs + 1)
     b.launch()
     at(b, 20, 70)
     ms(b, 16)

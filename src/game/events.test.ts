@@ -88,7 +88,7 @@ describe('routeEvents', () => {
     w.route([{ type: 'repulsor-fired', tower: 2, at }], [tower])
     const t = w.structures.get(2) as Tower
     expect([t.glowing, w.ball.bright]).toEqual([true, true])
-    const [shorter, longer] = [Math.min(visual.tower.glowMs, visual.ball.trailMs), Math.max(visual.tower.glowMs, visual.ball.trailMs)]
+    const [shorter, longer] = [Math.min(visual.tower.glowMs, visual.ball.tracer.brightMs), Math.max(visual.tower.glowMs, visual.ball.tracer.brightMs)]
     const wait = (ms: number) => (w.structures.update(ms / 1000), w.ball.update(ms / 1000))
     wait(shorter + 1)
     expect(t.glowing || w.ball.bright).toBe(true)

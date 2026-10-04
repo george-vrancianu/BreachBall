@@ -27,7 +27,7 @@ export class Ball extends Entity {
   radius = defaultConfig.ballRadius
   /** Turns the badge upright for Player 2's view. */
   flipped = false
-  /** The clock when a Repulsor fired (the tracer's core runs bright for `visual.ball.trailMs`), and the steal sink in progress. */
+  /** The clock when a Repulsor fired (the tracer's core runs bright for `visual.ball.tracer.brightMs`), and the steal sink in progress. */
   private pulsedAt?: number
   private sinking?: { from: Point; to: Point; age: number }
   // The clock when the ball came to rest Charged, and whether the shot in flight launched Charged (the tracer's core runs bright until the ball stops).
@@ -59,13 +59,13 @@ export class Ball extends Entity {
     this.tracer.handOver()
   }
 
-  /** A Repulsor fired: the tracer's core runs bright for `visual.ball.trailMs`. */
+  /** A Repulsor fired: the tracer's core runs bright for `visual.ball.tracer.brightMs`. */
   pulse(): void {
     this.pulsedAt = this.clock
   }
 
   get bright(): boolean {
-    return this.pulsedAt !== undefined && this.clock - this.pulsedAt < visual.ball.trailMs
+    return this.pulsedAt !== undefined && this.clock - this.pulsedAt < visual.ball.tracer.brightMs
   }
 
   /** The tracer's white core runs wide: a Repulsor just fired, or a Charged shot is in flight. */

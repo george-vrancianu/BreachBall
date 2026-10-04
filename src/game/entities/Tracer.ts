@@ -8,7 +8,8 @@ type Spark = { x: number; y: number; vx: number; vy: number; age: number; life: 
 type Flash = { x: number; y: number; t: number; color: string }
 
 const between = ([lo, hi]: readonly [number, number]): number => lo + Math.random() * (hi - lo)
-const easeOut = (u: number): number => 1 - (1 - u) ** 3
+// A `#rrggbb` colour made fully transparent, for a gradient that fades out tinted rather than through black.
+const clearOf = (color: string): string => `${color}00`
 
 /**
  * The Tracer: the glowing tail behind a shot, the sparks it sheds and the flashes at its bounces, in the colour of the tier that fired.
@@ -86,12 +87,15 @@ export class Tracer {
     const { stepPx, sparks } = visual.ball.tracer
     const last = this.marks[(this.head + this.count - 1) % this.marks.length]
     const gapPx = Math.hypot(pos.x - last.x, pos.y - last.y) * this.pxPerUnit
-    const steps = Math.ceil(gapPx / stepPx)
-    const [x0, y0] = [last.x, last.y]
+    // The buffer keeps only `maxPoints`, so a jump across the pitch adds no more than that.
+    const steps = Math.min(Math.ceil(gapPx / stepPx), this.marks.length)
+    const x0 = last.x
+    const y0 = last.y
     for (let k = 1; k <= steps; k++) this.mark(x0 + ((pos.x - x0) * k) / steps, y0 + ((pos.y - y0) * k) / steps, now)
-    if (!this.flying) return
-    this.shed += gapPx
-    for (; this.shed >= sparks.everyPx; this.shed -= sparks.everyPx) this.spark(pos, this.tint, sparks.trailSpeedPx)
+    if (!this.flying || !gapPx) return
+    // A spark every `everyPx` along the gap, where the ball passed.
+    for (let d = sparks.everyPx - this.shed; d <= gapPx; d += sparks.everyPx) this.spark(x0 + ((pos.x - x0) * d) / gapPx, y0 + ((pos.y - y0) * d) / gapPx, this.tint, sparks.trailSpeedPx)
+    this.shed = (this.shed + gapPx) % sparks.everyPx
   }
 
   /** The ball came to rest: the shot is over, so the tracer loses its colour; its tail fades out. */
@@ -146,36 +150,22 @@ export class Tracer {
 
   /** Draws the tail, the flashes, the sparks and (at `speed`, world units per second) the ball's halo, additively. `bright`: the white core runs wide. */
   draw(ctx: CanvasRenderingContext2D, now: number, ball: Point, speed: number, ballRadius: number, bright: boolean): void {
-    const { tailMs, minWidthPx, glow, band, core, brightCore, flash, halo, clear } = visual.ball.tracer
+    const { glow, band, core, brightCore, sparks, flash, halo } = visual.ball.tracer
     const px = this.pxPerUnit
     const color = this.tint
-    const width = this.width
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
     ctx.lineCap = 'round'
-    const n = this.count
-    for (const [share, alpha, stroke] of [[glow.width, glow.alpha, color], [band.width, band.alpha, color], [bright ? brightCore : core.width, core.alpha, core.color]] as const) {
-      ctx.strokeStyle = stroke
-      for (let i = 1; i < n; i++) {
-        const a = this.marks[(this.head + i - 1) % this.marks.length]
-        const b = this.marks[(this.head + i) % this.marks.length]
-        const k = (1 - (now - b.t) / tailMs) * (i / n)
-        if (k <= 0) continue
-        ctx.globalAlpha = alpha * k
-        ctx.lineWidth = Math.max(minWidthPx / px, width * share * k)
-        ctx.beginPath()
-        ctx.moveTo(a.x, a.y)
-        ctx.lineTo(b.x, b.y)
-        ctx.stroke()
-      }
-    }
+    this.ribbon(ctx, now, glow.width, glow.alpha, color)
+    this.ribbon(ctx, now, band.width, band.alpha, color)
+    this.ribbon(ctx, now, bright ? brightCore : core.width, core.alpha, core.color)
     for (let i = 0; i < this.lit; i++) {
       const f = this.flashPool[i]
       const u = Math.min((now - f.t) / flash.ms, 1)
       const r = flash.glowPx / px
       const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r)
       g.addColorStop(0, core.color)
-      g.addColorStop(1, clear)
+      g.addColorStop(1, clearOf(f.color))
       ctx.globalAlpha = flash.glowAlpha * (1 - u)
       ctx.fillStyle = g
       ctx.beginPath()
@@ -186,7 +176,7 @@ export class Tracer {
       ctx.strokeStyle = f.color
       ctx.lineWidth = (thin + (thick - thin) * (1 - u)) / px
       ctx.beginPath()
-      ctx.arc(f.x, f.y, (flash.ringFromPx + (flash.ringToPx - flash.ringFromPx) * easeOut(u)) / px, 0, Math.PI * 2)
+      ctx.arc(f.x, f.y, (flash.ringFromPx + (flash.ringToPx - flash.ringFromPx) * (1 - (1 - u) ** flash.ringEase)) / px, 0, Math.PI * 2)
       ctx.stroke()
     }
     for (let i = 0; i < this.live; i++) {
@@ -195,13 +185,13 @@ export class Tracer {
       ctx.globalAlpha = k
       ctx.fillStyle = p.color
       ctx.beginPath()
-      ctx.arc(p.x, p.y, (p.r * (0.5 + k)) / px, 0, Math.PI * 2)
+      ctx.arc(p.x, p.y, (p.r * (sparks.shrink + k)) / px, 0, Math.PI * 2)
       ctx.fill()
     }
     if (this.flying && speed > 0) {
       const g = ctx.createRadialGradient(ball.x, ball.y, ballRadius * halo.inner, ball.x, ball.y, ballRadius * halo.radius)
       g.addColorStop(0, color)
-      g.addColorStop(1, clear)
+      g.addColorStop(1, clearOf(color))
       ctx.globalAlpha = Math.min(halo.alpha, (halo.alpha * speed * px) / halo.fullSpeedPx)
       ctx.fillStyle = g
       ctx.beginPath()
@@ -209,6 +199,26 @@ export class Tracer {
       ctx.fill()
     }
     ctx.restore()
+  }
+
+  // One pass of the tail's ribbon: `share` of the tail width at peak `alpha`, both shrinking with age and towards the back.
+  private ribbon(ctx: CanvasRenderingContext2D, now: number, share: number, alpha: number, stroke: string): void {
+    const { tailMs, minWidthPx } = visual.ball.tracer
+    const { marks, head, count: n } = this
+    const width = this.width
+    ctx.strokeStyle = stroke
+    for (let i = 1; i < n; i++) {
+      const a = marks[(head + i - 1) % marks.length]
+      const b = marks[(head + i) % marks.length]
+      const k = (1 - (now - b.t) / tailMs) * (i / n)
+      if (k <= 0) continue
+      ctx.globalAlpha = alpha * k
+      ctx.lineWidth = Math.max(minWidthPx / this.pxPerUnit, width * share * k)
+      ctx.beginPath()
+      ctx.moveTo(a.x, a.y)
+      ctx.lineTo(b.x, b.y)
+      ctx.stroke()
+    }
   }
 
   // The last shot's colour, kept while its tail fades; `idle` before any shot.
@@ -223,7 +233,10 @@ export class Tracer {
   private mark(x: number, y: number, t: number): void {
     const cap = this.marks.length
     // Full: the oldest mark gives way.
-    if (this.count === cap) (this.head = (this.head + 1) % cap), this.count--
+    if (this.count === cap) {
+      this.head = (this.head + 1) % cap
+      this.count--
+    }
     const m = this.marks[(this.head + this.count++) % cap]
     m.x = x
     m.y = y
@@ -231,16 +244,16 @@ export class Tracer {
   }
 
   private burst(at: Point, color: string, count: number, speedPx: number): void {
-    for (let i = 0; i < count; i++) this.spark(at, color, speedPx)
+    for (let i = 0; i < count; i++) this.spark(at.x, at.y, color, speedPx)
   }
 
-  private spark(at: Point, color: string, speedPx: number): void {
+  private spark(x: number, y: number, color: string, speedPx: number): void {
     const { lifeMs, radiusPx, spread } = visual.ball.tracer.sparks
     const p = this.live < this.pool.length ? this.pool[this.live++] : this.pool[this.evict++ % this.pool.length]
     const a = Math.random() * Math.PI * 2
     const v = (speedPx * between(spread)) / this.pxPerUnit
-    p.x = at.x
-    p.y = at.y
+    p.x = x
+    p.y = y
     p.vx = Math.cos(a) * v
     p.vy = Math.sin(a) * v
     p.age = 0
