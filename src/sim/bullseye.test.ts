@@ -58,6 +58,13 @@ describe('bullseyeEntered', () => {
 })
 
 describe('Bullseye pass-through (Rounds)', () => {
+  // step.ts checks one straight segment per tick, which is exact only while no bounce can happen near the Bullseye within a tick.
+  // If tuning breaks this, check the segments rollBall produces instead.
+  it('a ball moves less per tick than the gap between the Bullseye and the Centre zone edge, so one straight segment per tick is exact', () => {
+    const factor = Math.max(...Object.values(rules.boost).map((z) => z.factor))
+    expect((defaultConfig.maxSpeed * factor) / defaultConfig.tickHz).toBeLessThan(rules.centreZoneRadius - radius)
+  })
+
   it('a shot entering from outside earns the shooter the Credits and announces it', () => {
     const s = flying(below(5), up)
     const r = run(s, c, 200).events
