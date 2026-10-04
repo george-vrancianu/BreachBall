@@ -14,7 +14,7 @@ A two-player, turn-based pitch game. Shoot a ball into the opponent's goal throu
 
 ## Architecture
 
-- A pure, deterministic simulation: `step(state, input, config)` returns the new state plus a list of events for that tick. No DOM access and no randomness other than a seeded coin flip. Fixed tick at 60 Hz driven by an accumulator.
+- A pure, deterministic simulation: `step(state, input, config)` returns the new state plus a list of events for that tick. No DOM access and no randomness other than a seeded coin flip and the Pallets' seeded start angle (ADR-0009). Fixed tick at 60 Hz driven by an accumulator.
 - Events carry a moment in time that state alone cannot: ball hit wall (with speed), wall cracked, wall segment broken, wall destroyed, shot fired (launch position, direction, tier, power), Repulsor fired, Steal triggered, goal, possession changed. The renderer, haptics and a future audio layer consume them. The sim never waits for an animation.
 - A game renderer in `src/game/`: a `Game` instance owns an entity tree (`Camera`, `Pitch`, `Ball`, `Structures` with `Wall` and `Tower` children, `Fog`, `EdgeFade`, `Aim`) that animates itself (`Fog` hides the opponent's half in a Siege blind build, `EdgeFade` softens the pane edge where more pitch lies beyond, and `Camera` clamps to the viewer's half; the reveal is the map camera with the fog lifted) and draws on requestAnimationFrame (see ADR-0002). Sim state enters only through `game.apply(state, events)`, which routes events to entity methods (`src/game/events.ts`); entities never see `SimEvent`. Latest sim state only, no interpolation in v1.
 - An `InputController` (`src/game/input/`) turns touches, clicks and keys into sim inputs and camera moves.

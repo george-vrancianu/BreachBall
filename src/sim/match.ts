@@ -19,12 +19,15 @@ export type GameModeName = Match['mode']
 /** Round 1: the coin-flip loser builds first; the order alternates each round. */
 export const firstBuilder = (seed: number, round: number): PlayerId => (round % 2 ? opponent(coinFlip(seed, 1)) : coinFlip(seed, 1))
 
-/** Seeded, deterministic: who kicks off when nobody conceded. */
-export function coinFlip(seed: number, round: number): PlayerId {
-  let h = Math.imul(seed ^ Math.imul(round, 0x9e3779b9), 0x85ebca6b)
+/** Seeded integer hash of `(seed, n)`, an unsigned 32-bit result: the sim's only randomness. */
+export function seedHash(seed: number, n: number): number {
+  let h = Math.imul(seed ^ Math.imul(n, 0x9e3779b9), 0x85ebca6b)
   h = Math.imul(h ^ (h >>> 15), 0xc2b2ae35)
-  return (h ^ (h >>> 13)) & 1 ? 1 : 2
+  return (h ^ (h >>> 13)) >>> 0
 }
+
+/** Seeded, deterministic: who kicks off when nobody conceded. */
+export const coinFlip = (seed: number, round: number): PlayerId => (seedHash(seed, round) & 1 ? 1 : 2)
 
 /** A Kick-off possession: the ball is fixed at `kickoffSpot` by whoever sets the ball up, so nothing is placed (ADR-0006). */
 export const startingPossession = (shooter: PlayerId, c: SimConfig): Possession => ({ shooter, shots: c.shots, inHand: false, live: false })

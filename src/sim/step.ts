@@ -4,7 +4,7 @@ import type { GameModeName, Match } from './match'
 import { modeFor, modeNamed, type DefenceChoice, type ModeContext } from './mode'
 import { initialPlayers, type Player, type PowerUp } from './player'
 import { type Ball } from './ball'
-import { initialPallets, rollWithPallets, type Pallet } from './pallet'
+import { initialPallets, rollWithPallets, type Pallet, type PalletSpot } from './pallet'
 import { canPlaceBall, centreRestart, handOver, opponent, resolveRest, type Possession } from './possession'
 import { splashDamage, splashOf } from './splash'
 import { damageSegment, isLegal, newStructure, segmentCount, structureCost, wallCost, wallUnits, type Structure, type Tower, type Wall, type TowerPower, type StructureSpec, type Vertex } from './wall'
@@ -225,7 +225,7 @@ export type SimConfig = {
   /** What an expiring shot clock does: 'shoot' shoots the held aim (burning if there is none), 'burn' always burns the shot. */
   expiry: 'shoot' | 'burn'
   /** Pivots of the map's Pallets; none by default. */
-  pallets: Point[]
+  pallets: PalletSpot[]
 }
 
 export const defaultConfig: SimConfig = {

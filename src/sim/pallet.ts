@@ -1,5 +1,6 @@
 import { rules } from '../config/rules'
 import { rollBall, type Ball } from './ball'
+import { seedHash } from './match'
 import type { PlayerId, Point } from './pitch'
 import type { SimConfig, SimEvent } from './step'
 import type { Structure } from './wall'
@@ -7,7 +8,7 @@ import type { Structure } from './wall'
 const P = rules.pallet
 const TAU = Math.PI * 2
 
-/** A neutral rotating bat (ADR-0009). Plain data: it holds no reference to the ball. */
+/** A neutral rotating arm (ADR-0009). Plain data: it holds no reference to the ball. */
 export type Pallet = {
   id: number
   pivot: Point
@@ -25,18 +26,20 @@ export type Pallet = {
   cooldown: number
 }
 
-/** Seeded, deterministic: a Pallet's starting angle in [-π, π). */
-export function startAngle(seed: number, index: number): number {
-  let h = Math.imul(seed ^ Math.imul(index + 1, 0x9e3779b9), 0x85ebca6b)
-  h = Math.imul(h ^ (h >>> 15), 0xc2b2ae35)
-  h ^= h >>> 13
-  return ((h >>> 0) / 2 ** 32) * TAU - Math.PI
-}
+/** A Pallet's pivot spot on the map. */
+export type PalletSpot = Point
 
-export const initialPallets = (spots: readonly Point[], seed: number): Pallet[] =>
+/** Seeded, deterministic: a Pallet's starting angle in [-π, π). */
+export const startAngle = (seed: number, index: number): number => (seedHash(seed, index + 1) / 2 ** 32) * TAU - Math.PI
+
+export const initialPallets = (spots: readonly PalletSpot[], seed: number): Pallet[] =>
   spots.map((pivot, id) => ({ id, pivot, angle: startAngle(seed, id), omega: 0, phase: 'idle', dir: 1, swept: 0, sweepNeed: 0, cooldown: 0 }))
 
 type Body = { pos: Point; vel: Point }
+
+const distToPivot = (p: Pallet, at: Point) => Math.hypot(at.x - p.pivot.x, at.y - p.pivot.y)
+/** How close the ball's centre must come for a Pallet to notice it. */
+const ringReach = (c: SimConfig) => P.ringRadius + c.ballRadius
 
 const wrap = (a: number) => {
   a = (a + Math.PI) % TAU
@@ -85,40 +88,40 @@ function planHit(p: Point, b: Body, r: number): { t: number; angle: number } | n
 /** Swing against the ball's orbit: head-on. */
 const chooseDir = (p: Point, b: Body): 1 | -1 => ((b.pos.x - p.x) * b.vel.y - (b.pos.y - p.y) * b.vel.x > 0 ? -1 : 1)
 
-/** Advances one Pallet by `h` seconds; `ball` is the ball it may track (null when the shot is not live). The cooldown is counted by the caller. */
-export function updatePallet(p: Pallet, c: SimConfig, h: number, ball: Body | null): Pallet {
+/**
+ * Advances one Pallet by `h` seconds; `ball` is the ball it may track (null when none is near). With none, a track drops to idle and a swing
+ * runs on to its end, so a fast ball leaving the band never cuts a swing short. The cooldown is set here and counted down by `rollWithPallets`, per tick.
+ */
+function updatePallet(p: Pallet, c: SimConfig, h: number, ball: Body | null): Pallet {
   const half = (P.swingArc * Math.PI) / 360
   let { angle, phase, dir, swept, sweepNeed, cooldown } = p
   const prev = angle
-  const dist = ball ? Math.hypot(ball.pos.x - p.pivot.x, ball.pos.y - p.pivot.y) : Infinity
-  if (!ball) phase = 'idle'
-  if (phase === 'idle') {
+  const dist = ball ? distToPivot(p, ball.pos) : Infinity
+  if (phase === 'track' && (!ball || dist > ringReach(c) + P.trackSlack)) phase = 'idle'
+  else if (phase === 'idle') {
     angle += P.idleSpin * h
-    if (ball && cooldown <= 0 && dist < P.ringRadius + c.ballRadius) {
+    if (ball && cooldown <= 0 && dist < ringReach(c)) {
       phase = 'track'
       dir = chooseDir(p.pivot, ball)
     }
   }
-  if (phase === 'track') {
-    if (!ball || dist > P.ringRadius + c.ballRadius + P.trackSlack) phase = 'idle'
-    else {
-      const plan = planHit(p.pivot, ball, c.ballRadius)
-      if (plan) {
-        const maxStep = P.aimRate * h
-        angle += clamp(wrap(plan.angle - dir * half - angle), -maxStep, maxStep)
-        // Time for the swing to travel from cocked to contact.
-        if (plan.t <= half / P.swingSpeed) {
-          phase = 'swing'
-          swept = 0
-          sweepNeed = Math.max(half * 2, wrap(plan.angle - angle) * dir + half)
-        }
-      } else angle += P.idleSpin * h // the ball will slip past out of reach
-    }
+  if (phase === 'track' && ball) {
+    const plan = planHit(p.pivot, ball, c.ballRadius)
+    if (plan) {
+      const maxStep = P.aimRate * h
+      angle += clamp(wrap(plan.angle - dir * half - angle), -maxStep, maxStep)
+      // Time for the swing to travel from cocked to contact.
+      if (plan.t <= half / P.swingSpeed) {
+        phase = 'swing'
+        swept = 0
+        sweepNeed = Math.max(half * 2, wrap(plan.angle - angle) * dir + half)
+      }
+    } else angle += P.idleSpin * h // the ball will slip past out of reach
   }
   if (phase === 'swing') {
-    const step = P.swingSpeed * h
-    angle += dir * step
-    swept += step
+    const turn = P.swingSpeed * h
+    angle += dir * turn
+    swept += turn
     if (swept >= sweepNeed) {
       phase = 'idle'
       cooldown = P.cooldownTicks
@@ -128,7 +131,7 @@ export function updatePallet(p: Pallet, c: SimConfig, h: number, ball: Body | nu
   return { ...p, angle, omega: wrap(angle - prev) / h, phase, dir, swept, sweepNeed, cooldown }
 }
 
-/** Tapered capsule against the ball, with the arm's surface velocity (ω×r); a resolved contact clamps the exit speed. */
+/** Tapered capsule against the ball, with the arm's surface velocity (ω×r); a contact faster than `hitSpeed` (relative, arm included) is a swat that clamps the exit speed; a slower one is a plain bounce. */
 function collide(p: Pallet, b: Body, c: SimConfig): { ball: Body; hit?: { speed: number; at: Point } } {
   const L = P.length
   const [ux, uy] = [Math.cos(p.angle), Math.sin(p.angle)]
@@ -147,8 +150,9 @@ function collide(p: Pallet, b: Body, c: SimConfig): { ball: Body; hit?: { speed:
   const [vpx, vpy] = [-p.omega * qy, p.omega * qx]
   const vn = (b.vel.x - vpx) * nx + (b.vel.y - vpy) * ny
   if (vn >= 0) return { ball: { pos, vel: b.vel } }
-  const k = (1 + P.restitution) * vn
-  let vel = { x: b.vel.x - k * nx, y: b.vel.y - k * ny }
+  const kick = (1 + P.restitution) * vn
+  let vel = { x: b.vel.x - kick * nx, y: b.vel.y - kick * ny }
+  if (-vn <= P.hitSpeed) return { ball: { pos, vel } }
   const speed = Math.hypot(vel.x, vel.y)
   const out = clamp(speed, P.exitSpeed[0] * c.maxSpeed, P.exitSpeed[1] * c.maxSpeed)
   vel = speed > 1e-9 ? { x: (vel.x / speed) * out, y: (vel.y / speed) * out } : { x: nx * out, y: ny * out }
@@ -167,7 +171,7 @@ export function rollWithPallets(
   { live, breaker, shooter }: { live: boolean; breaker: boolean; shooter: PlayerId },
 ): { ball: Ball; objects: Structure[]; pallets: Pallet[]; events: SimEvent[]; breaker: boolean } {
   const dt = 1 / c.tickHz
-  const near = live && pallets.some((p) => Math.hypot(ball.pos.x - p.pivot.x, ball.pos.y - p.pivot.y) <= P.ringRadius + c.ballRadius + Math.hypot(ball.vel.x, ball.vel.y) / c.tickHz + P.trackSlack)
+  const near = live && pallets.some((p) => distToPivot(p, ball.pos) <= ringReach(c) + Math.hypot(ball.vel.x, ball.vel.y) / c.tickHz + P.trackSlack)
   // Cooldown counts whole ticks.
   pallets = pallets.map((p) => ({ ...p, cooldown: Math.max(0, p.cooldown - 1) }))
   if (!near) {
@@ -183,11 +187,11 @@ export function rollWithPallets(
     ;({ ball, objects, breaker } = r)
     events.push(...r.events)
     for (const p of pallets) {
-      const k = collide(p, ball, c)
-      ball = { ...ball, ...k.ball }
-      if (k.hit && !hit.has(p.id)) {
+      const contact = collide(p, ball, c)
+      ball = { ...ball, ...contact.ball }
+      if (contact.hit && !hit.has(p.id)) {
         hit.add(p.id)
-        events.push({ type: 'pallet-hit', pallet: p.id, ...k.hit })
+        events.push({ type: 'pallet-hit', pallet: p.id, ...contact.hit })
       }
     }
   }
