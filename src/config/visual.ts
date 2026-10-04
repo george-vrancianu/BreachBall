@@ -353,7 +353,7 @@ export const visual = {
     vibration: { shotBase: 10, shotPerPower: 40, goal: [60, 40, 60], tier: 30 },
   },
   input: { tapSlopPx: 12, dragSlopPx: 6, /** A wall drawn from within this many screen px of a wall end starts exactly on it, and a dragged wall's end snaps to one. */ snapPx: 16, edgeScrollSpeed: 30, edgeBand: 0.1, touchTargetPx: 22, /** A landing still unseen after this many ticks is dropped, so a lost input cannot block the turn. */ landingTimeoutTicks: 30 },
-  transition: { flipMs: 400, goalMs: 1500, sweepMs: 1000, dismissMs: 1000, revealMs: 1500 },
+  transition: { flipMs: 400, goalMs: 1500, sweepMs: 1000, revealMs: 1500 },
   hud: {
     /** UI text: Chakra Petch 700, uppercase, tabular numerals. `display` is Bungee, for digits, the title and Play. Both load from Google Fonts in `index.html`. */
     font: '"Chakra Petch","Trebuchet MS",sans-serif', display: 'Bungee,Impact,sans-serif', ink, dark, panel: '#141a2a', track: '#3b4256', urgent: '#ff4d4d', urgentSeconds: 5, urgentPulse: 0.15, scrim: 'rgba(11,15,26,0.85)', scrimLight: 'rgba(11,15,26,0.7)', pressed: '#2a3350', pressedBorder: white, scoreFlipMs: 400, /** Hold on a Move point dot this long to refund all but one. */ longPressMs: 500,
@@ -406,8 +406,10 @@ export const visual = {
     },
     /** Move point dots: size and ring in px; a refund buzzes `vibration` ms, a refund that cannot happen buzzes `denied`. */
     refund: { dotPx: 9, ringPx: 2, gap: 4, vibration: 20, denied: [15, 40, 15] }, shadow: '#0008', gap: 8, /** The gap between the Offence, Defence and Subterfuge circles in their row (px). */ circleGapPx: 10,
-    /** The minimap chip (px): the chip and its thumbnail, the chip's border and radius, its inset from the band's corner and its tap area, the glyph's font size and the thumbnail's line width; the frame's fill over the thumbnail, the fog's fill, and the map view's hint pill (height, side padding, border, font size). */
-    minimap: { chipW: 30, chipH: 74, thumbW: 21, thumbH: 70, borderPx: 2, radiusPx: 6, insetPx: 8, hitPx: 44, fontPx: 18, linePx: 1, frame: 'rgba(232,234,240,0.12)', fog: 'rgba(11,15,26,0.7)', pill: { heightPx: 36, padPx: 18, borderPx: 2, fontPx: 13 } },
+    /** The minimap chip (px): the chip and its thumbnail, the chip's border and radius, its inset from the band's corner and its tap area, the glyph's font size and the thumbnail's line width; the frame's fill over the thumbnail, and the fog's fill. */
+    minimap: { chipW: 30, chipH: 74, thumbW: 21, thumbH: 70, borderPx: 2, radiusPx: 6, insetPx: 8, hitPx: 44, fontPx: 18, linePx: 1, frame: 'rgba(232,234,240,0.12)', fog: 'rgba(11,15,26,0.7)' },
+    /** The hint pill above the dock (the map view's hint and the first-round coaching line), px: its height, side padding, the vertical padding when the text wraps, border and font size. */
+    hintPill: { heightPx: 36, padPx: 18, wrapPadPx: 6, borderPx: 2, fontPx: 13 },
     /** The far-edge bars (Defence bar, then the Resource bar) share this look: the strip's height, a segment's height and widest width (a segment never narrows below twice the slant), the gap between segments, how far a segment's ends slant (px), the end digit's size and width, the P2 stripe's two band widths at 45 degrees (px) and its dark stripe, and the empty fill. The Resource bar sits under the Defence bar in a row `resourceRowPx` tall, its bar `resourcePx` thick, and eases a share change over `resourceMs`. A player's Credits digit flashes on a Bullseye Credit: it grows to `flash.scale` and glows white, settling back over `flash.ms`. */
     bar: { heightPx: 28, segmentPx: 12, segmentMaxPx: 36, gapPx: 3, slantPx: 4, digitPx: 16, digitWidthPx: 28, stripePx: [4, 2], stripeDark: '#7c2d12', empty: pitchDots, resourceRowPx: 20, resourcePx: 12, resourceMs: 400, flash: { ms: 300, scale: 1.5 } } },
   /** The Side menu: a press within `edgePx` of the viewer's left edge and a drag in `swipePx` opens it (screen px); the ☰ ghost button's size, its inset from the stage's right and from the Defence bar (which it sits just inside), the glyph size, `buttonZ` (above the HUD and the Strategies tray, under the panel's layer; the Minimap chip shares it), the panel's width cap and share (%), padding and gaps, and the layer's z-index (above the HUD, under the full-screen screens). */

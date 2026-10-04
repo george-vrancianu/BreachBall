@@ -22,7 +22,7 @@ import { InputController } from './input/InputController'
 import { builderNow, defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { countDestroyed, type Destroyed } from './view/defenceBar'
 import { countBullseyes, type Bullseyes } from './view/resourceBar'
-import { hudModel, roundOf, type HudModel } from './view/hudModel'
+import { hudModel, type HudModel } from './view/hudModel'
 import { minimapOf, type MinimapView } from './view/minimap'
 import { offenceCircle, type OffenceActions, type OffenceCircle } from './view/offenceCircle'
 import { phaseButtons } from './view/phaseButtons'
@@ -30,7 +30,7 @@ import { pausesSim, settingRows, type SideMenuView } from './view/sideMenu'
 import { loadFlipOnTurn, saveFlipOnTurn } from './deviceSettings'
 import { subterfugeCircle, type SubterfugeCircle } from './view/subterfugeCircle'
 import { planStrategy, STRATEGIES, strategyCards, type StrategyCard } from './view/strategies'
-import { acrossTable, advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
+import { acrossTable, advance, angle, blocking, choosingNotice, goalBall, handedOver, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
 
 export type { PlayerId, PowerUp, SubterfugeItem }
 
@@ -82,8 +82,6 @@ export type GameActions = {
   restart(): void
   /** Quit: tears the match down, leaving a fresh default one behind the Title screen. */
   quit(): void
-  /** Tap on the turn card. */
-  dismiss(): void
   /** Flip on turn: a device setting, saved on this device. Takes effect at the next handover. */
   flipOnTurn(on: boolean): void
   build: BuildActions
@@ -172,7 +170,7 @@ export class Game implements Sink {
       menuOpen: () => this.menuOpen,
       openMenu: () => this.toggleMenu(true),
       toggleMap: (open) => this.toggleMap(open),
-      send: (input) => this.driver.send(input),
+      send: this.act,
     })
     this.actions = {
       start: (s) => ((this.config = configFrom(s)), this.newMatch()),
@@ -184,13 +182,13 @@ export class Game implements Sink {
         // Only the device that plays the shooter's seat refunds for it, as only it may aim.
         const { shooter } = this.state.possession
         if (!mine(shooter)) return
-        if (count >= 1) this.driver.send({ refund: { player: shooter, count } })
+        if (count >= 1) this.act({ refund: { player: shooter, count } })
         else navigator.vibrate?.([...visual.hud.refund.denied])
       },
       subterfuge: (item) => {
         // Whoever acts (the builder, else the shooter) buys it, on the device that plays their seat.
         const player = whoActs(this.state)
-        if (mine(player)) this.driver.send({ subterfuge: { player, item } })
+        if (mine(player)) this.act({ subterfuge: { player, item } })
       },
       confirmBall: this.input.confirmBall,
       menu: (open) => this.toggleMenu(open),
@@ -200,7 +198,6 @@ export class Game implements Sink {
         this.newMatch()
       },
       flipOnTurn: (on) => ((this.flipOnTurn = on), saveFlipOnTurn(on)),
-      dismiss: () => (this.transition = dismiss(this.transition, performance.now())),
       build: this.input.build,
       strategies: {
         toggle: (open = !this.strategiesOpen) => {
@@ -216,7 +213,7 @@ export class Game implements Sink {
           this.input.build.cancel()
           this.strategiesOpen = false
           this.strategyQueue = { builder, inputs: inputs.slice(1) }
-          this.driver.send(inputs[0])
+          this.act(inputs[0])
         },
       },
     }
@@ -233,6 +230,15 @@ export class Game implements Sink {
 
   /** Whether the sim waits: behind a blocking hold, and behind the Side menu in hot-seat. */
   simPaused = () => blocking(this.transition) || pausesSim(this.menuOpen, hotSeat())
+
+  /** The active player has acted this turn (any input the local player sends outside a hold), which clears the first-round hint. Reset at each handover (hot-seat only: online `hudSeat` never changes, so the hint just clears at the first input; out of scope). */
+  private acted = false
+
+  /** Sends the local player's input to the driver and notes that they have acted; an input a hold forces (cancelling a half-made aim) is not the player acting. */
+  private act = (input: SimInput): void => {
+    if (!this.inputBlocked()) this.acted = true
+    this.driver.send(input)
+  }
 
   /** Whether the board ignores input: behind a blocking hold or the Side menu, online or not. */
   private inputBlocked = () => blocking(this.transition) || this.menuOpen
@@ -288,6 +294,7 @@ export class Game implements Sink {
     this.strategiesOpen = false
     this.strategyQueue = undefined
     this.transition = newTransition(s.possession.shooter, this.flips())
+    this.acted = false
     this.camera.recenter()
     this.camera.y = s.ball.pos.y
     this.lastBuilder = undefined
@@ -327,12 +334,14 @@ export class Game implements Sink {
 
   private announce(events: SimEvent[]): void {
     const { state } = this
-    this.transition = advance(this.transition, { handover: true, flip: this.flips(), active: whoActs(state), round: roundOf(state.match) ?? undefined, inHand: state.possession.inHand, phase: buildPhase(state.match), opening: openingBuild(state.match), events, now: this.now })
+    const before = this.transition
+    this.transition = advance(before, { handover: true, flip: this.flips(), active: whoActs(state), phase: buildPhase(state.match), opening: openingBuild(state.match), events, now: this.now })
+    if (handedOver(before, this.transition)) this.acted = false
   }
 
   private frame = (now: number): void => {
     if (this.dead) return
-    // The sim never waits on animations; the driver just stops stepping behind a flip, goal hold or turn card.
+    // The sim never waits on animations; the driver just stops stepping behind a flip or a goal, reveal or REPAIRED hold.
     const dt = Math.min((now - this.last) / 1000, visual.frame.maxDtS)
     this.last = this.now = now
     this.resize()
@@ -348,7 +357,10 @@ export class Game implements Sink {
     const flipping = !!transition.flip && now - transition.flip.at >= transition.flip.ms / 2
     // The seat across the table (stage not turned for it) shoots down the screen, so the ball is held near the top instead.
     const target = anchorY(state.ball.pos.y, transition.shown, camera.visibleHeight, !acrossTable(transition))
-    if (!state.match.builder && (flipping || (transition.overlay?.kind === 'turn' && !transition.flip))) (camera.y = target), camera.recenter()
+    // Mid-flip the camera snaps to where the incoming seat frames the ball, so the flip ends already framed.
+    const f = transition.flip
+    const dest = f ? anchorY(state.ball.pos.y, f.to, camera.visibleHeight, f.hudSeat === f.to) : target
+    if (!state.match.builder && flipping) (camera.y = dest), camera.recenter()
     this.input.edgeScroll(dt)
     this.input.tickAim()
     if (!camera.held) camera.follow(target, dt)
@@ -430,7 +442,7 @@ export class Game implements Sink {
     const { inHand } = state.possession
     const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, destroyed: this.destroyed, bullseyes: this.bullseyes }),
+      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: this.act, choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, acted: this.acted || !!transition.flip, destroyed: this.destroyed, bullseyes: this.bullseyes }),
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),

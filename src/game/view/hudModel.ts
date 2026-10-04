@@ -49,10 +49,12 @@ export type HudModel = {
   refundRate: number | null
   /** Phase buttons (Done in a build turn; Repair and Rearrange on a defence choice) shown above the HUD row. The row is rebuilt only when a label or `disabled` flag changes, so handlers must read live state at click time (see `ButtonSpec`). */
   buttons?: ButtonSpec[]
+  /** The first-round coaching line for the pill above the dock; absent after round 1 or once the player has acted. */
+  hint?: string
 }
 
 /** What the game knows that the sim state does not. `viewer` is the local player (online: the peer's own seat; hot-seat: whoever holds the device), not necessarily the seat shown at the bottom. */
-export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item; /** Structures each player has lost in play this match (see `countDestroyed`); defaults to none, so no empty segments. */ destroyed?: Destroyed; /** Bullseye Credits each player has earned this match (see `countBullseyes`), for the Resource bar's flash. */ bullseyes?: Bullseyes }
+export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item; /** Structures each player has lost in play this match (see `countDestroyed`); defaults to none, so no empty segments. */ destroyed?: Destroyed; /** Bullseye Credits each player has earned this match (see `countBullseyes`), for the Resource bar's flash. */ bullseyes?: Bullseyes; /** The active player has acted since their turn began, which clears the first-round hint. */ acted?: boolean }
 
 const PLACING: Record<Item, string> = { wall: 'Placing wall', repulsor: 'Placing Repulsor', steal: 'Placing Steal' }
 
@@ -81,11 +83,22 @@ function digitsOf(m: Match, objects: readonly Structure[]): Record<PlayerId, str
   }
 }
 
-/** The first-play hints (here and in the turn card) show only on round 1. */
-export const isFirstRound = (round: number | null | undefined): boolean => round === 1
+/** The first-play hints show only on round 1. */
+const isFirstRound = (round: number | null | undefined): boolean => round === 1
 
-/** The first-play hint is up: round 1, a shot still to be aimed from a placed ball. */
-const aimHint = (s: SimState, c: SimConfig): boolean => isFirstRound(roundOf(s.match)) && !s.match.builder && !s.match.choosing && !s.possession.inHand && !s.possession.live && s.possession.shots === c.shots
+/** A shot still to be aimed from a placed ball. */
+const shotToAim = (s: SimState, c: SimConfig): boolean => !s.match.builder && !s.match.choosing && !s.possession.inHand && !s.possession.live && s.possession.shots === c.shots
+
+/** The first-play aim hint is up: round 1 and a shot still to be aimed. */
+const aimHint = (s: SimState, c: SimConfig): boolean => isFirstRound(roundOf(s.match)) && shotToAim(s, c)
+
+/** The coaching line for what the active player faces first: a build turn that places pieces, the ball to place, or the shot to aim; undefined after round 1 or once they have acted. */
+function hintOf(s: SimState, c: SimConfig, acted?: boolean): string | undefined {
+  if (acted || !isFirstRound(roundOf(s.match))) return undefined
+  if (s.match.builder) return canEdit(s) ? 'Drag on your half to draw a wall, or pick a piece below, then OK' : undefined
+  if (s.possession.inHand) return s.match.choosing ? undefined : 'Tap to place the ball, then Confirm'
+  return shotToAim(s, c) ? 'Drag back from the ball to shoot; hold first for Power' : undefined
+}
 
 export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
   const b = s.match.builder
@@ -112,5 +125,6 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
     balance: modeFor(s.match).hasCredits(s.match) || (b && canEdit(s)) ? { amount: s.credits[v.active], unit: UNITS[s.match.mode].chip } : null,
     refundRate: modeFor(s.match).mayRefund(s.match) ? c.refundRate : null,
     buttons: v.buttons,
+    hint: hintOf(s, c, v.acted),
   }
 }

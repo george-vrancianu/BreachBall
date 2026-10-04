@@ -7,6 +7,7 @@ import type { Structure } from '../sim/wall'
 import { Game, type HudView } from './Game'
 import { hseg } from '../sim/testkit'
 import { STRATEGIES } from './view/strategies'
+import type { Transition } from './view/transition'
 
 // No DOM in the test run: a canvas that is an EventTarget, a window that is one, a context that swallows every call.
 class FakeCanvas extends EventTarget {
@@ -76,11 +77,10 @@ describe('Game', () => {
       const canvas = new FakeCanvas()
       const game = new Game(canvas as unknown as HTMLCanvasElement, (sink) => new LocalDriver(sink))
       game.actions.start(withMode(defaultSettings, 'siege'))
-      // The turn flips to Player 1 over the first 400 ms; its card may then be dismissed after a second.
+      // The opening hold flips to Player 1 over the first 400 ms.
       frame(t)
       t += 1500
       frame(t)
-      game.actions.dismiss()
       frame(t)
       const at = (type: string, p: { x: number; y: number }) => {
         const px = game.camera.toCanvas(canvas as unknown as HTMLCanvasElement, p)
@@ -125,7 +125,7 @@ describe('Game', () => {
 
   describe('build dock', () => {
     afterEach(() => vi.restoreAllMocks())
-    /** A Siege (or Rounds) match with Player 1's opening build turn up and its card dismissed; `step` advances the clock and runs a frame. */
+    /** A Siege (or Rounds) match with Player 1's opening build turn up; `step` advances the clock and runs a frame. */
     const opened = (mode: 'siege' | 'rounds' = 'siege') => {
       vi.spyOn(Math, 'random').mockReturnValue(0)
       let t = 1000
@@ -136,7 +136,6 @@ describe('Game', () => {
       frame(t)
       t += 1500
       frame(t)
-      game.actions.dismiss()
       frame(t)
       const step = (ms = 100) => ((t += ms), frame(t))
       return { game, step, view: () => view! }
@@ -146,6 +145,49 @@ describe('Game', () => {
       const { view } = opened()
       expect(view().defence).toMatchObject({ building: true, item: 'wall' })
       expect(view().hud.dock).toBe('build')
+    })
+
+    it('the first-round hint rides the HUD and clears at the player\'s first action', () => {
+      const { game, step, view } = opened('rounds')
+      expect(view().hud.hint).toMatch(/draw a wall/)
+      expect(view().overlay).toBeUndefined()
+      game.actions.strategies.toggle()
+      step()
+      game.actions.strategies.apply('chevron')
+      step()
+      expect(view().hud.hint).toBeUndefined()
+    })
+
+    const flip = (game: Game) => (game as unknown as { transition: Transition }).transition.flip
+
+    it('the hint returns for the next player after a handover, and is hidden while the flip runs', () => {
+      const { game, step, view } = opened('rounds')
+      const builder = game.state.match.builder!
+      game.actions.strategies.toggle()
+      step()
+      game.actions.strategies.apply('chevron')
+      step()
+      expect(view().hud.hint).toBeUndefined()
+      view().hud.buttons!.find((b) => b.label === 'Done')!.onClick()
+      step()
+      expect(flip(game)).toBeDefined()
+      expect(view().hud.hint).toBeUndefined()
+      step(visual.transition.flipMs + 100)
+      expect(flip(game)).toBeUndefined()
+      expect(game.state.match.builder).not.toBe(builder)
+      expect(view().hud.hint).toMatch(/draw a wall/)
+    })
+
+    it('an input sent behind the handover hold does not count as the incoming player acting', () => {
+      const { game, step, view } = opened('rounds')
+      view().hud.buttons!.find((b) => b.label === 'Done')!.onClick()
+      step()
+      expect(flip(game)).toBeDefined()
+      // Stands in for the drop of a half-made aim that the hold forces: it goes through the same send, while the board is blocked.
+      game.actions.subterfuge('jam')
+      step(visual.transition.flipMs + 100)
+      expect(flip(game)).toBeUndefined()
+      expect(view().hud.hint).toMatch(/draw a wall/)
     })
 
     it('the Strategies tray opens and closes, with a card per layout', () => {
@@ -236,8 +278,7 @@ describe('Game', () => {
     const game = make(onView)
     const t = performance.now()
     frame(t)
-    // The opening turn card holds the camera on the ball.
-    game.actions.dismiss()
+    // The opening hold has passed.
     frame(t + 5000)
     // Start held at mid-pitch, clear of both clamps wherever the follow had settled, so the pan below always moves the view.
     game.camera.pan(rules.pitchHeight / 2 - game.camera.y)
@@ -338,11 +379,10 @@ describe('Game', () => {
     expect(calls).toEqual(['start'])
     frame(performance.now())
     expect(calls).toContain('update')
-    // Let the opening card pass, then draw a one-unit wall across the middle of the builder's half.
+    // Let the opening hold pass, then draw a one-unit wall across the middle of the builder's half.
     const later = performance.now() + 60_000
     frame(later)
     vi.spyOn(performance, 'now').mockReturnValue(later)
-    game.actions.dismiss()
     // The build turn opened in build mode with the Wall armed: a drag draws.
     const at = (type: string, offsetX: number) => canvas.dispatchEvent(Object.assign(new Event(type), { offsetX, offsetY: 320, clientX: offsetX, clientY: 320, pointerId: 1 }))
     at('pointerdown', 100)
@@ -385,7 +425,7 @@ describe('Game', () => {
       store.clear()
       vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) })
     })
-    /** A Rounds match at its opening card, the given seat to act (some seeds open for Player 2). */
+    /** A Rounds match in its opening hold, the given seat to act (some seeds open for Player 2). */
     const opened = (seat: 1 | 2) => {
       const onView = vi.fn()
       vi.spyOn(performance, 'now').mockReturnValue(1000)
@@ -408,7 +448,7 @@ describe('Game', () => {
       expect(view().flipOnTurn).toBe(false)
       expect(view()).toMatchObject({ angle: 0, flipped: false })
       expect(view().hud.active).toBe(2)
-      expect(view().overlay?.text).toBe("Player 2's turn")
+      expect(view().overlay).toBeUndefined()
     })
     it('turned on, player 2 is turned to the bottom', () => {
       store.set('breachball.flipOnTurn', 'true')
@@ -427,7 +467,7 @@ describe('Game', () => {
 
   describe('Side menu', () => {
     afterEach(() => vi.restoreAllMocks())
-    /** A Rounds match past its opening card, with the sim running. */
+    /** A Rounds match past its opening hold, with the sim running. */
     const running = () => {
       let t = 1000
       vi.spyOn(performance, 'now').mockImplementation(() => t)
@@ -436,7 +476,6 @@ describe('Game', () => {
       frame(t)
       t += 1500
       frame(t)
-      game.actions.dismiss()
       frame(t)
       return { game, advance: (ms: number) => ((t += ms), frame(t)) }
     }

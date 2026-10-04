@@ -46,11 +46,11 @@ export function App() {
       <div style={{ position: 'fixed', inset: 0, transform: `rotate(${canvasAngle}deg)` }}>
         <canvas ref={canvas} />
       </div>
-      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. The overlay goes under the shell so the controls stay tappable during a card. Today both layers turn with the handover flip (180 degrees), so the stage still rotates as one. */}
+      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. The overlay goes under the shell so the controls stay tappable during a hold. Today both layers turn with the handover flip (180 degrees), so the stage still rotates as one. */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', transform: `rotate(${hudAngle}deg)` }}>
         {view && (
           <>
-            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onTap={() => actions().dismiss()} />
+            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} />
             <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} />
             {view.hud.resourceBar && <ResourceBar bar={view.hud.resourceBar} flipped={view.flipped} />}
             {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} />}

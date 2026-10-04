@@ -1,6 +1,6 @@
 import { initialState, step, type Aiming, type SimConfig, type SimEvent, type SimInput, type SimState } from '../sim/step'
 
-/** Where a driver delivers sim state: `Game`. A paused sink (a flip, goal hold or turn card) makes the driver stop stepping. */
+/** Where a driver delivers sim state: `Game`. A paused sink (a flip or a goal, reveal or REPAIRED hold) makes the driver stop stepping. */
 export type Sink = { apply(state: SimState, events: SimEvent[]): void; simPaused(): boolean }
 
 /** Whatever runs the match for `Game`: starts it, takes local inputs, and advances it, delivering each tick to its `Sink`. Hot-seat is `LocalDriver`; online play would be another. */

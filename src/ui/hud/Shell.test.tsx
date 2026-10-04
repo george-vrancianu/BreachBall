@@ -377,6 +377,19 @@ describe('Shell', () => {
     expect(screen.getByText('Tap to jump · tap ✕ to close')).toBeTruthy()
   })
 
+  it('shows the first-round hint in the dock area, and the map hint instead of it while the map is open', () => {
+    const hint = 'Drag back from the ball to shoot; hold first for Power'
+    const { rerender } = render(<Shell {...props()} />)
+    expect(screen.queryByText(hint)).toBeNull()
+    rerender(<Shell {...props()} hud={hud({ hint })} />)
+    const pill = screen.getByText(hint) as HTMLElement
+    expect(pill.style.pointerEvents).not.toBe('auto')
+    expect(pill.compareDocumentPosition(screen.getByTestId('dock')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    rerender(<Shell {...props()} hud={hud({ hint })} mapOpen />)
+    expect(screen.queryByText(hint)).toBeNull()
+    expect(screen.getByText('Tap to jump · tap ✕ to close')).toBeTruthy()
+  })
+
   it('only its controls take pointer input, so gestures pass through the gaps to the pitch', () => {
     const { container } = render(<Shell {...props()} hud={buildHud()} defence={defence({ selection: { buttons: [{ action: 'deselect', label: 'Deselect', onClick: vi.fn() }] } })} strategies={[]} confirm mapOpen><i>extra</i></Shell>)
     const shell = container.firstElementChild as HTMLElement

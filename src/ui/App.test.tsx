@@ -95,11 +95,11 @@ it('keeps the settings across Menu and Play', () => {
   expect((screen.getByLabelText(/rounds/i) as HTMLInputElement).value).toBe('9')
 })
 
-it('draws the overlay under the shell, so the controls stay tappable during a card', () => {
+it('draws the overlay under the shell, so the controls stay tappable during a hold', () => {
   render(<App />)
   fireEvent.click(screen.getByRole('button', { name: 'Play' }))
   fireEvent.click(screen.getByText('Start'))
-  act(() => games[0]!.onView(view({ overlay: { kind: 'turn', placement: 'center', band: false, text: 'Player 2', color: '#fff', opacity: 1, progress: 0, dismissable: true } })))
+  act(() => games[0]!.onView(view({ overlay: { kind: 'goal', placement: 'center', band: true, text: 'Player 2', color: '#fff', progress: 0 } })))
   const card = screen.getByText('Player 2').parentElement!
   const map = screen.getByRole('button', { name: 'Map' })
   expect(card.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

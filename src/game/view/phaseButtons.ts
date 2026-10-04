@@ -8,7 +8,7 @@ export type PhaseSeam = {
   /** The live state. Handlers read it at click time: the HUD keeps a button row while its labels are unchanged, so a handler must never carry the player it was created for. */
   current(): SimState
   send(input: SimInput): void
-  /** False while an overlay (the GOAL banner, the turn card) hides the board: the defence choice, Repair and Rearrange alike, is offered only when it is not. Default true. */
+  /** False while an overlay (the GOAL banner, the REVEAL hold) hides the board: the defence choice, Repair and Rearrange alike, is offered only when it is not. Default true. */
   choosable?: boolean
   /** The builder holds a piece not yet in the sim (being drawn, or red): Done waits until it is placed or cancelled. */
   unplaced?: boolean
