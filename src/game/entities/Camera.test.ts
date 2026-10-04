@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { anchorY, Camera, clampY, fogOf, layout, viewOf, viewOutline } from './Camera'
+import { anchorY, Camera, clampY, hudReserve, fogOf, layout, viewOf, viewOutline } from './Camera'
 import { rules } from '../../config/rules'
 
 describe('manual pan', () => {
@@ -54,9 +54,16 @@ describe('anchor', () => {
   })
 })
 
-describe('anchor across the table', () => {
-  it('with the stage not turned for a seat-2 shooter, holds the ball 30% down so the pitch ahead (down the screen) shows', () => {
-    expect(anchorY(30, 1, 80, false)).toBe(46)
+describe('anchor in Tabletop mode', () => {
+  it('seat 2 across the table, pitch unturned: the HUD seat anchors the ball 30% down the screen, so the pitch ahead (down the screen) shows', () => {
+    expect(anchorY(30, 2, 80)).toBe(46)
+  })
+})
+
+describe('HUD band', () => {
+  it('sits at the bottom of the canvas for seat 1, and at its top for seat 2, whether the stage turns (flip) or only the HUD does (Tabletop mode)', () => {
+    expect(hudReserve(1, 120)).toEqual({ top: 0, bottom: 120 })
+    expect(hudReserve(2, 120)).toEqual({ top: 120, bottom: 0 })
   })
 })
 

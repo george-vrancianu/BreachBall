@@ -81,7 +81,7 @@ The small chip at the top-left, just under the far-edge bars (the ☰ button sit
 _Avoid_: Radar, overview button
 
 **Dock**:
-The panel at the bottom of the screen holding the active viewer's controls, in two rows: the status row (balance chip, round and phase, clock, Recenter, and OK in a build turn) and the action row. The action row depends on the turn: the build dock has Build (a chess rook) on the left, the Defence pieces beside it and Strategies on the right; the play dock has the abilities on the left, Build (for an in-play build), Powerup (a bolt) and Subterfuge (a theatre mask), each opening in place to its options, and the shots and Refund on the right; a Rearrange turn shows a prompt and a defence choice shows Repair and Rearrange.
+The panel at the active player's edge of the screen (the bottom for Player 1; in Tabletop mode the top for Player 2) holding the active viewer's controls, in two rows: the status row (balance chip, round and phase, clock, Recenter, and OK in a build turn) and the action row. The action row depends on the turn: the build dock has Build (a chess rook) on the left, the Defence pieces beside it and Strategies on the right; the play dock has the abilities on the left, Build (for an in-play build), Powerup (a bolt) and Subterfuge (a theatre mask), each opening in place to its options, and the shots and Refund on the right; a Rearrange turn shows a prompt and a defence choice shows Repair and Rearrange.
 _Avoid_: Bottom menu, HUD bar, toolbar
 
 **In-play build**:
@@ -104,8 +104,16 @@ _Avoid_: Title, main menu, main screen, home, start screen
 The demo the Title screen's hero plays while nobody presses Play: pieces circle the centre ring and the ball shoots at them. A toy with its own rules, not the match physics; it only hints at what the pieces do.
 _Avoid_: Demo, screensaver, background animation, idle animation
 
+**Tabletop mode**:
+The device setting, on by default and for hot-seat only, that decides what turns when the turn passes. On, the pitch stays put and only the HUD layer turns 180 degrees to face the active player, so one device lying flat between two players works for both. Off, the whole stage, pitch included, flips so the active player's end is at the bottom. It replaces Flip on turn.
+_Avoid_: Flip on turn, flip mode, table mode
+
+**Canvas layer** / **HUD layer**:
+The two layers of the in-match stage: the canvas layer is the pitch, and the HUD layer is everything the player reads and taps over it (the Dock, bars, chips, the Overlay and the Side menu). Tabletop mode turns only the HUD layer; with it off they turn together.
+_Avoid_: Stage (when only one layer is meant), canvas and DOM
+
 **Side menu**:
-The in-match menu, opened by a swipe in from the viewer's left edge or its ☰ button: Resume, Help, the match's settings (read-only), the Flip on turn toggle (a device setting, off by default; hot-seat only), Restart (hot-seat only) and Quit to the Title screen. It pauses the clocks in hot-seat, never online.
+The in-match menu, opened by a swipe in from the viewer's left edge or its ☰ button: Resume, Help, the match's settings (read-only), the Tabletop mode toggle (a device setting, on by default; hot-seat only), Restart (hot-seat only) and Quit to the Title screen. It pauses the clocks in hot-seat, never online.
 _Avoid_: Pause menu, main menu, drawer
 
 **Move point**:

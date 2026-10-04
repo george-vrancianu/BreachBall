@@ -225,7 +225,7 @@ export type ShellProps = {
   strategies?: StrategyCard[]
   confirm: boolean
   mapOpen: boolean
-  /** Player 2 is at the bottom of the screen: the stage is turned, so the shell sits at the stage's top. */
+  /** The stage is turned for Player 2 (Tabletop mode off): the shell sits at the stage's top, which is the screen's bottom. Always false in Tabletop mode, where the HUD layer turns instead. */
   flipped: boolean
   onRecenter(): void
   onOffenceArm(item: OffenceItemSpec['item']): void
@@ -266,7 +266,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
       {/* Assumes the build dock always comes with a balance; without one the Strategies tray silently hides. */}
-      {building && strategies && m.balance && <StrategyTray cards={strategies} color={color} unit={m.balance.unit} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `${dock.trayPadPx.y}px ${dock.padPx}px` }} />}
+      {building && strategies && m.balance && <StrategyTray cards={strategies} color={color} unit={m.balance.unit} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `${dock.trayPadPx.y}px ${dock.padPx}px` }} />}
       {defence?.selection && <SelectionBar buttons={defence.selection.buttons} />}
       {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(dock.primary.iconPx)} />}
       {mapOpen ? <HintPill text="Tap to jump · tap ✕ to close" /> : m.hint && <HintPill text={m.hint} wrap />}

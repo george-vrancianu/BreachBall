@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { visual } from '../../config/visual'
-import { advance, angle, blocking, choosingNotice, goalBall, handedOver, newTransition, overlayView, revealing, type Frame, type Transition } from './transition'
+import { advance, angle, blocking, choosingNotice, facing, goalBall, handedOver, seatAngle, newTransition, overlayView, reorient, revealing, type Frame, type Transition } from './transition'
 
-const base: Frame = { flip: true, active: 1, phase: 'Play', events: [], now: 0 }
-/** A new match with Flip on turn on (the shell's default is off). */
-const fresh = (a: 1 | 2) => newTransition(a, true)
+const base: Frame = { tabletop: false, active: 1, phase: 'Play', events: [], now: 0 }
+/** A new match with Tabletop mode off: the stage turns at each handover. */
+const fresh = (a: 1 | 2) => newTransition(a, false)
 const go = (t: Transition, o: Partial<Frame>) => advance(t, { ...base, ...o })
 /** A started match whose opening hold has finished. */
 const open = () => go(go(fresh(1), {}), { now: 400 })
@@ -212,64 +212,112 @@ describe('opponent is choosing notice', () => {
   })
 })
 
-describe('flip off (hot-seat, the default)', () => {
-  const settled = (flip: boolean) => go(go(newTransition(1, flip), { flip }), { flip, now: 400 })
+describe('Tabletop mode on (hot-seat, the default)', () => {
+  const settled = (tabletop: boolean) => go(go(newTransition(1, tabletop), { tabletop }), { tabletop, now: 400 })
   it('still holds at match start: a flip with no rotation, then the sim runs', () => {
-    let t = go(newTransition(1, false), { flip: false })
+    let t = go(newTransition(1, true), { tabletop: true })
     expect(t.flip).toMatchObject({ from: 1, to: 1, hudSeat: 1 })
     expect(angle(t, 200)).toBe(0)
     expect(blocking(t)).toBe(true)
     expect(t.overlay).toBeUndefined()
-    t = go(t, { flip: false, now: 400 })
+    t = go(t, { tabletop: true, now: 400 })
     expect(t.flip).toBeUndefined()
     expect(blocking(t)).toBe(false)
   })
-  it('never rotates: the opponent plays from across the table, with no card', () => {
-    let t = settled(false)
-    t = go(t, { now: 2000, active: 2, flip: false })
+  it('never turns the pitch: the HUD seat changes at the handover while the bottom stays seat 1', () => {
+    let t = settled(true)
+    t = go(t, { now: 2000, active: 2, tabletop: true })
     expect(t.flip).toMatchObject({ from: 1, to: 1, hudSeat: 2 })
     expect(angle(t, 2200)).toBe(0)
     expect(overlayView(t, 2000)).toBeUndefined()
     expect(blocking(t)).toBe(true)
-    t = go(t, { now: 2400, active: 2, flip: false })
-    expect(t.shown).toBe(1)
-    expect(t.hudSeat).toBe(2)
+    t = go(t, { now: 2400, active: 2, tabletop: true })
+    expect([t.shown, t.hudSeat]).toEqual([1, 2])
     expect(blocking(t)).toBe(false)
+    t = go(go(t, { now: 4000, active: 1, tabletop: true }), { now: 4400, active: 1, tabletop: true })
+    expect([t.shown, t.hudSeat]).toEqual([1, 1])
   })
-  it('opens a match for player 2 with the board still at the bottom', () => {
-    const t = go(newTransition(2, false), { active: 2, flip: false })
+  it('opens a match for player 2 with the pitch unturned and the HUD on seat 2', () => {
+    const t = go(newTransition(2, true), { active: 2, tabletop: true })
     expect(angle(t, 0)).toBe(0)
     expect([t.shown, t.hudSeat]).toEqual([1, 2])
     expect(overlayView(t, 0)).toBeUndefined()
   })
-  it('turning it on mid-match applies at the next handover, not before', () => {
-    let t = settled(false)
-    t = go(t, { now: 1100, flip: true })
+  it('advance alone: turning it off mid-match takes effect at the next handover', () => {
+    let t = settled(true)
+    t = go(t, { now: 1100, tabletop: false })
     expect(t.flip).toBeUndefined()
     expect(angle(t, 1100)).toBe(0)
-    t = go(t, { now: 2000, active: 2, flip: true })
+    t = go(t, { now: 2000, active: 2, tabletop: false })
     expect(t.flip).toMatchObject({ from: 1, to: 2 })
   })
-  it('turning it off while turned applies at the next handover, which turns back once', () => {
-    let t = go(settled(true), { now: 2000, active: 2 })
+  it('advance alone: turning it on while the stage is turned takes effect at the next handover, which turns back once', () => {
+    let t = go(settled(false), { now: 2000, active: 2 })
     t = go(t, { now: 2400, active: 2 })
     expect(t.shown).toBe(2)
-    t = go(t, { now: 3500, active: 2, flip: false })
+    t = go(t, { now: 3500, active: 2, tabletop: true })
     expect(t.flip).toBeUndefined()
-    t = go(t, { now: 4000, active: 1, flip: false })
+    t = go(t, { now: 4000, active: 1, tabletop: true })
     expect(t.flip).toMatchObject({ from: 2, to: 1 })
   })
   it('a flip under way is not changed by the toggle', () => {
-    let t = go(settled(true), { now: 2000, active: 2 })
-    t = go(t, { now: 2100, active: 2, flip: false })
+    let t = go(settled(false), { now: 2000, active: 2 })
+    t = go(t, { now: 2100, active: 2, tabletop: true })
     expect(t.flip).toMatchObject({ from: 1, to: 2 })
   })
 })
 
+describe('orientation of the layers', () => {
+  it('turns the HUD to the HUD seat in tabletop, and with the stage otherwise', () => {
+    const tabletop = go(go(newTransition(1, true), { tabletop: true, active: 2 }), { tabletop: true, active: 2, now: 400 })
+    expect([tabletop.shown, tabletop.hudSeat]).toEqual([1, 2])
+    expect(seatAngle(tabletop)).toBe(180)
+    const flipped = go(go(fresh(1), { active: 2 }), { active: 2, now: 400 })
+    expect([flipped.shown, flipped.hudSeat]).toEqual([2, 2])
+    expect(seatAngle(flipped)).toBe(180)
+    expect(seatAngle(fresh(1))).toBe(0)
+  })
+})
+
+describe('facing', () => {
+  const across: Transition = { shown: 1, hudSeat: 2 }
+  it('hot-seat follows the HUD seat, so Player 2 kicking off is laid out for seat 2', () => {
+    expect(facing(across, true)).toBe(2)
+  })
+  it('online stays on the bottom seat even when Player 2 has the turn: online is unaffected by Tabletop mode', () => {
+    expect(facing(across, false)).toBe(1)
+  })
+})
+
+describe('reorient (the setting changed mid-match)', () => {
+  const tabletopTurned = () => go(go(newTransition(1, true), { tabletop: true, active: 2 }), { tabletop: true, active: 2, now: 400 })
+  it('snaps a turned stage to the HUD-only layout: pitch back to seat 1, HUD stays on the active seat', () => {
+    const turned = go(go(fresh(1), { active: 2 }), { active: 2, now: 400 })
+    const t = reorient(turned, true)
+    expect([t.shown, t.hudSeat]).toEqual([1, 2])
+    expect(angle(t, 5000)).toBe(0)
+  })
+  it('snaps tabletop to the whole-stage flip: the pitch turns to the active seat at once, no animation', () => {
+    const t = reorient(tabletopTurned(), false)
+    expect([t.shown, t.hudSeat]).toEqual([2, 2])
+    expect(t.flip).toBeUndefined()
+    expect(angle(t, 400)).toBe(180)
+  })
+  it('lands a flip already under way, and keeps an overlay that is up', () => {
+    const under = go(go(newTransition(2, true), { tabletop: true, active: 2 }), { tabletop: true, active: 2, events: [{ type: 'repaired', id: 1, player: 1 }] })
+    expect(under.flip).toBeDefined()
+    expect(under.overlay).toBeDefined()
+    const t = reorient(under, false)
+    expect(t.flip).toBeUndefined()
+    expect([t.shown, t.hudSeat]).toEqual([2, 2])
+    expect(t.overlay).toBe(under.overlay)
+  })
+})
+
 describe('online', () => {
-  it('ignores the toggle: no flip and no overlay, whichever way it is set', () => {
-    for (const flip of [true, false]) {
-      const t = go(go(fresh(1), { handover: false, flip }), { handover: false, flip, now: 2000, active: 2 })
+  it('ignores Tabletop mode: no flip and no overlay, whichever way it is set', () => {
+    for (const tabletop of [true, false]) {
+      const t = go(go(fresh(1), { handover: false, tabletop }), { handover: false, tabletop, now: 2000, active: 2 })
       expect(t.flip).toBeUndefined()
       expect(t.overlay).toBeUndefined()
       expect(t.shown).toBe(1)

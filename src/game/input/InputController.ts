@@ -47,6 +47,8 @@ export type InputHost = {
   config(): SimConfig
   /** Whose end of the pitch is at the bottom of the screen. */
   shown(): PlayerId
+  /** The HUD is turned a half revolution against the canvas (Tabletop mode, seat 2): the viewer's left is the canvas's right. */
+  across(): boolean
   /** Whether a seat is played on this device: every seat in hot-seat, only the peer's own online. */
   mine(p: PlayerId): boolean
   mapOpen(): boolean
@@ -421,7 +423,7 @@ export class InputController {
 
   private move(e: PointerEvent): void {
     if (this.edge?.id === e.pointerId && !(e.buttons || e.pointerType !== 'mouse')) this.edge = undefined
-    if (this.edge?.id === e.pointerId && swipedIn(this.edge.from, { x: e.offsetX, y: e.offsetY })) {
+    if (this.edge?.id === e.pointerId && swipedIn(this.edge.from, { x: e.offsetX, y: e.offsetY }, this.host.across())) {
       this.edge = undefined
       this.host.openMenu()
     }
@@ -594,7 +596,7 @@ export class InputController {
     const { canvas, camera, mapCam } = this.host
     if (this.host.menuOpen() || this.edge) return
     // The Side menu's edge swipe works even behind a hold (it starts nothing on the board); a press there is never a pan, aim or piece drag.
-    if (!passedThrough && !this.host.mapOpen() && this.pointers.size === 0 && startsAtEdge(e.offsetX)) {
+    if (!passedThrough && !this.host.mapOpen() && this.pointers.size === 0 && startsAtEdge(e.offsetX, canvas.clientWidth, this.host.across())) {
       this.edge = { id: e.pointerId, from: { x: e.offsetX, y: e.offsetY } }
       // Captured, so a release off the canvas still ends the press.
       this.host.canvas.setPointerCapture?.(e.pointerId)

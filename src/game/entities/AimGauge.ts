@@ -20,7 +20,7 @@ export class AimGauge extends Entity {
   aim?: GaugeAim
   /** The ball's centre, in world units. */
   at: Point = { x: 0, y: 0 }
-  /** The stage is turned for Player 2: screen right and down are world left and up, and text turns upright. */
+  /** The viewer is Player 2 (the stage turned to them, or across the table in Tabletop mode): screen right and down are world left and up, and text turns upright for them. */
   flipped = false
   /** The world y where the dock band starts, at the screen bottom of the pitch view (the game sets it each frame); none: no dock to keep clear of. */
   dockEdge?: number

@@ -20,4 +20,11 @@ describe('minimapOf', () => {
     expect(one.top + one.height).toBeCloseTo(half, 3)
     expect(minimapOf(54, 64, 2).fog!.top).toBeCloseTo(half, 3)
   })
+  it('mirrors the bands when the HUD is across the table, so the thumbnail matches what the viewer sees of the canvas layer', () => {
+    const plain = minimapOf(80, 64, 2)
+    const turned = minimapOf(80, 64, 2, true)
+    expect(turned.frame.top).toBeCloseTo(1 - plain.frame.top - plain.frame.height, 3)
+    expect(turned.frame.height).toBe(plain.frame.height)
+    expect(turned.fog!.top).toBeCloseTo(1 - plain.fog!.top - plain.fog!.height, 3)
+  })
 })

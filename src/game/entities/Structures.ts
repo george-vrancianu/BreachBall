@@ -44,7 +44,7 @@ export class Structures extends Entity {
   pieceBlocked = false
   /** The selected movable wall's two ends: handles are drawn on them. */
   handles?: { a: Point; b: Point }
-  /** The canvas is turned for the other seat (hot-seat flip): text is turned back to read upright. */
+  /** The viewer is Player 2, whose end the stage is turned to or, in Tabletop mode, who sits across the table: text and lighting are turned for their view so they read upright. */
   flipped = false
   /** Ids stood in for by the build piece or landing piece. */
   hidden: number[] = []

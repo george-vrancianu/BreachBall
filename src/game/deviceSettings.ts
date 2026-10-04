@@ -3,21 +3,33 @@
  * Lives beside Game, not in the pure `view/`, because it touches browser storage.
  */
 
-const FLIP_KEY = 'breachball.flipOnTurn'
+const KEY = 'breachball.tabletop'
+/** Tabletop mode's predecessor, Flip on turn. Read once to migrate, then deleted. */
+const OLD_KEY = 'breachball.flipOnTurn'
 
-/** Flip on turn: whether the hot-seat stage turns 180 degrees at each handover. Off on a fresh device, and when storage is unavailable or holds anything else. */
-export function loadFlipOnTurn(): boolean {
+/**
+ * Tabletop mode: whether a hot-seat handover turns only the HUD (on) or the whole stage, pitch included (off). On for a fresh device, and when storage is unavailable or holds anything else.
+ * A device that still holds the old Flip on turn key is migrated first: `true` keeps its screen flip (Tabletop off), anything else is on; the new key is written and the old one removed.
+ */
+export function loadTabletop(): boolean {
   try {
-    return localStorage.getItem(FLIP_KEY) === 'true'
+    if (localStorage.getItem(KEY) === null) {
+      const old = localStorage.getItem(OLD_KEY)
+      if (old !== null) {
+        localStorage.setItem(KEY, String(old !== 'true'))
+        localStorage.removeItem(OLD_KEY)
+      }
+    }
+    return localStorage.getItem(KEY) !== 'false'
   } catch {
-    return false
+    return true
   }
 }
 
-/** Remember Flip on turn on this device. Silently session-only when storage is blocked. */
-export function saveFlipOnTurn(on: boolean): void {
+/** Remember Tabletop mode on this device. Silently session-only when storage is blocked. */
+export function saveTabletop(on: boolean): void {
   try {
-    localStorage.setItem(FLIP_KEY, String(on))
+    localStorage.setItem(KEY, String(on))
   } catch {
     // Storage may be blocked (private mode); the setting then lasts the session only.
   }

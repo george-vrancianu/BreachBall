@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { minimapOf } from './view/minimap'
 import { rules } from '../config/rules'
 import { visual } from '../config/visual'
 import { defaultSettings, withMode } from '../sim/settings'
@@ -287,7 +288,8 @@ describe('Game', () => {
     game.camera.pan(10)
     frame(t + 5032)
     const after = onView.mock.lastCall![0].minimap.frame
-    expect(after.top).toBeGreaterThan(before.top)
+    // Which way it moves depends on whether the HUD is across the table (mirrored); the pan is 10 of the map's units.
+    expect(Math.abs(after.top - before.top)).toBeCloseTo(10 / rules.mapHeight, 2)
     expect(after.height).toBe(before.height)
   })
 
@@ -418,12 +420,12 @@ describe('Game', () => {
     game.destroy()
   })
 
-  describe('Flip on turn', () => {
+  describe('Tabletop mode', () => {
     afterEach(() => vi.restoreAllMocks())
     const store = new Map<string, string>()
     beforeEach(() => {
       store.clear()
-      vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) })
+      vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v), removeItem: (k: string) => store.delete(k) })
     })
     /** A Rounds match in its opening hold, the given seat to act (some seeds open for Player 2). */
     const opened = (seat: 1 | 2) => {
@@ -443,25 +445,46 @@ describe('Game', () => {
       return { game, view: () => onView.mock.lastCall![0] as HudView }
     }
 
-    it('is off on a fresh device: the stage stays put while player 2 plays from across the table', () => {
+    it('is on for a fresh device: the pitch stays put and only the HUD turns to player 2', () => {
       const { view } = opened(2)
-      expect(view().flipOnTurn).toBe(false)
-      expect(view()).toMatchObject({ angle: 0, flipped: false })
+      expect(view().tabletop).toBe(true)
+      expect(view()).toMatchObject({ angle: 0, flipped: false, seatAngle: 180 })
       expect(view().hud.active).toBe(2)
       expect(view().overlay).toBeUndefined()
     })
-    it('turned on, player 2 is turned to the bottom', () => {
+    it('the minimap thumbnail is mirrored for player 2 across the table, and not when the stage turns with it', () => {
+      const on = opened(2)
+      const { camera } = on.game
+      expect(on.view().minimap.frame).toEqual(minimapOf(camera.y, camera.visibleHeight, camera.blind, true).frame)
+      store.set('breachball.tabletop', 'false')
+      const off = opened(2)
+      expect(off.view().minimap.frame).toEqual(minimapOf(off.game.camera.y, off.game.camera.visibleHeight, off.game.camera.blind).frame)
+    })
+    it('turned off (an old Flip on turn "true" migrates to it), player 2 turns the whole stage to the bottom', () => {
       store.set('breachball.flipOnTurn', 'true')
       const { view } = opened(2)
-      expect(view().flipOnTurn).toBe(true)
-      expect(view()).toMatchObject({ angle: 180, flipped: true })
+      expect(view().tabletop).toBe(false)
+      expect(view()).toMatchObject({ angle: 180, flipped: true, seatAngle: 180 })
     })
     it('the action saves the choice on the device and shows in the view', () => {
       const { game, view } = opened(1)
-      game.actions.flipOnTurn(true)
+      game.actions.tabletop(false)
       frame(1000)
-      expect(store.get('breachball.flipOnTurn')).toBe('true')
-      expect(view().flipOnTurn).toBe(true)
+      expect(store.get('breachball.tabletop')).toBe('false')
+      expect(view().tabletop).toBe(false)
+    })
+    it('changing it mid-match snaps to the active player at once, once the Side menu is closed', () => {
+      const { game, view } = opened(2)
+      game.actions.menu(true)
+      game.actions.tabletop(false)
+      frame(1600)
+      expect(view()).toMatchObject({ angle: 0, flipped: false })
+      game.actions.menu(false)
+      frame(1700)
+      expect(view()).toMatchObject({ angle: 180, flipped: true, seatAngle: 180 })
+      game.actions.tabletop(true)
+      frame(1800)
+      expect(view()).toMatchObject({ angle: 0, flipped: false, seatAngle: 180 })
     })
   })
 
@@ -541,6 +564,8 @@ describe('Game', () => {
     })
 
     it('an edge swipe on the canvas opens it', () => {
+      // Tabletop mode off, so whoever kicks off the viewer's left is the canvas's left (with it on, Player 2's is the right).
+      vi.stubGlobal('localStorage', { getItem: (k: string) => (k === 'breachball.tabletop' ? 'false' : null), setItem: () => {}, removeItem: () => {} })
       const canvas = new FakeCanvas()
       const onView = vi.fn()
       new Game(canvas as unknown as HTMLCanvasElement, (sink) => new LocalDriver(sink), onView)

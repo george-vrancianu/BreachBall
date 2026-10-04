@@ -26,9 +26,11 @@ let pending: SimInput[]
 let ctl: InputController
 let keydown: (e: unknown) => void
 let menu: { open: boolean; opened: number }
+let across: boolean
 
 const make = (s: SimState, mine: (p: PlayerId) => boolean = () => true) => {
   state = s
+  across = false
   menu = { open: false, opened: 0 }
   sent = []
   pending = []
@@ -41,6 +43,7 @@ const make = (s: SimState, mine: (p: PlayerId) => boolean = () => true) => {
     state: () => state,
     config: () => c,
     shown: () => 1,
+    across: () => across,
     mine,
     mapOpen: () => false,
     blocked: () => false,
@@ -1245,6 +1248,18 @@ describe('the Side menu edge swipe', () => {
     expect(menu.opened).toBe(0)
     at('pointermove', 60, 305)
     at('pointerup', 60, 305)
+    expect(menu.opened).toBe(1)
+  })
+
+  it('across the table (Tabletop mode, seat 2) opens from the canvas\'s right edge, the HUD\'s left, and not from its left', () => {
+    across = true
+    at('pointerdown', 5, 300)
+    at('pointermove', 60, 300)
+    at('pointerup', 60, 300)
+    expect(menu.opened).toBe(0)
+    at('pointerdown', 395, 300)
+    at('pointermove', 340, 305)
+    at('pointerup', 340, 305)
     expect(menu.opened).toBe(1)
   })
 
