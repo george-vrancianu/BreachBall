@@ -6,6 +6,7 @@ import { LocalDriver, type Driver } from './driver'
 import type { Structure } from '../sim/wall'
 import { Game, type HudView } from './Game'
 import { hseg } from '../sim/testkit'
+import { STRATEGIES } from './view/strategies'
 
 // No DOM in the test run: a canvas that is an EventTarget, a window that is one, a context that swallows every call.
 class FakeCanvas extends EventTarget {
@@ -158,20 +159,23 @@ describe('Game', () => {
       expect(view().strategies).toBeUndefined()
     })
 
-    it('a Strategy goes down a piece a tick, closes the tray, and a second one replaces it at no extra cost', () => {
+    it('a Strategy goes down a piece a tick, closes the tray, and a second one replaces it at its own card cost', () => {
       const { game, step, view } = opened('rounds')
       const builder = game.state.match.builder!
       const credits = game.state.credits[builder]
+      const pieces = (id: string) => STRATEGIES.find((st) => st.id === id)!.pieces.length
       game.actions.strategies.toggle()
+      step()
+      const bulwarkCost = view().strategies!.find((k) => k.id === 'bulwark')!.cost
       game.actions.strategies.apply('chevron')
-      for (let i = 0; i < 20; i++) step()
-      expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(15)
+      for (let i = 0; i < 60; i++) step()
+      expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(pieces('chevron'))
       expect(view().strategies).toBeUndefined()
-      const spent = credits - game.state.credits[builder]
+      game.actions.strategies.toggle()
       game.actions.strategies.apply('bulwark')
-      for (let i = 0; i < 35; i++) step()
-      expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(13)
-      expect(credits - game.state.credits[builder]).toBe(spent)
+      for (let i = 0; i < 60; i++) step()
+      expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(pieces('bulwark'))
+      expect(credits - game.state.credits[builder]).toBe(bulwarkCost)
     })
 
     it('the tray does not open outside a build turn', () => {
@@ -269,7 +273,7 @@ describe('Game', () => {
     game.actions.start({ ...defaultSettings, mode: 'siege' })
     const builder = game.state.match.builder!
     expect([game.camera.blind, game.fog.blind]).toEqual([builder, builder])
-    game.actions.start({ ...defaultSettings, mode: 'rounds' })
+    game.actions.start(withMode(defaultSettings, 'rounds'))
     expect(game.fog.blind).toBeUndefined()
   })
 
@@ -358,7 +362,7 @@ describe('Game', () => {
     const onView = vi.fn()
     const game = make(onView)
     const t = performance.now()
-    game.actions.start({ ...defaultSettings, mode: 'rounds' })
+    game.actions.start(withMode(defaultSettings, 'rounds'))
     game.apply(game.state, [{ type: 'bullseye-credited', player: 2, credits: 2 }])
     frame(t)
     const bar = () => onView.mock.lastCall![0].hud.resourceBar
@@ -383,7 +387,7 @@ describe('Game', () => {
       const game = make(onView)
       for (const r of [0, 0.3, 0.6, 0.9]) {
         vi.spyOn(Math, 'random').mockReturnValue(r)
-        game.actions.start({ ...defaultSettings, mode: 'rounds' })
+        game.actions.start(withMode(defaultSettings, 'rounds'))
         if ((game.state.match.builder ?? game.state.possession.shooter) === seat) break
       }
       expect(game.state.match.builder ?? game.state.possession.shooter).toBe(seat)
@@ -423,7 +427,7 @@ describe('Game', () => {
       let t = 1000
       vi.spyOn(performance, 'now').mockImplementation(() => t)
       const game = make()
-      game.actions.start({ ...defaultSettings, mode: 'rounds' })
+      game.actions.start(withMode(defaultSettings, 'rounds'))
       frame(t)
       t += 1500
       frame(t)
@@ -457,7 +461,7 @@ describe('Game', () => {
 
     it('Restart re-runs the same settings in a fresh match and closes the menu', () => {
       const { game } = running()
-      game.actions.start({ ...defaultSettings, mode: 'rounds', rounds: 7 })
+      game.actions.start({ ...withMode(defaultSettings, 'rounds'), rounds: 7 })
       game.actions.menu(true)
       game.actions.restart()
       expect(game.state.match.mode).toBe('rounds')
@@ -469,7 +473,7 @@ describe('Game', () => {
     it('Quit tears the match down to a default one and closes the menu', () => {
       const onView = vi.fn()
       const game = make(onView)
-      game.actions.start({ ...defaultSettings, mode: 'rounds', rounds: 7 })
+      game.actions.start({ ...withMode(defaultSettings, 'rounds'), rounds: 7 })
       game.actions.menu(true)
       game.actions.quit()
       frame(performance.now())

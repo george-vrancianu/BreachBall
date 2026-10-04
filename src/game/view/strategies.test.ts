@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { defaultConfig as c, step, type SimState } from '../../sim/step'
 import { buildState, funded, hseg, siegeBuild } from '../../sim/testkit'
 import { kickoffSpot } from '../../sim/pitch'
-import { distToSegment, isLegal, wallSegments } from '../../sim/wall'
+import { distToSegment, isLegal, wallSegments, structureCost } from '../../sim/wall'
 import { sliderDefault } from '../../sim/settings'
 import { rules } from '../../config/rules'
 import { piecesFor, planStrategy, STRATEGIES, strategyCards } from './strategies'
@@ -93,6 +93,40 @@ describe('Strategies', () => {
     }
   })
 
+  // The archetype of each Strategy (not a tag on it), and the band each holds: walls are cheap, so wall-heavy plans are mostly walls.
+  const archetype: Record<string, 'wall' | 'hybrid' | 'tower'> = {
+    bulwark: 'wall', fortress: 'wall', honeycomb: 'wall', bastion: 'wall', layers: 'wall', labyrinth: 'wall',
+    chevron: 'hybrid', zigzag: 'hybrid', net: 'hybrid', pinball: 'hybrid', wings: 'hybrid', gauntlet: 'hybrid', spider: 'hybrid',
+    turrets: 'tower', crossfire: 'tower', watchtowers: 'tower',
+  }
+
+  it('the archetype map covers every Strategy and nothing else', () => {
+    expect(Object.keys(archetype).sort()).toEqual(STRATEGIES.map((st) => st.id).sort())
+  })
+
+  it.each(STRATEGIES.map((st) => [st.name, st] as const))('%s sits in its archetype\'s band of wall units and towers', (_, st) => {
+    const pieces = piecesFor(st, 1)
+    const walls = pieces.filter((p) => p.kind === 'wall').reduce((n, p) => n + structureCost(p), 0)
+    const towers = pieces.filter((p) => p.kind === 'tower')
+    const towerCost = towers.reduce((n, p) => n + structureCost(p), 0)
+    const kind = archetype[st.id]
+    if (kind === 'wall') {
+      expect(walls).toBeGreaterThanOrEqual(26)
+      expect(towers.length).toBeLessThanOrEqual(2)
+      expect(towerCost).toBeLessThanOrEqual(10)
+    } else if (kind === 'hybrid') {
+      expect(walls).toBeGreaterThanOrEqual(17)
+      expect(walls).toBeLessThanOrEqual(23)
+      expect(towers.length).toBeGreaterThanOrEqual(3)
+      expect(towers.length).toBeLessThanOrEqual(4)
+      expect(towerCost).toBeGreaterThanOrEqual(14)
+      expect(towerCost).toBeLessThanOrEqual(18)
+    } else {
+      expect(towerCost).toBeGreaterThanOrEqual(25)
+      expect(walls).toBeLessThanOrEqual(11)
+    }
+  })
+
   it('applying the plan places every piece and spends what it says', () => {
     const s = funded(buildState(1), 1, c.openingCredits)
     const plan = planStrategy(s, 1, STRATEGIES[0], c)
@@ -134,7 +168,7 @@ describe('Strategies', () => {
     const s = siegeBuild(1)
     const plan = planStrategy(s, 1, STRATEGIES.find((st) => st.id === 'turrets')!, c)
     expect(plan.placed).toBe(plan.total)
-    // Its walls only: 9 units against the round's 30 wall points.
+    // Its walls only: 9 units against the 30 default Wall points.
     expect(plan.cost).toBe(9)
   })
 })
