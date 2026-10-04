@@ -2,7 +2,7 @@ import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
 import { splashDamage, splashOf } from '../../sim/splash'
 import type { SimConfig, SimState } from '../../sim/step'
-import { canPlace, type Structure, type StructureSpec } from '../../sim/wall'
+import { isLegal, type Structure, type StructureSpec } from '../../sim/wall'
 import { Entity } from './Entity'
 import { Fixture, type FixtureData } from './Fixture'
 import { Tower } from './Tower'
@@ -150,7 +150,7 @@ export class Structures extends Entity {
     f.clock = this.clock
     f.alpha = visual.wall.ghostAlpha
     f.selected = selected
-    if (selected && !canPlace(this.standing(), spec)) f.tint = visual.wall.illegal
+    if (selected && !isLegal(spec, this.standing())) f.tint = visual.wall.illegal
     f.draw(ctx)
   }
 

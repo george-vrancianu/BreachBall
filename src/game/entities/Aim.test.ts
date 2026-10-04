@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { visual } from '../../config/visual'
 import { defaultConfig, step, type SimState } from '../../sim/step'
-import { buildState, playState } from '../../sim/testkit'
+import { buildState, playState, hseg } from '../../sim/testkit'
 import type { WallSpec } from '../../sim/wall'
 import { Aim, type AimLine } from './Aim'
 
-const wall: WallSpec = { kind: 'wall', owner: 1, shape: 'straight', rotation: 0, at: { gx: 10, gy: 40 } }
+const wall: WallSpec = { kind: 'wall', owner: 1, ...hseg(10, 40) }
 const placed = () => step(buildState(1), { placeWall: wall }, defaultConfig).state
 
 describe('Aim', () => {
