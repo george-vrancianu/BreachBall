@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import type { DefenceCircle as DefenceCircleView, Item } from '../../game/view/defenceCircle'
-import type { HudModel } from '../../game/view/hudModel'
+import type { ButtonSpec, HudModel } from '../../game/view/hudModel'
 import type { PlayerId, PowerUp } from '../../game/Game'
 import { Button, ButtonRow, FONT } from '../ButtonRow'
 import { DefenceCircle } from './DefenceCircle'
 
 const ICONS: Record<PowerUp, string> = { breaker: 'B', repulsor: 'R', steal: 'S' }
+const ELLIPSIS: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const ring = (f: number, color: string = visual.hud.ink) => `conic-gradient(${color} ${f * 360}deg,${visual.hud.track} 0)`
 
 /** The structure count (Siege) or score (Rounds); the digit flips when it changes. */
@@ -33,14 +34,25 @@ function Clock({ clock }: { clock: HudModel['clock'] }) {
 
 /** The ghost circle that sends the camera back to the ball: a crosshair. */
 function Recenter({ onClick }: { onClick(): void }) {
-  const { recenterPx } = visual.hud.sharedRow
+  const { recenterPx, recenterBorderPx, iconPx, iconStroke } = visual.hud.sharedRow
   const { ghostBorder, ghostGlyph } = visual.tokens
   return (
-    <button aria-label="Recenter" onClick={onClick} style={{ flex: 'none', width: recenterPx, height: recenterPx, padding: 0, borderRadius: '50%', border: `2px solid ${ghostBorder}`, background: 'none', color: ghostGlyph, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+    <button aria-label="Recenter" onClick={onClick} style={{ flex: 'none', width: recenterPx, height: recenterPx, padding: 0, borderRadius: '50%', border: `${recenterBorderPx}px solid ${ghostBorder}`, background: 'none', color: ghostGlyph, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg width={iconPx} height={iconPx} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={iconStroke} strokeLinecap="round" aria-hidden>
         <circle cx="10" cy="10" r="3.5" />
         <path d="M10 1v4M10 15v4M1 10h4M15 10h4" />
       </svg>
+    </button>
+  )
+}
+
+/** A phase button as the handoff's pill: a fully rounded 36 px outline, inside a transparent 44 px tap target. */
+function Pill({ spec }: { spec: ButtonSpec }) {
+  const { pillPx, pillPadPx, pillBorderPx, hitPx } = visual.hud.sharedRow
+  const { ink, panel, pressed, pressedBorder } = visual.hud
+  return (
+    <button disabled={spec.disabled} aria-pressed={spec.pressed} onClick={spec.onClick} style={{ ...FONT, flex: 'none', minWidth: hitPx, height: hitPx, margin: `${(pillPx - hitPx) / 2}px 0`, padding: 0, border: 'none', background: 'none', color: ink, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: spec.disabled ? 0.4 : 1 }}>
+      <span style={{ boxSizing: 'border-box', height: pillPx, padding: `0 ${pillPadPx}px`, display: 'flex', alignItems: 'center', borderRadius: 999, border: `${pillBorderPx}px solid ${spec.pressed ? pressedBorder : ink}`, background: spec.pressed ? pressed : panel, whiteSpace: 'nowrap' }}>{spec.label}</span>
     </button>
   )
 }
@@ -125,22 +137,26 @@ export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRec
   const dim = visual.tokens.dimOutline
   const row: CSSProperties = { ...FONT, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, pointerEvents: 'auto' }
   const auto: CSSProperties = { pointerEvents: 'auto' }
+  const buttons = m.buttons ?? []
+  // One phase button (Done) fits beside Map in the row; Siege's Repair and Rearrange together do not (see the width budget on `visual.hud.sharedRow`), so they sit on their own row above.
+  const stacked = buttons.length > 1
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, padding: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
       {defence && <DefenceCircle defence={defence} color={color} flipped={flipped} onToggle={onDefenceToggle} onArm={onDefenceArm} onOpen={setColumnOpen} style={auto} />}
       {confirm && <ButtonRow specs={[{ label: 'Confirm', onClick: onConfirm }]} style={auto} />}
       {mapOpen && <ButtonRow specs={[{ label: 'Stretch', onClick: onMapStretch }, { label: 'Close', onClick: onMapClose }]} style={auto} />}
-      <div style={{ ...row, justifyContent: 'flex-start', flexWrap: 'nowrap', alignSelf: 'stretch', minHeight: sharedRow.heightPx, paddingRight: sharedRow.chipPadPx }}>
-        <div style={{ textAlign: 'left' }}>
-          {m.round !== null && <div style={{ fontSize: sharedRow.roundPx, letterSpacing: '0.08em' }}>{`Round ${m.round}/${m.rounds}${m.score ? ` · ${m.score}` : ''}`}</div>}
-          <div style={{ fontSize: sharedRow.labelPx, letterSpacing: `${sharedRow.labelSpacingEm}em`, color: visual.tokens.muted }}>{m.phase}</div>
+      {stacked && <div style={{ ...row, gap: sharedRow.gapPx }}>{buttons.map((b) => <Pill key={b.label} spec={b} />)}</div>}
+      <div data-testid="shared-row" style={{ ...row, gap: sharedRow.gapPx, justifyContent: 'flex-start', flexWrap: 'nowrap', alignSelf: 'stretch', minHeight: sharedRow.heightPx, paddingRight: sharedRow.chipPadPx }}>
+        <div style={{ textAlign: 'left', flex: '1 1 0', minWidth: 0 }}>
+          {m.round === null ? null : <div style={{ fontSize: sharedRow.roundPx, letterSpacing: `${sharedRow.roundSpacingEm}em`, ...ELLIPSIS }}>{`Round ${m.round}/${m.rounds}${m.score ? ` · ${m.score}` : ''}`}</div>}
+          <div style={{ fontSize: sharedRow.labelPx, letterSpacing: `${sharedRow.labelSpacingEm}em`, color: visual.tokens.muted, ...ELLIPSIS }}>{m.phase}</div>
         </div>
         <Clock clock={m.clock} />
         <MoveDots left={m.shotsLeft} max={m.shotsMax} refundable={m.refundable} onRefund={onRefund} />
-        <div style={{ flex: 1 }} />
         <Recenter onClick={onRecenter} />
         {/* The minimap chip (#87) takes the Map button's place. */}
-        <ButtonRow specs={[{ label: 'Map', onClick: onMap }, ...(m.buttons ?? [])]} />
+        <Pill spec={{ label: 'Map', onClick: onMap }} />
+        {!stacked && buttons.map((b) => <Pill key={b.label} spec={b} />)}
       </div>
       <div style={{ ...row, gap: 16, color }}>
         {([1, 2] as PlayerId[]).filter((id) => m.score === null || id === m.active).map((id) => <Digit key={id} value={m.players[id].digit} color={visual.player.colors[id]} />)}

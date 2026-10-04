@@ -67,8 +67,11 @@ function digitsOf(m: Match, objects: readonly Structure[]): Record<PlayerId, str
   }
 }
 
+/** The first-play hints (here and in the turn card) show only on round 1. */
+export const isFirstRound = (round: number | null | undefined): boolean => round === 1
+
 /** The first-play hint is up: round 1, a shot still to be aimed from a placed ball. */
-const aimHint = (s: SimState, c: SimConfig): boolean => roundOf(s.match) === 1 && !s.match.builder && !s.match.choosing && !s.possession.inHand && !s.possession.live && s.possession.shots === c.shots
+const aimHint = (s: SimState, c: SimConfig): boolean => isFirstRound(roundOf(s.match)) && !s.match.builder && !s.match.choosing && !s.possession.inHand && !s.possession.live && s.possession.shots === c.shots
 
 export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
   const b = s.match.builder

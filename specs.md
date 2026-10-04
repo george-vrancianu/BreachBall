@@ -83,7 +83,7 @@ The match structure below is Rounds.
 ## Build phase
 
 - Rounds: open information, both players see everything. Players build one after the other. Round 1 order is the coin-flip loser first, then order alternates each round. Siege has one blind opening build with the same first order, and Rearrange turns after a goal (see Game modes).
-- Rounds: building spends **Credits** (`docs/adr/0004-credits-single-resource.md`). Each build turn grants the builder the configured Credits per round (default 10) on top of what they hold, so unspent Credits carry over for the whole match. A player holds nothing before their first build turn. The HUD phase label reads `Build phase` and no longer shows the balance.
+- Rounds: building spends **Credits** (`docs/adr/0004-credits-single-resource.md`). Each build turn grants the builder the configured Credits per round (default 10) on top of what they hold, so unspent Credits carry over for the whole match. A player holds nothing before their first build turn. The HUD phase label reads `Build phase`; the balance is not shown there.
 - Siege: the opening build grants the configured wall points (default 10); its Rearrange turns have none.
 - A "Done" button ends your build. No timer in hot-seat (add one for P2P). In Rounds, tapping Done with nothing placed skips the phase; Siege refuses it (see Game modes). While a build piece is being drawn or sits unplaced (red), Done is disabled: place it or cancel it (✕ or Esc) first, so finishing never silently discards a piece.
 - Walls persist for the whole match.

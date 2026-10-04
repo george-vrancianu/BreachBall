@@ -108,7 +108,7 @@ describe('Shell', () => {
       expect(screen.queryByText('1')).toBeNull()
     })
     it('Siege shows the phase label alone', () => {
-      render(<Shell {...props()} hud={hud({ phase: 'Play phase' })} />)
+      render(<Shell {...props()} hud={hud({ round: null, phase: 'Play phase' })} />)
       expect(screen.queryByText(/Round/)).toBeNull()
       expect(screen.getByText('Play phase')).toBeTruthy()
     })
@@ -116,13 +116,20 @@ describe('Shell', () => {
       const p = props()
       const done = vi.fn()
       render(<Shell {...p} hud={hud({ buttons: [{ label: 'Done', onClick: done }] })} />)
-      const row = screen.getByText('Done').parentElement!.parentElement!
+      const row = screen.getByTestId('shared-row')
+      expect(row.contains(screen.getByText('Done'))).toBe(true)
       expect(row.contains(screen.getByRole('button', { name: 'Recenter' }))).toBe(true)
       expect(row.contains(screen.getByText('12'))).toBe(true)
     })
+    it('moves Siege\'s Repair and Rearrange above the row, which keeps Map and Done', () => {
+      render(<Shell {...props()} hud={hud({ buttons: [{ label: 'Repair', onClick: vi.fn() }, { label: 'Rearrange', onClick: vi.fn() }] })} />)
+      const row = screen.getByTestId('shared-row')
+      expect(row.contains(screen.getByText('Repair'))).toBe(false)
+      expect(row.contains(screen.getByText('Map'))).toBe(true)
+    })
     it('keeps right padding clear for the minimap chip', () => {
       render(<Shell {...props()} />)
-      expect(screen.getByText('Play').parentElement!.parentElement!.style.paddingRight).toBe(`${visual.hud.sharedRow.chipPadPx}px`)
+      expect(screen.getByTestId('shared-row').style.paddingRight).toBe(`${visual.hud.sharedRow.chipPadPx}px`)
     })
   })
 
