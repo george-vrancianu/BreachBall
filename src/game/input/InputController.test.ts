@@ -632,6 +632,114 @@ describe('the press model', () => {
     })
   })
 
+  describe('end handles', () => {
+    const mine: Structure = { ...older, id: 1 }
+    const a0 = { x: 20, y: 80 }
+    const b0 = { x: 28, y: 80 }
+    const D = unit * Math.SQRT1_2
+    const select = (...more: Structure[]) => {
+      turns(mine, ...more)
+      build()
+      down(at)
+      up(at)
+    }
+    beforeEach(() => select())
+    const moved = (i: SimInput | undefined) => (i as { moveStructure: { a: Point; b: Point } }).moveStructure
+
+    it('grabbing a swings it around b: a snaps from b, b stays, and one move is sent on lift', () => {
+      down(a0)
+      move({ x: 20, y: 72 })
+      const { spec } = ctl.selection!
+      expect(spec).toMatchObject({ b: b0 })
+      expect((spec as { a: Point }).a.x).toBeCloseTo(28 - D, 6)
+      expect((spec as { a: Point }).a.y).toBeCloseTo(80 - D, 6)
+      expect(sent).toEqual([])
+      up({ x: 20, y: 72 })
+      expect(sent).toHaveLength(1)
+      expect(moved(sent[0]).b).toEqual(b0)
+      expect(moved(sent[0]).a.x).toBeCloseTo(28 - D, 6)
+    })
+
+    it('grabbing b keeps a where it is', () => {
+      drag(b0, { x: 28, y: 88 })
+      expect(moved(sent[0]).a).toEqual(a0)
+      expect(moved(sent[0]).b.x).toBeCloseTo(20 + D, 6)
+      expect(moved(sent[0]).b.y).toBeCloseTo(80 + D, 6)
+    })
+
+    it('under half a unit from the other end keeps the last valid shape', () => {
+      down(b0)
+      move({ x: 28, y: 88 })
+      const last = ctl.selection!.spec
+      move({ x: 21, y: 80 })
+      expect(ctl.selection!.spec).toEqual(last)
+    })
+
+    it('lengthening to 2 units spends the difference in Credits', () => {
+      const before = state.credits[1]
+      drag(b0, { x: 36, y: 80 })
+      expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: a0, b: { x: 36, y: 80 } } }])
+      tick()
+      expect(state.credits[1]).toBe(before - rules.wall.unitCost)
+    })
+
+    it('goes back to where it stood when the Credits will not cover the longer wall', () => {
+      state = { ...state, credits: { ...state.credits, 1: 0 } }
+      const origin = ctl.selection!.spec
+      drag(b0, { x: 36, y: 80 })
+      expect(sent).toEqual([])
+      expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+    })
+
+    it('Esc and a cancelled pointer put it back, sending nothing', () => {
+      const origin = ctl.selection!.spec
+      down(b0)
+      move({ x: 36, y: 80 })
+      key('Escape')
+      up({ x: 36, y: 80 })
+      expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      down(a0)
+      move({ x: 20, y: 72 })
+      cancel({ x: 20, y: 72 })
+      expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      expect(sent).toEqual([])
+    })
+
+    it('an end lifted while a landing is in flight is sent when it settles', () => {
+      drag({ x: 10, y: 90 }, { x: 10 + unit, y: 90 })
+      drag(b0, { x: 36, y: 80 })
+      expect(sent).toHaveLength(1)
+      down(at)
+      up(at)
+      drag(b0, { x: 36, y: 80 })
+      expect(sent).toHaveLength(1)
+      tick()
+      expect(sent[1]).toEqual({ moveStructure: { player: 1, id: 1, a: a0, b: { x: 36, y: 80 } } })
+    })
+
+    it('a handle wins over another own wall whose body lies under the same press', () => {
+      select({ ...older, id: 7, ...hseg(14, 41) }) // body 2 units below b, nearer to the press than b is
+      down({ x: 28, y: 81.5 })
+      move({ x: 28, y: 90 })
+      expect(ctl.selection).toMatchObject({ id: 1 })
+      expect((ctl.selection!.spec as { a: Point }).a).toEqual(a0)
+    })
+
+    it('a second finger off the other handle is ignored mid-drag', () => {
+      touch('pointerdown', b0)
+      touch('pointermove', { x: 28, y: 88 })
+      const y = camera.y
+      touch('pointerdown', { x: 40, y: 95 }, 2)
+      touch('pointermove', { x: 40, y: 85 }, 2)
+      touch('pointermove', { x: 28, y: 90 })
+      expect(camera.y).toBe(y)
+      touch('pointerup', { x: 40, y: 85 }, 2)
+      touch('pointerup', { x: 28, y: 90 })
+      expect(sent).toHaveLength(1)
+      expect(moved(sent[0]).a).toEqual(a0)
+    })
+  })
+
   describe('chaining from a wall\'s end', () => {
     const placeOne = () => {
       build()
@@ -639,12 +747,12 @@ describe('the press model', () => {
       tick()
     }
 
-    it('the wall just placed is selected, so dragging from its end moves it until the builder taps off', () => {
+    it('the wall just placed is selected, so dragging from its end swings it until the builder taps off', () => {
       turns()
       placeOne()
       expect(ctl.selection).toMatchObject({ id: 1, movable: true })
       drag({ x: 10 + unit, y: 80 }, { x: 10 + unit, y: 90 })
-      expect(sent[1]).toMatchObject({ moveStructure: { id: 1 } })
+      expect(sent[1]).toMatchObject({ moveStructure: { id: 1, a: { x: 10, y: 80 } } })
     })
 
     it('after a tap off, dragging from its end draws a new wall starting exactly on that end', () => {
@@ -687,6 +795,17 @@ describe('the press model', () => {
       touch('pointerup', jitter(at))
       expect(ctl.selection).toMatchObject({ id: 1, movable: true })
       expect(sent).toEqual([])
+    })
+
+    it('an end drag that changes the length reverts, one that keeps it commits', () => {
+      down(at)
+      up(at)
+      const origin = ctl.selection!.spec
+      drag({ x: 28, y: 80 }, { x: 36, y: 80 })
+      expect(sent).toEqual([])
+      expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      drag({ x: 28, y: 80 }, { x: 28, y: 88 })
+      expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 20, y: 80 }, b: { x: 20 + unit * Math.SQRT1_2, y: 80 + unit * Math.SQRT1_2 } } }])
     })
 
     it('a tap selects an own wall and a body drag then commits a move', () => {

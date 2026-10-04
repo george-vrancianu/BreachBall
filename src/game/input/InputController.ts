@@ -11,22 +11,28 @@ import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, typ
 /** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
 export type AimView = GestureView & { pxPerUnit: number }
 
+/** What lay under a press: an end handle of the selected wall (`end`), the selected structure's body, or another of the builder's own structures. */
+type Hit = { kind: 'handle'; end: 'a' | 'b'; sel: Selection } | { kind: 'body'; sel: Selection } | { kind: 'other'; sel: Selection }
+
 /**
  * The one press in progress, decided progressively. It starts `pending` (nothing has changed yet) and becomes a gesture once the pointer
  * travels past the drag slop; a lift while still pending is a tap.
- * - `pending`: `hit` is what lay under the finger on press: the selected structure's body, an unselected own structure, or nothing. A finger needs `tapSlopPx` to leave a tap, a mouse only `dragSlopPx`.
- * - `body`: translating the selected, movable structure; `origin` is where it stood on press, restored if it cannot be committed.
+ * - `pending`: `hit` is what lay under the finger on press: a handle or the body of the selected wall, an unselected own structure, or nothing. A finger needs `tapSlopPx` to leave a tap, a mouse only `dragSlopPx`.
+ * - `body`: translating the selected, movable structure; `origin` is where it stood on press, restored if it cannot be committed (as for `end`).
+ * - `end`: swinging and resizing the selected wall around its other end, by the end `end`; the roles of `a` and `b` never swap.
  * - `draw`: drawing a wall from `a`. `tower`: a fresh tower under the finger. Both are held by `offset` for `bodyTo`.
  * - `pan`: the camera follows the finger.
  * `px`/`py` are the pointer's last canvas position (for edge scrolling).
  */
 type Press =
-  | { kind: 'pending'; id: number; startPx: Point; startWorld: Point; pointerType: string; hit?: { sel: Selection } }
+  | { kind: 'pending'; id: number; startPx: Point; startWorld: Point; pointerType: string; hit?: Hit }
   | { kind: 'body'; id: number; origin: StructureSpec; offset: Point; px: number; py: number }
+  | { kind: 'end'; id: number; origin: StructureSpec; end: 'a' | 'b'; px: number; py: number }
   | { kind: 'draw'; id: number; a: Point; px: number; py: number }
   | { kind: 'tower'; id: number; offset: Point; px: number; py: number }
   | { kind: 'pan'; id: number }
-type Live = Extract<Press, { kind: 'body' | 'draw' | 'tower' }>
+/** A press that holds a piece, one finger's worth: edge scrolling and `pressTo` feed it the pointer. */
+type Live = Extract<Press, { kind: 'body' | 'draw' | 'tower' | 'end' }>
 
 /** What the controller needs from the game that owns it. */
 export type InputHost = {
@@ -142,7 +148,7 @@ export class InputController {
     if (this.selection?.id === undefined) this.selection = undefined
   }
 
-  /** The press while it is a draw, a tower or a body drag: the finger holds a piece. */
+  /** The press while it is a draw, a tower or a body or end drag: the finger holds a piece. */
   private get live(): Live | undefined {
     const p = this.press
     return p && p.kind !== 'pending' && p.kind !== 'pan' ? p : undefined
@@ -250,6 +256,7 @@ export class InputController {
     const next = { ...press, px, py }
     this.press = next
     if (next.kind === 'draw') this.drawTo(next, px, py)
+    else if (next.kind === 'end') this.endTo(next, px, py)
     else this.bodyTo(next, px, py)
   }
 
@@ -261,6 +268,15 @@ export class InputController {
     const moved = movedTo(selection.spec, { x: p.x - press.offset.x, y: p.y - press.offset.y })
     const spec = moved.kind === 'wall' ? snapBody(moved, this.host.state().objects, selection.id, visual.input.snapPx / this.pxPerUnit) : moved
     this.selection = { ...selection, spec }
+  }
+
+  // The grabbed end follows the pointer, snapped from the other end; under half a unit the wall keeps its last valid shape.
+  private endTo(press: Extract<Live, { kind: 'end' }>, px: number, py: number): void {
+    const { selection } = this
+    if (selection?.spec.kind !== 'wall') return
+    const { spec } = selection
+    const to = snapWallEnd(spec[press.end === 'a' ? 'b' : 'a'], this.pxToWorld(px, py))
+    if (to) this.selection = { ...selection, spec: { ...spec, [press.end]: to } }
   }
 
   // The wall's start stays put; its end snaps live to the nearest allowed angle and unit. Under half a unit there is no piece.
@@ -289,7 +305,7 @@ export class InputController {
     const live = this.live
     const { selection } = this
     this.deferredOrigin = undefined
-    if (live?.kind === 'body' && selection) this.selection = { ...selection, spec: live.origin }
+    if (live && 'origin' in live && selection) this.selection = { ...selection, spec: live.origin }
     else if (live) this.selection = undefined
     this.press = undefined
   }
@@ -357,7 +373,10 @@ export class InputController {
     const builder = state.match.builder
     const { selection, item } = this
     const [id, at] = [press.id, press.startWorld]
-    if (builder && selection?.movable && press.hit && press.hit.sel === selection) {
+    const { hit } = press
+    if (builder && selection?.movable && hit?.sel === selection && hit.kind === 'handle') {
+      this.press = { kind: 'end', id, origin: selection.spec, end: hit.end, px, py }
+    } else if (builder && selection?.movable && hit?.sel === selection && hit.kind === 'body') {
       const anchor = anchorOf(selection.spec)
       this.press = { kind: 'body', id, origin: selection.spec, offset: { x: at.x - anchor.x, y: at.y - anchor.y }, px, py }
     } else if (builder && item === 'wall') {
@@ -379,7 +398,8 @@ export class InputController {
     this.press = undefined
     const { selection } = this
     if (press.kind === 'pending') return this.tapped(press)
-    if (press.kind !== 'body') return press.kind === 'pan' ? undefined : this.place()
+    if (press.kind === 'pan') return
+    if (!('origin' in press)) return this.place()
     // A placed structure never stays displaced and uncommitted: it moves if the sim will take it, else it goes back.
     if (selection?.id === undefined) return this.place()
     if (this.landing) this.deferredOrigin = press.origin
@@ -403,13 +423,29 @@ export class InputController {
     }
   }
 
-  /** What lies under a press: the selected structure's body (a 22px touch target), else another of the builder's own, else nothing. */
-  private hitAt(state: SimState, builder: PlayerId, at: Point): { sel: Selection } | undefined {
+  /** How far from a wall end a press still grabs its handle: the drawn handle, or a touch target if that is bigger. */
+  private get handleRadius(): number {
+    return Math.max(visual.wall.handle.radius, visual.input.touchTargetPx / this.pxPerUnit)
+  }
+
+  /** The end of the selected movable wall whose handle lies under `at` (the nearer when both do). */
+  private handleAt(at: Point): 'a' | 'b' | undefined {
+    const spec = this.selection?.movable ? this.selection.spec : undefined
+    if (spec?.kind !== 'wall') return undefined
+    const [da, db] = [Math.hypot(spec.a.x - at.x, spec.a.y - at.y), Math.hypot(spec.b.x - at.x, spec.b.y - at.y)]
+    const end = da <= db ? 'a' : 'b'
+    return Math.min(da, db) <= this.handleRadius ? end : undefined
+  }
+
+  /** What lies under a press: an end handle of the selected wall, else its body (a 22px touch target), else another of the builder's own structures, else nothing. */
+  private hitAt(state: SimState, builder: PlayerId, at: Point): Hit | undefined {
     const tolerance = Math.max(rules.cellSize / 2, visual.input.touchTargetPx / this.pxPerUnit)
     const { selection } = this
-    if (selection && onPiece(selection.spec, at, tolerance)) return { sel: selection }
+    const end = this.handleAt(at)
+    if (selection && end) return { kind: 'handle', end, sel: selection }
+    if (selection && onPiece(selection.spec, at, tolerance)) return { kind: 'body', sel: selection }
     const own = pick(state, builder, at, tolerance)
-    return own && { sel: own }
+    return own && { kind: 'other', sel: own }
   }
 
   private down(e: PointerEvent): void {

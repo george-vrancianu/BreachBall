@@ -35,6 +35,8 @@ export class Structures extends Entity {
   costLabel = false
   /** The build piece fails the full legality check (the Credit balance too), which the ghost's own geometry check cannot see. */
   pieceBlocked = false
+  /** The selected movable wall's two ends: handles are drawn on them. */
+  handles?: { a: Point; b: Point }
   /** The canvas is turned for the other seat (hot-seat flip): text is turned back to read upright. */
   flipped = false
   /** Ids stood in for by the ghost or landing piece. */
@@ -103,7 +105,7 @@ export class Structures extends Entity {
   reset(): void {
     for (const [id, f] of this.fixtures) this.drop(id, f)
     this.particles = []
-    this.ghost = this.landing = this.selected = undefined
+    this.ghost = this.landing = this.selected = this.handles = undefined
     this.costLabel = this.pieceBlocked = false
     this.hidden = []
     this.movable = []
@@ -161,6 +163,23 @@ export class Structures extends Entity {
     if (this.landing) this.drawGhost(ctx, this.landing, false)
     if (this.ghost) this.drawGhost(ctx, this.ghost, true)
     if (this.ghost && this.costLabel) this.drawCost(ctx, this.ghost)
+    if (this.handles) this.drawHandles(ctx, this.handles)
+  }
+
+  /** A circle on each end of the selected wall: what a finger or the mouse grabs to swing and resize it. */
+  private drawHandles(ctx: CanvasRenderingContext2D, ends: { a: Point; b: Point }): void {
+    const { radius, width, stroke, fill } = visual.wall.handle
+    ctx.save()
+    ctx.lineWidth = width
+    ctx.strokeStyle = stroke
+    ctx.fillStyle = fill
+    for (const at of [ends.a, ends.b]) {
+      ctx.beginPath()
+      ctx.arc(at.x, at.y, radius, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+    }
+    ctx.restore()
   }
 
   /** The piece's Credit cost beside its midpoint, red where it cannot be placed. */

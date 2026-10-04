@@ -115,6 +115,25 @@ describe('draw order', () => {
   })
 })
 
+describe('end handles', () => {
+  const arcs = (s: Structures) => {
+    const calls: number[][] = []
+    const rec = new Proxy({}, { get: (_, k) => (k === 'arc' ? (...a: number[]) => calls.push(a) : () => {}), set: () => true }) as unknown as CanvasRenderingContext2D
+    s.drawPieces(rec)
+    return calls
+  }
+
+  it('draws a circle on each end of the selected wall, and none without one', () => {
+    const s = new Structures()
+    expect(arcs(s)).toEqual([])
+    s.handles = { a: { x: 10, y: 80 }, b: { x: 18, y: 80 } }
+    expect(arcs(s)).toEqual([
+      [10, 80, visual.wall.handle.radius, 0, Math.PI * 2],
+      [18, 80, visual.wall.handle.radius, 0, Math.PI * 2],
+    ])
+  })
+})
+
 describe('Tower pulse', () => {
   it('glows for glowMs after the Repulsor fires, then stops', () => {
     const s = new Structures()

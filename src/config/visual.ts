@@ -70,6 +70,8 @@ export const visual = {
     ghostAlpha: 0.5,
     /** The live Credit cost beside an unplaced build piece's midpoint: text size and distance from the midpoint (world units). */
     cost: { size: 1.6, offset: 1.4 },
+    /** The two end handles of the selected wall: radius and stroke width in world units (a touch finger's hit radius may be larger). */
+    handle: { radius: 1.1, width: 0.2, stroke: white, fill: ink },
     /** The dashed outline on this turn's pieces and the breathing one on a selection. */
     mark: { pad: 0.6, width: 0.15, movableDash: [0.4, 0.4] },
     selected: { periodMs: 150, alpha: 0.6, alphaSwing: 0.4, pad: 0.8, padSwing: 0.15 },
