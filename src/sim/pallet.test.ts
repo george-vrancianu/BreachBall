@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import { defaultConfig, initialState, step, type SimConfig, type SimEvent, type SimState } from './step'
 import { initialPallets, startAngle } from './pallet'
-import { playState } from './testkit'
+import { place, playState } from './testkit'
 import type { Point } from './pitch'
 
 const PIVOT: Point = { x: 10, y: 30 }
@@ -216,6 +216,54 @@ describe('determinism', () => {
     const b = run()
     expect(a.events.flat().some((e) => e.type === 'pallet-hit')).toBe(true)
     expect(a).toEqual(b)
+  })
+})
+
+describe('steal inside a substepped tick', () => {
+  it('leaves the ball at rest once a Steal triggers', () => {
+    // Player 2's Steal tower beside the arm's sweep, inside the ring: the ball reaches it on a substepped tick, with the arm still in reach.
+    const placed = place({ kind: 'tower', owner: 2, power: 'steal', at: { gx: 3, gy: 16 } }, playState(1, config)).state
+    let s = live(placed, { x: 10, y: 45 }, { x: 0, y: -40 })
+    expect(s.possession.shooter).toBe(1)
+    let stolen = false
+    for (let i = 0; i < 60 && !stolen; i++) {
+      const r = step(s, {}, config)
+      s = r.state
+      stolen = r.events.some((e) => e.type === 'steal-triggered')
+    }
+    expect(stolen).toBe(true)
+    expect(s.ball.vel).toEqual({ x: 0, y: 0 })
+    const at = s.ball.pos
+    for (let i = 0; i < 10; i++) {
+      s = step(s, {}, config).state
+      expect(s.ball.vel).toEqual({ x: 0, y: 0 })
+      expect(s.ball.pos).toEqual(at)
+    }
+  })
+})
+
+describe('ring covers the arm', () => {
+  it('is at least the arm plus a ball on each side of it (the ring is the no-build zone)', () => {
+    expect(p.ringRadius).toBeGreaterThanOrEqual(p.length + p.tipRadius + 2 * defaultConfig.ballRadius)
+  })
+})
+
+describe('arm never crossed', () => {
+  it('keeps a 2x maxSpeed ball out of the swinging arm at every tick end', () => {
+    for (const x of [8.5, 9.5, 10, 11, 12]) {
+      let s = live(playState(1, config), { x, y: 40 }, { x: 0, y: -2 * maxSpeed })
+      s = { ...s, pallets: s.pallets.map((q) => ({ ...q, angle: Math.PI / 2 - 1, phase: 'swing' as const, dir: 1 as const, swept: 0, sweepNeed: 2, cooldown: 0 })) }
+      for (let i = 0; i < 20; i++) {
+        s = step(s, {}, config).state
+        const a = s.pallets[0].angle
+        const [ux, uy] = [Math.cos(a), Math.sin(a)]
+        const [rx, ry] = [s.ball.pos.x - PIVOT.x, s.ball.pos.y - PIVOT.y]
+        const t = Math.max(0, Math.min(p.length, rx * ux + ry * uy))
+        // The arm tapers from root to tip, so its radius at the closest point is what the ball must clear.
+        const radius = p.rootRadius + (p.tipRadius - p.rootRadius) * (t / p.length)
+        expect(Math.hypot(rx - ux * t, ry - uy * t)).toBeGreaterThanOrEqual(radius + ballRadius - 0.05)
+      }
+    }
   })
 })
 

@@ -186,6 +186,8 @@ export function rollWithPallets(
     const r = rollBall(ball, objects, c, breaker, shooter, h)
     ;({ ball, objects, breaker } = r)
     events.push(...r.events)
+    // A Steal stops the ball: no more collisions or rolling this tick, so the arm cannot kick a dead ball.
+    if (r.events.some((e) => e.type === 'steal-triggered')) break
     for (const p of pallets) {
       const contact = collide(p, ball, c)
       ball = { ...ball, ...contact.ball }
