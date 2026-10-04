@@ -3,7 +3,7 @@ import { visual } from '../config/visual'
 import type { PlayerId } from '../sim/pitch'
 import type { PowerUp } from '../sim/player'
 import { blindSeat, buildPhase, openingBuild } from '../sim/mode'
-import { canArm, canPlaceBall, whoActs } from '../sim/possession'
+import { canPlaceBall, whoActs } from '../sim/possession'
 import { configFrom, type Settings } from '../sim/settings'
 import { defaultConfig, type SimConfig, type SimEvent, type SimState } from '../sim/step'
 import { structuresOf } from '../sim/wall'
@@ -20,6 +20,7 @@ import { reducedMotion, tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
 import { defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
+import { offenceCircle, type OffenceActions, type OffenceCircle } from './view/offenceCircle'
 import { phaseButtons } from './view/phaseButtons'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
 
@@ -30,6 +31,8 @@ export type HudView = {
   hud: HudModel
   /** The Defence circle's model, for the whole match (greyed when the viewer cannot build; absent when no build turn is running). */
   defence?: DefenceCircle
+  /** The Offence circle's model, for the whole match (greyed outside the viewer's possession). */
+  offence: OffenceCircle
   overlay?: OverlayView
   /** Degrees the stage (canvas and in-match HUD) is rotated by the hot-seat flip. */
   angle: number
@@ -50,7 +53,8 @@ export type GameActions = {
   map(open?: boolean): void
   mapStretch(): void
   recenter(): void
-  powerUp(p: PowerUp): void
+  /** The viewer taps an Offence item: the Breaker toggles armed (the sim charges it only when the shot fires). */
+  offence: OffenceActions
   /** The shooter refunds `count` Move points for Credits; the sim refuses it when not allowed. A count under 1 only buzzes denied. */
   refund(count: number): void
   confirmBall(): void
@@ -147,7 +151,7 @@ export class Game implements Sink {
         } catch {}
       },
       recenter: () => this.camera.recenter(),
-      powerUp: (p) => p === 'breaker' && this.input.toggleArm(),
+      offence: { arm: (item) => item === 'breaker' && this.input.toggleArm() },
       refund: (count) => {
         // Only the device that plays the shooter's seat refunds for it, as only it may aim.
         const { shooter } = this.state.possession
@@ -317,10 +321,11 @@ export class Game implements Sink {
     const { state, input, transition, now } = this
     const blocked = this.blocked()
     const builder = state.match.builder
-    const { shooter, inHand } = state.possession
+    const { inHand } = state.possession
     const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), armed: input.armed, tappable: canArm(state, shooter), placing }),
+      hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing }),
+      offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),

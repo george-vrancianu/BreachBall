@@ -3,7 +3,7 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
 import { defaultConfig as c, initialState, step, type SimInput, type SimState } from '../../sim/step'
-import { buildState, emptied, hseg } from '../../sim/testkit'
+import { buildState, emptied, hseg, playState } from '../../sim/testkit'
 import type { Structure } from '../../sim/wall'
 import { Camera } from '../entities/Camera'
 import { InputController } from './InputController'
@@ -1224,5 +1224,40 @@ describe('the press model', () => {
       drag(at, { x: 24, y: 70 })
       expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 20, y: 70 }, b: { x: 28, y: 70 } } }])
     })
+  })
+})
+
+describe('the Breaker from the Offence circle', () => {
+  const ready = (): SimState => {
+    const s = playState()
+    return { ...s, possession: { ...s.possession, inHand: false } }
+  }
+  /** Press the ball and release in the edge cancel zone, which is where an aim is cancelled. */
+  const cancelAim = () => {
+    const ball = state.ball.pos
+    down(ball)
+    const at = px(ball)
+    canvas.dispatchEvent(Object.assign(new Event('pointermove'), { offsetX: 4, offsetY: at.y, clientX: 4, clientY: at.y, pointerId: 1, pointerType: 'mouse', button: 0 }))
+    canvas.dispatchEvent(Object.assign(new Event('pointerup'), { offsetX: 4, offsetY: at.y, clientX: 4, clientY: at.y, pointerId: 1, pointerType: 'mouse', button: 0 }))
+  }
+
+  it('arms with Credits to cover it', () => {
+    make(ready())
+    ctl.toggleArm()
+    expect(ctl.armed).toBe(true)
+  })
+  it('stays unarmed when the shooter cannot afford it', () => {
+    const s = ready()
+    make({ ...s, credits: { ...s.credits, [s.possession.shooter]: rules.breakerCost - 1 } })
+    ctl.toggleArm()
+    expect(ctl.armed).toBe(false)
+  })
+  it('a cancelled aim disarms it and sends no shot', () => {
+    make(ready())
+    ctl.toggleArm()
+    expect(ctl.armed).toBe(true)
+    cancelAim()
+    expect(ctl.armed).toBe(false)
+    expect(sent.some((i) => i.shot)).toBe(false)
   })
 })

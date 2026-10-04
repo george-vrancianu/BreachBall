@@ -2,12 +2,15 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { visual } from '../../config/visual'
 import type { DefenceCircle as DefenceCircleView, Item } from '../../game/view/defenceCircle'
 import type { ButtonSpec, HudModel } from '../../game/view/hudModel'
+import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
 import type { PlayerId, PowerUp } from '../../game/Game'
 import { Button, ButtonRow, FONT } from '../ButtonRow'
 import { DefenceCircle } from './DefenceCircle'
+import { OffenceCircle } from './OffenceCircle'
 
-const ICONS: Record<PowerUp, string> = { breaker: 'B', repulsor: 'R', steal: 'S' }
 const ELLIPSIS: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+// The Breaker lives in the Offence circle; what is left here is the tower stock.
+const ICONS: Record<Exclude<PowerUp, 'breaker'>, string> = { repulsor: 'R', steal: 'S' }
 const ring = (f: number, color: string = visual.hud.ink) => `conic-gradient(${color} ${f * 360}deg,${visual.hud.track} 0)`
 
 /** The structure count (Siege) or score (Rounds); the digit flips when it changes. */
@@ -107,6 +110,7 @@ function MoveDots({ left, max, refundable, onRefund }: { left: number; max: numb
 
 export type ShellProps = {
   hud: HudModel
+  offence: OffenceCircleView
   defence?: DefenceCircleView
   confirm: boolean
   mapOpen: boolean
@@ -114,7 +118,7 @@ export type ShellProps = {
   flipped: boolean
   onMap(): void
   onRecenter(): void
-  onPowerUp(p: PowerUp): void
+  onOffenceArm(item: OffenceItemSpec['item']): void
   onConfirm(): void
   onMapStretch(): void
   onMapClose(): void
@@ -128,12 +132,12 @@ export type ShellProps = {
 }
 
 /** The in-match controls, in one shell at the bottom of the screen and only for the active viewer. Mount inside the rotating stage. Flipped, the rows run in reverse so the Defence circle is always the row nearest the pitch, where its column opens over the pitch and not the HUD. */
-export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRecenter, onPowerUp, onConfirm, onMapStretch, onMapClose, onDefenceToggle, onDefenceArm, onRefund, className, style, children }: ShellProps) {
+export function Shell({ hud: m, offence, defence, confirm, mapOpen, flipped, onMap, onRecenter, onOffenceArm, onConfirm, onMapStretch, onMapClose, onDefenceToggle, onDefenceArm, onRefund, className, style, children }: ShellProps) {
   const color = visual.player.colors[m.active]
-  const live = m.breaker.tappable
   const { sharedRow } = visual.hud
-  // The power-ups dim to outlines while the Defence circle's column is open over the pitch.
-  const [columnOpen, setColumnOpen] = useState(false)
+  // The power-ups dim to outlines while a circle's column is open over the pitch.
+  const [open, setOpen] = useState({ offence: false, defence: false })
+  const columnOpen = open.offence || open.defence
   const dim = visual.tokens.dimOutline
   const row: CSSProperties = { ...FONT, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, pointerEvents: 'auto' }
   const auto: CSSProperties = { pointerEvents: 'auto' }
@@ -142,7 +146,10 @@ export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRec
   const stacked = buttons.length > 1
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, padding: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
-      {defence && <DefenceCircle defence={defence} color={color} flipped={flipped} onToggle={onDefenceToggle} onArm={onDefenceArm} onOpen={setColumnOpen} style={auto} />}
+      <div style={{ ...auto, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <OffenceCircle offence={offence} color={color} flipped={flipped} onArm={onOffenceArm} onOpen={(o) => setOpen((p) => ({ ...p, offence: o }))} />
+        {defence && <DefenceCircle defence={defence} color={color} flipped={flipped} onToggle={onDefenceToggle} onArm={onDefenceArm} onOpen={(o) => setOpen((p) => ({ ...p, defence: o }))} />}
+      </div>
       {confirm && <ButtonRow specs={[{ label: 'Confirm', onClick: onConfirm }]} style={auto} />}
       {mapOpen && <ButtonRow specs={[{ label: 'Stretch', onClick: onMapStretch }, { label: 'Close', onClick: onMapClose }]} style={auto} />}
       {stacked && <div style={{ ...row, gap: sharedRow.gapPx }}>{buttons.map((b) => <Pill key={b.label} spec={b} />)}</div>}
@@ -160,14 +167,13 @@ export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRec
       </div>
       <div style={{ ...row, gap: 16, color }}>
         {([1, 2] as PlayerId[]).filter((id) => m.score === null || id === m.active).map((id) => <Digit key={id} value={m.players[id].digit} color={visual.player.colors[id]} />)}
-        {(Object.keys(ICONS) as PowerUp[]).map((p) => {
+        {(Object.keys(ICONS) as (keyof typeof ICONS)[]).map((p) => {
           const n = m.players[m.active].inventory[p]
-          const armed = p === 'breaker' && m.breaker.armed
           return (
-            <Button key={p} spec={{ label: ICONS[p], onClick: () => onPowerUp(p), disabled: p === 'breaker' && !live }} style={{ position: 'relative', width: 44, height: 44, padding: 0, borderRadius: '50%', border: `2px solid ${columnOpen ? dim : color}`, color: columnOpen ? dim : armed ? visual.hud.dark : color, background: armed && !columnOpen ? color : 'none', opacity: n > 0 ? 1 : 0.35 }}>
+            <div key={p} role="img" aria-label={`${ICONS[p]}${n}`} style={{ ...FONT, position: 'relative', width: 44, height: 44, boxSizing: 'border-box', borderRadius: '50%', border: `2px solid ${columnOpen ? dim : color}`, color: columnOpen ? dim : color, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: n > 0 ? 1 : 0.35 }}>
               {ICONS[p]}
-              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: columnOpen ? dim : color, color: visual.hud.dark, fontSize: 12 }}>{n}</span>
-            </Button>
+              <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: columnOpen ? dim : color, color: visual.hud.dark, fontSize: 12, textAlign: 'center' }}>{n}</span>
+            </div>
           )
         })}
       </div>

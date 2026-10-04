@@ -163,13 +163,14 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 
 ## Power-ups (milestone 2)
 
-- Each player starts the match with 3 of each power-up. No economy. Counts are visible to both players.
+- Towers (Repulsor, Steal): each player starts the match with 3 of each. Counts are visible to both players. The Breaker is not stocked in Rounds: it is bought with Credits (below). Siege has no Credits economy and keeps 3 Breakers each.
 - Towers follow the wall placement rules: own half only, outside the goal no-build zones and the Centre zone, persistent across rounds, placed in the build phase by appearing under the finger once it moves (or on a tap), following the drag and placing on lift. They cost 0 Credits; the power-up is the cost.
 
 ### Breaker shot (play phase)
 
-- Tap the Breaker icon to arm, then shoot as normal (any tier). A cancelled aim disarms without consuming it.
-- Consumed when the Shot fires (also when the shot clock fires it), whether or not the ball hits anything.
+- The Offence circle (⚡, first of the two circles in the bottom row, beside the Defence circle) opens a column: `Breaker · 2` (its price in Credits, `rules.breakerCost`) and one locked "Overdrive · soon" item. Tap the circle to open or close the column; tap the Breaker to arm it (tap it again to disarm), then shoot as normal (any tier). Outside your own possession (the other seat's possession, a build turn, a pending defence choice) the circle is greyed and the column still opens, with every item greyed.
+- Arming is refused when the Credits are short, and the Breaker greys out in the column. Nothing is charged for arming: the 2 Credits are charged when the Shot fires (also when the shot clock fires it), whether or not the ball hits anything. A cancelled aim disarms with nothing charged. The sim refuses an armed shot the shooter cannot pay for.
+- Siege has no Credits economy, so its Breaker keeps today's rules: a stock of 3 each, one consumed when the Shot fires, and the column's item reads `Breaker · N left`.
 - The ball destroys the first wall or tower it touches, including your own, then continues at full speed.
 - A Steal tower hit by a Breaker is destroyed without triggering.
 - The Breaker and the Splash are separate mechanics: a Power shot with Breaker armed still splashes as usual.
@@ -223,7 +224,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 - Destruction: the wall splits into cell-sized fragments that fly from the impact point, spin and fade over 400 ms.
 - Repulsor: square with two concentric rings. On fire the rings burst outward, the tower glows for 300 ms and the ball's trail brightens for 0.5 s. Drawn dimmed once spent for the shot.
 - Steal: square with a vortex glyph. On trigger the ball shrinks into the tower center over 300 ms and vanishes, then the tower collapses like a destroyed wall.
-- Breaker armed: HUD icon highlighted and a pulsing outline on the ball in the shooter's colour. On break, double particles, no speed loss.
+- Breaker armed: the Offence circle fills with the shooter's colour, and a pulsing outline on the ball in the shooter's colour. On break, double particles, no speed loss.
 
 ### Placement previews and buttons
 
@@ -241,7 +242,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 ### HUD
 
 - React components in `src/ui` take data and callbacks and never import the sim; `Game` pushes a view up and the HUD drives it through an actions handle.
-- All in-match controls sit in one shell at the bottom of the screen and show only the active viewer: the Defence circle (greyed on the other player's build turn), Confirm (ball-in-hand) and the map's Stretch and Close when due; the shared row; the player row with the score digit (Siege: each side's structure count, "?" for a hidden opponent) and the viewer's three power-up icons with counts (Breaker tappable only during your own play phase; dimmed to outlines while the Defence circle's piece column is open).
+- All in-match controls sit in one shell at the bottom of the screen and show only the active viewer: the Offence circle (greyed outside your own possession; filled while the Breaker is armed) and the Defence circle (greyed on the other player's build turn), Confirm (ball-in-hand) and the map's Stretch and Close when due; the shared row; the player row with the score digit (Siege: each side's structure count, "?" for a hidden opponent) and the viewer's two tower power-up icons (Repulsor, Steal) as plain count badges (dimmed to outlines while either circle's column is open).
 - The shared row (36 px, the near band's top row) runs left to right: a text block, the clock ring, the Move point dots, then, pushed right, the Recenter ghost circle (a crosshair, 36 px), the Map button (until the minimap chip replaces it) and the phase buttons (Done in your build turn, disabled while the mode would refuse it or a build piece is unplaced; Repair and Rearrange for a scorer owing a defence choice). It keeps 44 px of right padding clear for the minimap chip.
 - The text block is the round line over the phase label. In Rounds the round line is `ROUND 3/7 · 2–1`: the round, then the score with the active player's first; in Siege it is absent and the block is the phase label alone. The phase label (10 px, muted, wide-spaced) reads `Build phase` (the Credits balance is not in it), `Play phase`, `Rearrange`, or `Placing wall`, `Placing Repulsor` or `Placing Steal` while a build piece is drawn or unplaced; `· Drag to aim` is appended to `Play phase` while the first-play hint would show (round 1, a placed ball, no shot fired yet in the possession).
 - The score shows once as the big digit, which in Rounds is the active player's only; the other player's score is the second half of the `2–1` in the round line.

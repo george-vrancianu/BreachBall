@@ -33,12 +33,10 @@ export type HudModel = {
   phase: string
   /** Phase buttons (Done in a build turn; Repair and Rearrange on a defence choice) shown above the HUD row. The row is rebuilt only when a label or `disabled` flag changes, so handlers must read live state at click time (see `ButtonSpec`). */
   buttons?: ButtonSpec[]
-  /** Breaker is armed (highlighted) and whether the active player may tap it now. */
-  breaker: { armed: boolean; tappable: boolean }
 }
 
 /** What the game knows that the sim state does not. `viewer` is the local player (online: the peer's own seat; hot-seat: whoever holds the device), not necessarily the seat shown at the bottom. */
-export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; armed: boolean; tappable: boolean; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item }
+export type HudInputs = { active: PlayerId; viewer: PlayerId; buttons?: ButtonSpec[]; /** The Defence item of the piece the builder is drawing or holds unplaced (red), if any. */ placing?: Item }
 
 const PLACING: Record<Item, string> = { wall: 'Placing wall', repulsor: 'Placing Repulsor', steal: 'Placing Steal' }
 
@@ -93,6 +91,5 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
     score: s.match.mode === 'rounds' ? `${s.match.score[v.active]}–${s.match.score[opponent(v.active)]}` : null,
     phase: buildPhase(s.match) === 'Rearrange' ? 'Rearrange' : v.placing ? PLACING[v.placing] : b ? 'Build phase' : aimHint(s, c) ? 'Play phase · Drag to aim' : 'Play phase',
     buttons: v.buttons,
-    breaker: { armed: v.armed, tappable: v.tappable },
   }
 }

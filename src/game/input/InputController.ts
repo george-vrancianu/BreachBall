@@ -1,8 +1,8 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { PlayerId, Point } from '../../sim/pitch'
-import { canArm, canPlaceBall } from '../../sim/possession'
-import { canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
+import { canPlaceBall } from '../../sim/possession'
+import { canArm, canEdit, type Aiming, type SimConfig, type SimInput, type SimState } from '../../sim/step'
 import { snapWallBetween, snapWallEnd, type StructureSpec } from '../../sim/wall'
 import { screenDown, type Camera } from '../entities/Camera'
 import { anchorOf, commit, edgeScrollDy, itemDisabled, landedAs, legal, movedTo, onPiece, pick, rotated, snapBody, snapStart, towerAt, towerGrab, type BuildActions, type Item, type Selection } from '../view/defenceCircle'
@@ -69,7 +69,7 @@ export class InputController {
   item?: Item
   /** Ball-in-hand: where the shooter has put the ball, before Confirm. */
   placement?: Point
-  /** Breaker icon armed for the next shot; the shot carries it, cancelling just disarms. */
+  /** Breaker armed from the Offence circle for the next shot; the shot carries it, cancelling just disarms. */
   armed = false
 
   // The aim gesture, fed canvas-local CSS px: the hot-seat flip rotates the whole canvas, so its local frame is already the world's way up.
@@ -115,7 +115,7 @@ export class InputController {
     if (!this.host.blocked() && !this.host.state().match.choosing && this.placement && canPlaceBall(shooter, this.placement, this.host.state().objects, this.host.config())) this.host.send({ placeBall: { player: shooter, at: this.placement } })
   }
 
-  /** Tap on the Breaker icon. */
+  /** Tap on the Breaker in the Offence circle. */
   toggleArm = () => {
     const s = this.host.state()
     if (canArm(s, s.possession.shooter)) this.armed = !this.armed

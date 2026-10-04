@@ -4,13 +4,10 @@ import { reducedMotion } from '../../game/feedback'
 import type { DefenceCircle as DefenceCircleView, Item, ItemSpec } from '../../game/view/defenceCircle'
 import type { ButtonSpec } from '../../game/view/hudModel'
 import { Button, FONT } from '../ButtonRow'
+import { GREY, ItemButton, NO_CALLOUT, noMenu, useColumn } from './ItemButton'
 
 const { ink, panel, shadow } = visual.hud
-const { circlePx, borderPx, itemPx, pillPx, gap, pulseMs, pulseScale, columnZ, circleFontPx, itemFontPx, pillFontPx, pillOffsetPx, pillPadPx, pillBorderPx, itemBorderPx, shadowPx } = visual.hud.defence
-// A long press on touch would otherwise open the context menu, select text or show the callout.
-const NO_CALLOUT: CSSProperties = { userSelect: 'none', WebkitTouchCallout: 'none' }
-const noMenu = (e: { preventDefault(): void }) => e.preventDefault()
-const GREY = visual.tokens.ghostBorder
+const { circlePx, borderPx, itemPx, gap, pulseMs, pulseScale, columnZ, circleFontPx } = visual.hud.defence
 const ROUND: CSSProperties = { ...FONT, width: 52, height: 52, borderRadius: '50%', border: `2px solid ${ink}`, color: ink, background: panel, fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, boxShadow: `0 2px 8px ${shadow}` }
 
 const svg = (size: number, d: ReactNode) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">{d}</svg>
@@ -31,26 +28,6 @@ const Round = ({ spec }: { spec: ButtonSpec }) => {
 
 type Press = { x: number; y: number; slid: boolean; opened: boolean; pulsed: boolean }
 
-/** One piece of the piece column: a circle with its label pill beside it. Greyed when disabled, but still there (and hit-testable for a slide). */
-function ItemButton({ spec, color, onPick }: { spec: ItemSpec; color: string; onPick(item: Item): void }) {
-  const off = spec.disabled
-  const edge = off ? GREY : spec.pressed ? visual.hud.pressedBorder : ink
-  return (
-    <button
-      data-item={spec.item}
-      aria-label={spec.label}
-      aria-pressed={spec.pressed}
-      aria-disabled={off}
-      onClick={() => !off && spec.item !== 'cannon' && onPick(spec.item)}
-      onContextMenu={noMenu}
-      style={{ ...FONT, position: 'relative', width: itemPx, height: itemPx, padding: 0, borderRadius: '50%', border: `${itemBorderPx}px solid ${edge}`, color: off ? GREY : ink, background: spec.pressed ? visual.hud.pressed : panel, fontSize: itemFontPx, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 ${shadowPx.y}px ${shadowPx.blur}px ${shadow}`, touchAction: 'none', ...NO_CALLOUT }}
-    >
-      {ITEM_ICON[spec.item]}
-      <span style={{ position: 'absolute', left: itemPx + pillOffsetPx, height: pillPx, lineHeight: `${pillPx - 2 * pillBorderPx}px`, padding: `0 ${pillPadPx}px`, boxSizing: 'border-box', borderRadius: pillPx / 2, border: `${pillBorderPx}px solid ${GREY}`, background: panel, color: off ? GREY : spec.pressed ? color : ink, whiteSpace: 'nowrap', fontSize: pillFontPx }}>{spec.soon ? `${spec.label} · soon` : spec.label}</span>
-    </button>
-  )
-}
-
 /**
  * The Defence circle. Tap: enter build mode with the Wall, or leave it (a tap with the menu open only closes it). Hold still for `holdMs`: the piece column
  * opens; slide onto a piece and lift to arm it, lift on the circle to keep the column for a tap. When the viewer cannot build, the circle is greyed and a hold pulses it.
@@ -70,21 +47,7 @@ export function DefenceCircle({ defence, color, flipped = false, onToggle, onArm
   const clearHold = () => clearTimeout(hold.current)
   useEffect(() => () => clearTimeout(hold.current), [])
   useEffect(() => { if (!available) setOpen(false) }, [available])
-  useEffect(() => {
-    if (!open) return
-    onOpen?.(true)
-    return () => onOpen?.(false)
-  }, [open])
-  // A press anywhere outside the circle and its column closes the column.
-  useEffect(() => {
-    if (!open) return
-    const outside = (e: Event) => {
-      const t = e.target as Node
-      if (!circle.current?.contains(t) && !column.current?.contains(t)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', outside, true)
-    return () => document.removeEventListener('pointerdown', outside, true)
-  }, [open])
+  useColumn(open, () => setOpen(false), circle, column, onOpen)
 
   // A refused hold swells the circle once; a second hold restarts it.
   const nudge = () => {
@@ -144,7 +107,7 @@ export function DefenceCircle({ defence, color, flipped = false, onToggle, onArm
       <div style={{ position: 'relative' }}>
         {open && (
           <div ref={column} style={{ position: 'absolute', [flipped ? 'top' : 'bottom']: circlePx + gap, left: (circlePx - itemPx) / 2, display: 'flex', flexDirection: flipped ? 'column' : 'column-reverse', gap, zIndex: columnZ }}>
-            {items.map((s) => <ItemButton key={s.item} spec={s} color={color} onPick={arm} />)}
+            {items.map((s) => <ItemButton key={s.item} spec={s} icon={ITEM_ICON[s.item]} color={color} onPick={(i) => i !== 'cannon' && arm(i)} />)}
           </div>
         )}
         <button
