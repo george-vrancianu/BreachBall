@@ -1,4 +1,4 @@
-import type { TierName } from './rules'
+import { rules, type TierName } from './rules'
 
 const ink = '#e8eaf0'
 const dark = '#0b0f1a'
@@ -11,6 +11,9 @@ const bg = '#070a14'
 /** The arcade palette from the design handoff; screens and later HUD slices read their colours from here. */
 const pitchDots = '#1c2540'
 const tokens = { bg, pitchDots, /** The ring around a primary circle: a gap in the background colour, then a dotted-grid line. */ halo: `0 0 0 4px ${bg}, 0 0 0 6px ${pitchDots}`, lines: '#3b4f7a', muted: '#8d94ab', ghostBorder: '#4a5068', ghostGlyph: '#c3c8d6', dimOutline: '#2a3147' }
+
+/** The pitch width the design handoff is authored at, px. */
+const referencePitchPx = 390
 
 /** Every visual value, grouped by the entity that draws or animates it. Times are ms unless named otherwise. */
 export const visual = {
@@ -40,17 +43,31 @@ export const visual = {
   fog: { bleed: 1 },
   /** The soft gradient at a pane edge where more pitch lies beyond: its height as a fraction of the pane, and its colours. */
   edgeFade: { fraction: 0.06, color: dark, clear: 'rgba(11,15,26,0)' },
+  /** The pitch markings from the design handoff, authored in reference px (a 390 px wide pitch) and scaled to world units by `unit`, so everything follows the pane width. */
   pitch: {
-    board: '#3a4258',
-    pitch: '#121a2b',
-    line: '#2c3a57',
-    net: '#1d2740',
-    halfTint: 0.05,
-    goalLineWidth: 0.5,
-    halfLineWidth: 0.3,
-    gridDot: 0.16,
-    /** The builder's no-build semicircle. */
-    noBuild: { dash: [0.8, 0.6], lineWidth: 0.15 },
+    /** The pitch width the handoff is authored at, px. */
+    referencePitchPx,
+    /** World units per reference px: the sim's pitch width over the reference width. */
+    unit: rules.pitchWidth / referencePitchPx,
+    ground: '#0f1626',
+    dot: pitchDots,
+    /** The dot grid: cell and dot size, px. */
+    grid: { cellPx: 26, dotPx: 1.3 },
+    /** Every neutral line: the outline, centre line and circle, keep-out arc and quarter marks. */
+    line: tokens.lines,
+    outline: { widthPx: 3, radiusPx: 14 },
+    /** Corner brackets: inset from the corner and arm length, px; line width px; owner colour alpha. */
+    bracket: { insetPx: 15, armPx: 28, widthPx: 2, alpha: 0.5 },
+    /** The goal mouth behind the end line: chevron size and stroke, px; net line count, alpha and width px; alphas; goal line px. */
+    goal: { chevronPx: [24, 12], chevronWidthPx: 3, chevronAlpha: 0.35, netLines: 7, netAlpha: 0.45, netWidthPx: 1, lineWidthPx: 4 },
+    /** The keep-out arc around each goal: line width and dash, px. */
+    keepOut: { widthPx: 2, dashPx: [6, 6] },
+    /** The centre circle (the Centre zone, in the rules config) with its inner ring as a fraction of its radius, and the dot radius, px. */
+    centre: { widthPx: 3, innerRatio: 46 / 70, innerWidthPx: 2, innerDashPx: [4, 6], dotRadiusPx: 6 },
+    /** The build-zone edge on the halfway line, drawn during a build in the builder's colour. */
+    buildEdge: { widthPx: 2, dashPx: [10, 8], alpha: 0.35 },
+    /** Ticks on both sidelines at the quarter lines: length and width, px. */
+    quarter: { lengthPx: 14, widthPx: 3 },
   },
   /** Walls, and the parts every structure shares (outline, cracks, flash, shatter, build pieces). */
   wall: {
