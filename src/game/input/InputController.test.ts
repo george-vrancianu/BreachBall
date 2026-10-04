@@ -768,13 +768,72 @@ describe('the press model', () => {
       const f2 = { x: 28, y: 80 }
       const grab = () => {
         touch('pointerdown', a0, 1)
-        touch('pointermove', { x: 20, y: 84 }, 1)
         touch('pointerdown', f2, 2)
       }
       const span = () => {
         touch('pointermove', { x: 12, y: 70 }, 1)
         touch('pointermove', { x: 28, y: 70 }, 2)
       }
+
+      const px1 = () => 1 / Math.abs(camera.view(canvas as unknown as HTMLCanvasElement).sy)
+      const add = (p: Point, dx: number, dy: number) => ({ x: p.x + dx, y: p.y + dy })
+
+      it('two fingers landing together start the edit: the wall follows both and the camera does not pan', () => {
+        const y = camera.y
+        touch('pointerdown', a0, 1)
+        touch('pointerdown', f2, 2)
+        touch('pointermove', { x: 12, y: 70 }, 1)
+        touch('pointermove', { x: 28, y: 70 }, 2)
+        expect(ctl.selection!.spec).toMatchObject({ a: { x: 12, y: 70 }, b: { x: 28, y: 70 } })
+        expect(camera.y).toBe(y)
+        touch('pointerup', { x: 12, y: 70 }, 1)
+        touch('pointerup', { x: 28, y: 70 }, 2)
+        expect(sent).toEqual([{ moveStructure: { player: 1, id: 1, a: { x: 12, y: 70 }, b: { x: 28, y: 70 } } }])
+      })
+
+      it('fingers landing anywhere in the handles keep a 1 unit wall until they really move it', () => {
+        const origin = ctl.selection!.spec
+        const fa = add(a0, 1.5, 1.2)
+        const fb = add(b0, -1.5, -1.2)
+        touch('pointerdown', fa, 1)
+        touch('pointerdown', fb, 2)
+        touch('pointermove', add(fa, px1(), 0), 1)
+        touch('pointermove', add(fb, -px1(), 0), 2)
+        expect(ctl.selection!.spec).toEqual(origin)
+        touch('pointerup', add(fa, px1(), 0), 1)
+        touch('pointerup', add(fb, -px1(), 0), 2)
+        expect(sent).toEqual([])
+        expect(ctl.selection).toMatchObject({ id: 1, spec: origin })
+      })
+
+      it('fingers on the outer edges of the handles keep the wall 1 unit', () => {
+        const origin = ctl.selection!.spec
+        const fa = add(a0, -1.5, -1.2)
+        const fb = add(b0, 1.5, 1.2)
+        touch('pointerdown', fa, 1)
+        touch('pointerdown', fb, 2)
+        touch('pointermove', add(fa, px1(), 0), 1)
+        touch('pointermove', add(fb, -px1(), 0), 2)
+        expect(ctl.selection!.spec).toEqual(origin)
+      })
+
+      it('one finger already dragging does not jump the wall when the second lands inside its handle', () => {
+        touch('pointerdown', add(a0, 1.5, 1.2), 1)
+        touch('pointermove', add(a0, 1.5, 1.2 + 3 * px1()), 1)
+        const before = ctl.selection!.spec
+        touch('pointerdown', add(b0, -1.5, -1.2), 2)
+        touch('pointermove', add(b0, -1.5, -1.2), 2)
+        expect(ctl.selection!.spec).toEqual(before)
+      })
+
+      it('a single end grabbed off-centre does not jump when it starts moving', () => {
+        touch('pointerdown', add(b0, -1.5, -1.2))
+        touch('pointermove', add(b0, -1.5, -1.2 + 2 * px1()))
+        const { a, b } = ctl.selection!.spec as { a: Point; b: Point }
+        expect(a).toEqual(a0)
+        expect(b.x).toBeCloseTo(28, 6)
+        expect(b.y).toBeCloseTo(80, 6)
+      })
 
       it('both ends follow the fingers: midpoint, angle and length from the pair', () => {
         grab()

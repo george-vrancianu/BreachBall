@@ -11,7 +11,7 @@ import { aimMove, aimOf, aimPress, aimRelease, aimTick, aimViewOf, type Aim, typ
 /** The aim view `Game` pushes into the Ball (hold and control rings) and Aim (Ghost): the gesture's view plus the screen px per world unit. */
 export type AimView = GestureView & { pxPerUnit: number }
 
-/** What lay under a press: an end handle of the selected wall (`end`), the selected structure's body, or another of the builder's own structures. */
+/** What lay under a press: an end handle of the selected wall (`handle`, carrying which `end`), the selected structure's body, or another of the builder's own structures. */
 type Hit = { kind: 'handle'; end: 'a' | 'b'; sel: Selection } | { kind: 'body'; sel: Selection } | { kind: 'other'; sel: Selection }
 
 /**
@@ -19,8 +19,8 @@ type Hit = { kind: 'handle'; end: 'a' | 'b'; sel: Selection } | { kind: 'body'; 
  * travels past the drag slop; a lift while still pending is a tap.
  * - `pending`: `hit` is what lay under the finger on press: a handle or the body of the selected wall, an unselected own structure, or nothing. A finger needs `tapSlopPx` to leave a tap, a mouse only `dragSlopPx`.
  * - `body`: translating the selected, movable structure; `origin` is where it stood on press, restored if it cannot be committed (as for `end`).
- * - `end`: swinging and resizing the selected wall around its other end, by the end `end`; the roles of `a` and `b` never swap.
- * - `twoEnd`: two fingers hold both ends of the selected wall (`id` on `a`'s handle, `idB` on `b`'s; `pa`/`pb` their canvas positions). When one lifts the other carries on as `end`.
+ * - `end`: swinging and resizing the selected wall around its other end, by the end `end`; the roles of `a` and `b` never swap. `offset` is where the finger grabbed the handle off the end, so the wall does not jump on grab.
+ * - `twoEnd`: two fingers hold both ends of the selected wall (`id` on `a`'s handle, `idB` on `b`'s; `pa`/`pb` their canvas positions, `offA`/`offB` where each grabbed its handle off the end). When one lifts the other carries on as `end`, keeping its end.
  * - `draw`: drawing a wall from `a`. `tower`: a fresh tower under the finger. Both are held by `offset` for `bodyTo`.
  * - `pan`: the camera follows the finger.
  * `px`/`py` are the pointer's last canvas position (for edge scrolling).
@@ -28,8 +28,8 @@ type Hit = { kind: 'handle'; end: 'a' | 'b'; sel: Selection } | { kind: 'body'; 
 type Press =
   | { kind: 'pending'; id: number; startPx: Point; startWorld: Point; pointerType: string; hit?: Hit }
   | { kind: 'body'; id: number; origin: StructureSpec; offset: Point; px: number; py: number }
-  | { kind: 'end'; id: number; origin: StructureSpec; end: 'a' | 'b'; px: number; py: number }
-  | { kind: 'twoEnd'; id: number; idB: number; origin: StructureSpec; pa: Point; pb: Point }
+  | { kind: 'end'; id: number; origin: StructureSpec; end: 'a' | 'b'; offset: Point; px: number; py: number }
+  | { kind: 'twoEnd'; id: number; idB: number; origin: StructureSpec; pa: Point; pb: Point; offA: Point; offB: Point }
   | { kind: 'draw'; id: number; a: Point; px: number; py: number }
   | { kind: 'tower'; id: number; offset: Point; px: number; py: number }
   | { kind: 'pan'; id: number }
@@ -281,7 +281,8 @@ export class InputController {
     const { selection } = this
     if (selection?.spec.kind !== 'wall') return
     const { spec } = selection
-    const to = snapWallEnd(spec[press.end === 'a' ? 'b' : 'a'], this.pxToWorld(px, py))
+    const p = this.pxToWorld(px, py)
+    const to = snapWallEnd(spec[press.end === 'a' ? 'b' : 'a'], { x: p.x - press.offset.x, y: p.y - press.offset.y })
     if (to) this.selection = { ...selection, spec: { ...spec, [press.end]: to } }
   }
 
@@ -289,34 +290,37 @@ export class InputController {
   private twoEndTo(press: Extract<Live, { kind: 'twoEnd' }>): void {
     const { selection } = this
     if (selection?.spec.kind !== 'wall') return
-    const between = snapWallBetween(this.pxToWorld(press.pa.x, press.pa.y), this.pxToWorld(press.pb.x, press.pb.y))
+    const [fa, fb] = [this.pxToWorld(press.pa.x, press.pa.y), this.pxToWorld(press.pb.x, press.pb.y)]
+    const between = snapWallBetween({ x: fa.x - press.offA.x, y: fa.y - press.offA.y }, { x: fb.x - press.offB.x, y: fb.y - press.offB.y })
     if (between) this.selection = { ...selection, spec: { ...selection.spec, ...between } }
   }
 
-  /** A second finger landed while one holds an end: if it is on the other end's handle, both ends are held; else it is ignored. */
-  private takeOtherEnd(press: Extract<Live, { kind: 'end' }>, e: PointerEvent): boolean {
+  /**
+   * A finger holds the handle of `held.end` (at canvas px `held.p`) and a second lands: if it is on the other end's handle, both ends are held; else it is ignored.
+   * Each finger keeps the grab offset it has from its end, so the wall does not jump.
+   */
+  private takeOtherEnd(held: { id: number; end: 'a' | 'b'; p: Point }, origin: StructureSpec, e: PointerEvent): boolean {
     const { selection } = this
     if (selection?.spec.kind !== 'wall') return false
-    const at = this.pxToWorld(e.offsetX, e.offsetY)
-    const other = selection.spec[press.end === 'a' ? 'b' : 'a']
-    if (Math.hypot(other.x - at.x, other.y - at.y) > this.handleRadius) return false
-    const [first, second] = [{ x: press.px, y: press.py }, { x: e.offsetX, y: e.offsetY }]
-    this.press = press.end === 'a'
-      ? { kind: 'twoEnd', id: press.id, idB: e.pointerId, origin: press.origin, pa: first, pb: second }
-      : { kind: 'twoEnd', id: e.pointerId, idB: press.id, origin: press.origin, pa: second, pb: first }
+    const { spec } = selection
+    const second = { x: e.offsetX, y: e.offsetY }
+    const [wh, ws] = [this.pxToWorld(held.p.x, held.p.y), this.pxToWorld(second.x, second.y)]
+    const other = spec[held.end === 'a' ? 'b' : 'a']
+    if (Math.hypot(other.x - ws.x, other.y - ws.y) > this.handleRadius) return false
+    const off = (w: Point, end: Point) => ({ x: w.x - end.x, y: w.y - end.y })
+    this.press = held.end === 'a'
+      ? { kind: 'twoEnd', id: held.id, idB: e.pointerId, origin, pa: held.p, pb: second, offA: off(wh, spec.a), offB: off(ws, spec.b) }
+      : { kind: 'twoEnd', id: e.pointerId, idB: held.id, origin, pa: second, pb: held.p, offA: off(ws, spec.a), offB: off(wh, spec.b) }
     this.host.canvas.setPointerCapture(e.pointerId)
     return true
   }
 
-  /** One of the two fingers lifted: the other carries on as an end drag of the end it is nearer, and nothing is committed yet. */
+  /** One of the two fingers lifted: the other carries on as an end drag of the end it held, and nothing is committed yet. */
   private dropFinger(press: Extract<Live, { kind: 'twoEnd' }>, lifted: number): void {
     const { selection } = this
-    const [id, p] = lifted === press.id ? [press.idB, press.pb] : [press.id, press.pa]
+    const [id, p, offset] = lifted === press.id ? [press.idB, press.pb, press.offB] : [press.id, press.pa, press.offA]
     if (selection?.spec.kind !== 'wall') return void (this.press = undefined)
-    const at = this.pxToWorld(p.x, p.y)
-    const { a, b } = selection.spec
-    const end = Math.hypot(a.x - at.x, a.y - at.y) <= Math.hypot(b.x - at.x, b.y - at.y) ? 'a' : 'b'
-    this.press = { kind: 'end', id, origin: press.origin, end, px: p.x, py: p.y }
+    this.press = { kind: 'end', id, origin: press.origin, end: lifted === press.id ? 'b' : 'a', offset, px: p.x, py: p.y }
   }
 
   // The wall's start stays put; its end snaps live to the nearest allowed angle and unit. Under half a unit there is no piece.
@@ -448,7 +452,8 @@ export class InputController {
     const [id, at] = [press.id, press.startWorld]
     const { hit } = press
     if (builder && selection?.movable && hit?.sel === selection && hit.kind === 'handle') {
-      this.press = { kind: 'end', id, origin: selection.spec, end: hit.end, px, py }
+      const grabbed = selection.spec.kind === 'wall' ? selection.spec[hit.end] : at
+      this.press = { kind: 'end', id, origin: selection.spec, end: hit.end, offset: { x: at.x - grabbed.x, y: at.y - grabbed.y }, px, py }
     } else if (builder && selection?.movable && hit?.sel === selection && hit.kind === 'body') {
       const anchor = anchorOf(selection.spec)
       this.press = { kind: 'body', id, origin: selection.spec, offset: { x: at.x - anchor.x, y: at.y - anchor.y }, px, py }
@@ -475,6 +480,8 @@ export class InputController {
     if (!('origin' in press)) return this.place()
     // A placed structure never stays displaced and uncommitted: it moves if the sim will take it, else it goes back.
     if (selection?.id === undefined) return this.place()
+    // Back where it stood: nothing to send.
+    if (JSON.stringify(selection.spec) === JSON.stringify(press.origin)) return
     if (this.landing) this.deferredOrigin = press.origin
     else if (!legal(this.host.state(), selection)) this.selection = { ...selection, spec: press.origin }
     else this.place()
@@ -536,7 +543,11 @@ export class InputController {
       // A second finger pinches/pans and abandons the aim and a press that has not become a gesture yet (nothing has changed, so nothing to restore).
       // A live draw, body or end drag or tower ignores it (it is registered above, but `move` does not pan while a piece is held).
       // The exception is a finger on the other end of a wall whose end is held: the two fingers then edit both ends (touch).
-      if (this.press?.kind === 'end' && this.takeOtherEnd(this.press, e)) return
+      const { press } = this
+      if (press?.kind === 'end' && this.takeOtherEnd({ id: press.id, end: press.end, p: { x: press.px, y: press.py } }, press.origin, e)) return
+      // Two fingers landing together on the two handles of the selected wall start the edit too, before either has moved.
+      const { selection } = this
+      if (press?.kind === 'pending' && press.hit?.kind === 'handle' && press.hit.sel === selection && selection.movable && this.takeOtherEnd({ id: press.id, end: press.hit.end, p: press.startPx }, selection.spec, e)) return
       if (this.aim) (this.aim.gesture = { phase: 'pan' }), this.sendAiming(null)
       if (this.press?.kind === 'pending') this.press = undefined
       return

@@ -48,6 +48,19 @@ export const structureCost = (s: StructureSpec): number => (s.kind === 'wall' ? 
 
 /** Every allowed direction in degrees, `[0, 360)` and ascending: each allowed angle and its opposite (a wall from a to b at 225 degrees is the same set as 45). */
 const directions = (r: WallRules): number[] => [...new Set(r.wall.angles.flatMap((d) => [norm360(d), norm360(d + 180)]))].sort((p, q) => p - q)
+/**
+ * The allowed direction nearest to `heading` (degrees, `[0, 360)`). A wall's line is chosen first, modulo 180 (an exact tie takes the lower angle), then the
+ * way along it that lies on the heading's side, so a heading and its opposite always give opposite directions of the same line.
+ */
+function nearestDirection(heading: number, r: WallRules): number {
+  const dirs = directions(r)
+  const gap = (d: number, mod: number) => { const x = Math.abs(d - heading) % mod; return Math.min(x, mod - x) }
+  const line = (d: number) => d % 180
+  const least = Math.min(...dirs.map((d) => gap(d, 180)))
+  const near = dirs.filter((d) => gap(d, 180) <= least + 1e-9).map(line)
+  const lineOf = near.reduce((best, l) => ((l || 180) < (best || 180) ? l : best))
+  return dirs.filter((d) => line(d) === lineOf).reduce((best, d) => (gap(d, 360) < gap(best, 360) ? d : best))
+}
 /** The point `len` from `a` along `deg`; components that should be exactly 0 (multiples of 90 degrees) or equal (odd multiples of 45) come out so. */
 function along(a: Point, deg: number, len: number): Point {
   let [c, s] = [Math.cos(toRad(deg)), Math.sin(toRad(deg))]
@@ -67,8 +80,7 @@ export function snapWallEnd(a: Point, pointer: Point, r: WallRules = rules): Poi
   const len = lengthOf(a, pointer)
   if (len < r.wall.unit / 2) return null
   const heading = norm360(toDeg(Math.atan2(pointer.y - a.y, pointer.x - a.x)))
-  const gap = (d: number) => Math.abs(((d - heading + 540) % 360) - 180)
-  const dir = directions(r).reduce((best, d) => (gap(d) < gap(best) ? d : best))
+  const dir = nearestDirection(heading, r)
   return along(a, dir, nearestUnits(len, r) * r.wall.unit)
 }
 
@@ -80,8 +92,7 @@ export function snapWallBetween(f1: Point, f2: Point, r: WallRules = rules): { a
   const len = lengthOf(f1, f2)
   if (len < r.wall.unit / 2) return null
   const heading = norm360(toDeg(Math.atan2(f2.y - f1.y, f2.x - f1.x)))
-  const gap = (d: number) => Math.abs(((d - heading + 540) % 360) - 180)
-  const dir = directions(r).reduce((best, d) => (gap(d) < gap(best) ? d : best))
+  const dir = nearestDirection(heading, r)
   const span = nearestUnits(len, r) * r.wall.unit
   // `b` is found from `a` by the same `along` as every drawn wall, so the shape is exact.
   const a = along({ x: (f1.x + f2.x) / 2, y: (f1.y + f2.y) / 2 }, dir + 180, span / 2)
@@ -92,8 +103,7 @@ export function snapWallBetween(f1: Point, f2: Point, r: WallRules = rules): { a
 export function rotatedWall<W extends Pick<WallSpec, 'a' | 'b'>>(w: W, r: WallRules = rules): W {
   const heading = norm360(toDeg(Math.atan2(w.b.y - w.a.y, w.b.x - w.a.x)))
   const dirs = directions(r)
-  const gap = (d: number) => Math.abs(((d - heading + 540) % 360) - 180)
-  const nearest = dirs.reduce((best, d, i) => (gap(d) < gap(dirs[best]) ? i : best), 0)
+  const nearest = dirs.indexOf(nearestDirection(heading, r))
   return { ...w, b: along(w.a, dirs[(nearest + 1) % dirs.length], nearestUnits(lengthOf(w.a, w.b), r) * r.wall.unit) }
 }
 

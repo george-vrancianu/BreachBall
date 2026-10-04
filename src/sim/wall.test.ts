@@ -312,6 +312,24 @@ describe('allowed shapes', () => {
 })
 
 describe('snapWallBetween', () => {
+  describe('swapping the fingers gives the same wall with a and b swapped', () => {
+    const swapped = (f1: Point, f2: Point) => {
+      const [x, y] = [snapWallBetween(f1, f2)!, snapWallBetween(f2, f1)!]
+      expect(y.a.x).toBeCloseTo(x.b.x, 9)
+      expect(y.a.y).toBeCloseTo(x.b.y, 9)
+      expect(y.b.x).toBeCloseTo(x.a.x, 9)
+      expect(y.b.y).toBeCloseTo(x.a.y, 9)
+      return x
+    }
+    it('for an off-axis pair', () => void swapped(p(10, 70), p(31, 77)))
+    it('for an exact 337.5 degree pair, the heading tie between two angles', () => {
+      swapped(p(0, 0), p(12 * Math.cos((-22.5 * Math.PI) / 180), 12 * Math.sin((-22.5 * Math.PI) / 180)))
+    })
+    it('for an exact 1.5 unit pair, the length tie takes 1 unit from either side', () => {
+      const w = swapped(p(0, 0), p(1.5 * U, 0))
+      expect(Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y)).toBeCloseTo(U, 9)
+    })
+  })
   it('a horizontal pair makes a horizontal wall centred between them, a at the first finger', () => {
     const w = snapWallBetween(p(10, 70), p(30, 70.5))
     near(w && w.a, p(12, 70.25))
