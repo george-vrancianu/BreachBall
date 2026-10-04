@@ -17,7 +17,7 @@ function play() {
   let now = 0
   const log = { blind: 0, reveals: 0 }
   const frame = (events: SimEvent[] = []) => {
-    t = advance(t, { handover: true, active: whoActs(s), inHand: s.possession.inHand, phase: buildPhase(s.match), opening: openingBuild(s.match), events, now })
+    t = advance(t, { handover: true, active: whoActs(s), phase: buildPhase(s.match), opening: openingBuild(s.match), events, now })
     if (blindSeat(s.match, 1) || blindSeat(s.match, 2)) log.blind++
     if (revealing(t)) log.reveals++
     now += 2000
@@ -44,15 +44,16 @@ describe('goal, Rearrange, Done as the shell drives them', () => {
     expect(g.log.reveals).toBe(0)
   })
 
-  it('hot-seat: the conceder gets a turn card after Done, held across the next frames', () => {
+  it('hot-seat: the conceder gets a handover after Done, with no turn card, held until the flip ends', () => {
     const g = play()
     g.tick()
     g.tick({ defence: { player: 1, choice: 'rearrange' } })
     g.tick({ done: 1 })
-    expect(overlayView(g.transition(), 0)?.text).toBe("Player 2's turn")
+    expect(g.transition().flip).toMatchObject({ hudSeat: 2 })
     expect(blocking(g.transition())).toBe(true)
     g.frame()
-    expect(overlayView(g.transition(), 0)?.text).toBe("Player 2's turn")
+    expect(g.transition().hudSeat).toBe(2)
+    expect(blocking(g.transition())).toBe(false)
   })
 
   it('the HUD says Rearrange during the turn', () => {

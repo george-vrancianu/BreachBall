@@ -41,12 +41,12 @@ export function App() {
 
   return (
     <>
-      {/* The overlay goes under the shell so the controls stay tappable during a card. The stage rotates as one: canvas, in-match HUD and overlay (the 180-degree handover flip). */}
+      {/* The overlay goes under the shell so the controls stay tappable during a hold. The stage rotates as one: canvas, in-match HUD and overlay (the 180-degree handover flip). */}
       <div style={{ position: 'fixed', inset: 0, transform: `rotate(${view?.angle ?? 0}deg)` }}>
         <canvas ref={canvas} />
         {view && (
           <>
-            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} onTap={() => actions().dismiss()} />
+            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} />
             <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} />
             {view.hud.resourceBar && <ResourceBar bar={view.hud.resourceBar} flipped={view.flipped} />}
             {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} />}

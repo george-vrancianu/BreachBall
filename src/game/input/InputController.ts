@@ -50,7 +50,7 @@ export type InputHost = {
   /** Whether a seat is played on this device: every seat in hot-seat, only the peer's own online. */
   mine(p: PlayerId): boolean
   mapOpen(): boolean
-  /** A flip, goal hold, turn card, reveal or REPAIRED sweep is up: the board is not the player's to act on yet. */
+  /** A flip, goal hold, reveal or REPAIRED sweep is up: the board is not the player's to act on yet. */
   blocked(): boolean
   toggleMap(open?: boolean): void
   /** The Side menu is up: the board (pointer and keys) is not the player's to act on. */

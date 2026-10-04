@@ -1,49 +1,47 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, expect, it } from 'vitest'
 import type { OverlayView } from '../../game/view/transition'
 import { Overlay } from './Overlay'
 
 afterEach(cleanup)
-const view = (over: Partial<OverlayView> = {}): OverlayView => ({ kind: 'turn', placement: 'center', band: false, text: 'Player 2', hint: 'Drag back from the ball to shoot', color: '#fff', opacity: 1, progress: 0, dismissable: true, ...over })
+const view = (over: Partial<OverlayView> = {}): OverlayView => ({ kind: 'goal', placement: 'center', band: true, text: 'GOAL', color: '#fff', progress: 0, ...over })
 
 it('renders nothing without a view', () => {
-  const { container } = render(<Overlay onTap={() => {}} />)
+  const { container } = render(<Overlay />)
   expect(container.firstChild).toBeNull()
 })
 
-it('shows text and hint, and a tap dismisses a turn card', () => {
-  const tap = vi.fn()
-  render(<Overlay view={view()} onTap={tap} />)
-  expect(screen.getByText('Drag back from the ball to shoot')).toBeTruthy()
-  fireEvent.pointerDown(screen.getByText('Player 2'))
-  expect(tap).toHaveBeenCalled()
+it('shows the text of a hold and swallows taps meant for the pitch', () => {
+  const { container } = render(<Overlay view={view()} />)
+  expect(screen.getByText('GOAL')).toBeTruthy()
+  expect((container.firstChild as HTMLElement).style.pointerEvents).toBe('auto')
 })
 
 it('lets taps through sweeps and the choosing notice', () => {
-  const { container, rerender } = render(<Overlay view={view({ kind: 'sweep' })} onTap={() => {}} />)
+  const { container, rerender } = render(<Overlay view={view({ kind: 'sweep' })} />)
   expect((container.firstChild as HTMLElement).style.pointerEvents).toBe('none')
-  rerender(<Overlay view={view({ kind: 'notice', text: 'Opponent is choosing' })} onTap={() => {}} />)
+  rerender(<Overlay view={view({ kind: 'notice', text: 'Opponent is choosing' })} />)
   expect((container.firstChild as HTMLElement).style.pointerEvents).toBe('none')
   expect(screen.getByText('Opponent is choosing')).toBeTruthy()
 })
 
 it('clears the Defence bar at the far edge: the top when upright, the bottom when flipped', () => {
-  const { container, rerender } = render(<Overlay view={view({ placement: 'top', text: 'Reveal' })} onTap={() => {}} />)
+  const { container, rerender } = render(<Overlay view={view({ placement: 'top', text: 'Reveal' })} />)
   const label = () => screen.getByText('Reveal') as HTMLElement
   expect((container.firstChild as HTMLElement).style.justifyContent).toBe('flex-start')
   expect(label().style.marginTop).not.toBe('')
   expect(label().style.marginBottom).toBe('')
-  rerender(<Overlay view={view({ placement: 'top', text: 'Reveal' })} flipped onTap={() => {}} />)
+  rerender(<Overlay view={view({ placement: 'top', text: 'Reveal' })} flipped />)
   expect((container.firstChild as HTMLElement).style.justifyContent).toBe('flex-end')
   expect(label().style.marginBottom).not.toBe('')
   expect(label().style.marginTop).toBe('')
 })
 
 it('clears the Resource bar too, only when it is shown', () => {
-  const { rerender } = render(<Overlay view={view({ placement: 'top', text: 'Choosing' })} onTap={() => {}} />)
+  const { rerender } = render(<Overlay view={view({ placement: 'top', text: 'Choosing' })} />)
   const margin = () => parseInt((screen.getByText('Choosing') as HTMLElement).style.marginTop)
   const without = margin()
-  rerender(<Overlay view={view({ placement: 'top', text: 'Choosing' })} resourceBar onTap={() => {}} />)
+  rerender(<Overlay view={view({ placement: 'top', text: 'Choosing' })} resourceBar />)
   expect(margin()).toBe(without + 20)
 })
