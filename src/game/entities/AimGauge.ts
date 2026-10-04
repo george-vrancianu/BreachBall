@@ -11,8 +11,8 @@ import { drawLabel } from './label'
 /** What the gauge reads of the aim in progress: its phase and tier, the tier's control radius and the finger's pull in screen px, the aim once there is one, and how many screen px a world unit spans. */
 export type GaugeAim = Pick<AimView, 'phase' | 'tier' | 'radiusPx' | 'pxPerUnit'> & Partial<Pick<AimView, 'dir' | 'power' | 'pullPx' | 'cancel'>>
 
-/** The limit ring of the current tier: its tier, radius in world units, the chip on the ring, and its colour. */
-export type GaugeLimit = { tier: TierName; radius: number; chip: string; color: string }
+/** The limit ring of the current tier: its tier, radius in world units, the chip on the ring and where it sits (world units, at `visual.aim.gauge.label.chipDeg` on screen), and its colour. */
+export type GaugeLimit = { tier: TierName; radius: number; chip: string; chipAt: Point; color: string }
 
 /** The control gauge around the ball while aiming: the current tier's scale band and limit, and the knob at the finger. */
 export class AimGauge extends Entity {
@@ -21,6 +21,8 @@ export class AimGauge extends Entity {
   at: Point = { x: 0, y: 0 }
   /** The stage is turned for Player 2: screen right and down are world left and up, and text turns upright. */
   flipped = false
+  /** The world y where the dock band starts, at the screen bottom of the pitch view (the game sets it each frame); none: no dock to keep clear of. */
+  dockEdge?: number
   private flared = 0
   // The aim last seen, and the tier switch in progress: the radius (screen px) and colour it morphs from, and the clock when it started.
   private lastAim?: GaugeAim
@@ -52,7 +54,11 @@ export class AimGauge extends Entity {
     const { aim, radius } = this
     if (!aim || radius === undefined) return []
     const tier = rules.shot.tiers[aim.tier].name
-    return [{ tier, radius, chip: `${tier.toUpperCase()} LIMIT`, color: this.color }]
+    const a = (visual.aim.gauge.label.chipDeg * Math.PI) / 180
+    // Screen degrees: on the turned stage screen right and down are world left and up.
+    const r = this.flipped ? -radius : radius
+    const chipAt = { x: this.at.x + r * Math.cos(a), y: this.at.y + r * Math.sin(a) }
+    return [{ tier, radius, chip: `${tier.toUpperCase()} LIMIT`, chipAt, color: this.color }]
   }
 
   /** The scale's end labels: its reading near the ball and at the limit, by the tier's curve. */
@@ -68,16 +74,18 @@ export class AimGauge extends Entity {
     return { x: this.at.x - aim.dir.x * d, y: this.at.y - aim.dir.y * d }
   }
 
-  /** The readout chip beside the knob (world units): to its screen right, or its left near the pitch's right edge as the viewer sees it (the screen's, on a phone); the tier, the power in %, and how many meter segments are lit (by the scale position, all at the tier's strong end). */
+  /** The readout chip beside the knob (world units): to its screen right, or its left near the pitch's right edge as the viewer sees it (the screen's, on a phone); above the knob instead when it would land in the dock band (`dockEdge`); the tier, the power in %, and how many meter segments are lit (by the scale position, all at the tier's strong end). */
   get readout(): { at: Point; tier: string; percent: number; lit: number } | undefined {
     const { aim, knob } = this
     if (!aim || !knob || aim.power === undefined) return undefined
-    const { offsetPx, dropPx, edgePx, segments } = visual.aim.gauge.readout
+    const { offsetPx, dropPx, edgePx, segments, hPx, dockClearPx, risePx } = visual.aim.gauge.readout
     // World units per screen px, right and down: negative on the turned stage.
     const s = (this.flipped ? -1 : 1) / aim.pxPerUnit
     const roomPx = (this.flipped ? knob.x : rules.pitchWidth - knob.x) * aim.pxPerUnit
     const side = roomPx < edgePx ? -1 : 1
-    const at = { x: knob.x + s * side * offsetPx, y: knob.y + s * dropPx }
+    const belowPx = this.dockEdge === undefined ? Infinity : (this.dockEdge - knob.y) / s
+    const rise = belowPx < dropPx + hPx / 2 + dockClearPx
+    const at = { x: knob.x + s * side * offsetPx, y: knob.y + s * (rise ? -risePx : dropPx) }
     return { at, tier: rules.shot.tiers[aim.tier].name.toUpperCase(), percent: Math.round(aim.power * 100), lit: Math.round(scaleOfAim(aim) * segments) }
   }
 
@@ -125,7 +133,7 @@ export class AimGauge extends Entity {
     const blur = Math.hypot(m.a, m.b)
     const curve = rules.shot.tiers[aim.tier].curve
     const knob = this.knob && local(this.knob)
-    this.drawScale(ctx, radius * ppu, curve, blur)
+    this.drawScale(ctx, radius * ppu, curve, blur, local)
     if (knob && aim.pullPx !== undefined) this.drawPull(ctx, knob, Math.min(aim.pullPx, aim.radiusPx), curve, scaleOfAim(aim))
     const readout = this.readout
     if (readout && knob) this.drawReadout(ctx, local(readout.at), readout)
@@ -139,8 +147,8 @@ export class AimGauge extends Entity {
     ctx.restore()
   }
 
-  /** The scale band, tick rings, inner cancel circle, the breathing limit, the end labels and the limit chip; `R` the shown radius in px. */
-  private drawScale(ctx: CanvasRenderingContext2D, R: number, curve: Tier['curve'], blur: number): void {
+  /** The scale band, tick rings, inner cancel circle, the breathing limit, the end labels and the limit chip; `R` the shown radius in px, `local` a world point in the gauge's px frame. */
+  private drawScale(ctx: CanvasRenderingContext2D, R: number, curve: Tier['curve'], blur: number, local: (p: Point) => Point): void {
     const { band, ticks, cancel, limit, flare, label } = visual.aim.gauge
     const inner = visual.aim.slopPx
     const col = this.color
@@ -176,11 +184,7 @@ export class AimGauge extends Entity {
       const near = label.near[curve]
       chip(ctx, ends.near, { x: 0, y: -(inner + label.nearGapPx) }, withAlpha(col, near.alpha), label.nearSizePx, near.fill)
     }
-    const a = (label.chipDeg * Math.PI) / 180
-    for (const l of this.limits) {
-      const r = l.radius * this.aim!.pxPerUnit
-      chip(ctx, l.chip, { x: r * Math.cos(a), y: r * Math.sin(a) }, l.color, label.sizePx)
-    }
+    for (const l of this.limits) chip(ctx, l.chip, local(l.chipAt), l.color, label.sizePx)
   }
 
   /** While aiming: the lit wedge on the pull side, the ring at the finger's distance `d` (px, clamped to the limit), the ripple, the elastic line and the knob; `e` the scale position. */
