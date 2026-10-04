@@ -13,8 +13,8 @@ describe('subterfugeCircle', () => {
   it('offers the Jam with its price and when it lands, then locked placeholders', () => {
     const s = playState()
     const m = circle(s, s.possession.shooter)
-    expect(m.items[0]).toEqual({ item: 'jam', label: `Jam · ${rules.jamCost}`, when: 'next possession', disabled: false })
-    expect(m.items.slice(1).every((i) => i.soon && i.disabled)).toBe(true)
+    expect(m.items[0]).toEqual({ item: 'jam', label: `Jam · ${rules.jamCost}`, name: 'Jam', badge: String(rules.jamCost), when: 'next possession', disabled: false })
+    expect(m.items.slice(1)).toEqual([expect.objectContaining({ name: 'Soon', soon: true, disabled: true }), expect.objectContaining({ name: 'Soon', soon: true, disabled: true })])
   })
   it('is available to the shooter in play and the builder in a build turn', () => {
     const s = playState()

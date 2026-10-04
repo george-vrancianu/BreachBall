@@ -4,15 +4,19 @@ import { type PlayerId } from '../../sim/pitch'
 import { canArm, type SimState } from '../../sim/step'
 
 /** One Offence item in the column: `disabled` greys it (cannot be armed now, or `soon` locked), `pressed` marks the armed one. */
-export type OffenceItemSpec = { item: 'breaker' | 'overdrive'; label: string; disabled: boolean; pressed: boolean; soon?: boolean }
+export type OffenceItemSpec = { item: 'breaker' | 'overdrive'; label: string; /** The short name on its dock tile. */ name: string; /** The tile's corner badge: the Credit price (Rounds) or `×n`, what is left of the stock (Siege); none on a `soon` item. */ badge?: string; disabled: boolean; pressed: boolean; soon?: boolean }
 
 /** What the Offence circle shows: whether the Breaker is armed (the circle fills), the items to offer, and whether it is the viewer's possession (else the circle and its column are greyed, though the column still opens to look at). */
 export type OffenceCircle = { armed: boolean; items: OffenceItemSpec[]; available: boolean; /** Who holds possession, so a column left open closes when it changes hands. */ shooter: PlayerId }
 
 export type OffenceActions = { arm(item: OffenceItemSpec['item']): void }
 
-/** The Breaker's menu label: its Credit price where it is bought (Rounds), else what is left of the stock (Siege). */
-const breakerLabel = (s: SimState, viewer: PlayerId) => (modeFor(s.match).paysBreaker(s.match) ? `Breaker · ${rules.breakerCost}` : `Breaker · ${s.players[viewer].inventory.breaker} left`)
+/** The Breaker's menu label and badge: its Credit price where it is bought (Rounds), else what is left of the stock (Siege). */
+const breakerPrice = (s: SimState, viewer: PlayerId): Pick<OffenceItemSpec, 'label' | 'badge'> => {
+  if (modeFor(s.match).paysBreaker(s.match)) return { label: `Breaker · ${rules.breakerCost}`, badge: String(rules.breakerCost) }
+  const left = s.players[viewer].inventory.breaker
+  return { label: `Breaker · ${left} left`, badge: `×${left}` }
+}
 
 export function offenceCircle(s: SimState, viewer: PlayerId, v: { /** The Breaker is armed for the next shot. */ armed: boolean; /** A blocking hold or the map is up. */ blocked?: boolean; /** Whether this device plays a seat (hot-seat: every seat). */ mine(p: PlayerId): boolean }): OffenceCircle {
   // Only the shooter's own play phase is the viewer's possession; a build turn or a pending defence choice is not.
@@ -22,8 +26,8 @@ export function offenceCircle(s: SimState, viewer: PlayerId, v: { /** The Breake
     available,
     shooter: s.possession.shooter,
     items: [
-      { item: 'breaker', label: breakerLabel(s, viewer), disabled: !available || !canArm(s, viewer), pressed: available && v.armed },
-      { item: 'overdrive', label: 'Overdrive', disabled: true, pressed: false, soon: true },
+      { item: 'breaker', ...breakerPrice(s, viewer), name: 'Breaker', disabled: !available || !canArm(s, viewer), pressed: available && v.armed },
+      { item: 'overdrive', label: 'Overdrive', name: 'Overdrive', disabled: true, pressed: false, soon: true },
     ],
   }
 }
