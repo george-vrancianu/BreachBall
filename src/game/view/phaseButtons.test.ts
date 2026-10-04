@@ -23,6 +23,15 @@ describe('phase buttons in hot-seat', () => {
   })
 })
 
+describe('Done with an unplaced piece', () => {
+  it('is disabled while the builder holds a piece not yet in the sim, so finishing never silently discards it', () => {
+    const state = { ...buildState(1), objects: [{ id: 1, kind: 'tower' as const, owner: 1 as const, power: 'steal' as const, hp: 3, at: { gx: 4, gy: 40 } }] }
+    const done = (unplaced?: boolean) => phaseButtons(state, c, { mine: hotSeat, current: () => state, send: () => {}, unplaced })![0]!
+    expect(done().disabled).toBe(false)
+    expect(done(true).disabled).toBe(true)
+  })
+})
+
 describe('defence choice buttons', () => {
   const owing = (player: 1 | 2): SimState => {
     const s = initialState(1, { ...c, mode: 'siege' })

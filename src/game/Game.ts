@@ -18,7 +18,7 @@ import { Structures } from './entities/Structures'
 import { routeEvents } from './events'
 import { reducedMotion, tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
-import { defenceCircle, legal, type BuildActions, type DefenceCircle } from './view/defenceCircle'
+import { defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { hudModel, roundOf, type HudModel } from './view/hudModel'
 import { phaseButtons } from './view/phaseButtons'
 import { advance, angle, blocking, choosingNotice, dismiss, goalBall, newTransition, overlayView, revealing, type OverlayView } from './view/transition'
@@ -318,8 +318,9 @@ export class Game implements Sink {
     const blocked = this.blocked()
     const builder = state.match.builder
     const { shooter, inHand } = state.possession
+    const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked }), viewer: this.viewer(), armed: input.armed, tappable: canArm(state, shooter) }),
+      hud: hudModel(state, this.config, { active: transition.shown, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: (i) => this.driver.send(i), choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), armed: input.armed, tappable: canArm(state, shooter), placing }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       overlay: overlayView(transition, now, choosingNotice(state.match, mine)),
       angle: angle(transition, now),

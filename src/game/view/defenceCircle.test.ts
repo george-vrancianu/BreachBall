@@ -3,7 +3,7 @@ import { canEdit, defaultConfig as c, initialState, step, type SimState } from '
 import { buildState, emptied, hseg } from '../../sim/testkit'
 import type { PlayerId } from '../../sim/pitch'
 import type { WallSpec } from '../../sim/wall'
-import { anchorOf, defenceCircle, commit, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapBody, snapStart, towerAt, type BuildActions } from './defenceCircle'
+import { anchorOf, defenceCircle, commit, placingOf, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapBody, snapStart, towerAt, type BuildActions } from './defenceCircle'
 
 const hotSeat = () => true
 const menuOf = (s: SimState, viewer: PlayerId, v: Partial<Parameters<typeof defenceCircle>[2]>, a: typeof actions) => defenceCircle(s, viewer, { mine: hotSeat, ...v }, a)!
@@ -157,6 +157,15 @@ describe('Defence circle', () => {
   it('a placed structure also gets the bin; an older one only bin and cancel', () => {
     expect(labels(placed(), { selection: { spec: wall, id: 1, movable: true } })).toEqual(['🗑', '↻', '✕'])
     expect(labels(placed(), { selection: { spec: wall, id: 1, movable: false } })).toEqual(['🗑', '✕'])
+  })
+})
+
+describe('placingOf', () => {
+  it('names the item of a piece the sim does not hold yet, and nothing for a placed one', () => {
+    expect(placingOf({ spec: wall, movable: true })).toBe('wall')
+    expect(placingOf({ spec: towerAt('repulsor', 1, { x: 20, y: 80 }), movable: true })).toBe('repulsor')
+    expect(placingOf({ spec: wall, id: 1, movable: true })).toBeUndefined()
+    expect(placingOf(undefined)).toBeUndefined()
   })
 })
 

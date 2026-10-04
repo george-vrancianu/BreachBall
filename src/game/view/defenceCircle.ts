@@ -102,6 +102,9 @@ export function commit(sel: Selection): SimInput | undefined {
   return { moveStructure: spec.kind === 'wall' ? { player: spec.owner, id, a: spec.a, b: spec.b } : { player: spec.owner, id, at: spec.at } }
 }
 
+/** The Defence item of a selection the sim does not hold yet (being drawn, or unplaced and red); none for a placed structure. */
+export const placingOf = (sel?: Selection): Item | undefined => (!sel || sel.id !== undefined ? undefined : sel.spec.kind === 'wall' ? 'wall' : sel.spec.power)
+
 /** The structure the sim now holds in place of a landed selection, selected as it stands. */
 export function landedAs(s: SimState, sel: Selection): Selection | undefined {
   const o = s.objects.find((o) => (sel.id === undefined ? s.built.includes(o.id) : o.id === sel.id) && sameSpec(o, sel.spec))

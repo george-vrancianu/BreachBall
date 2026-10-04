@@ -158,6 +158,32 @@ describe('Shell', () => {
     const over = (name: string) => { document.elementFromPoint = () => screen.getByRole('button', { name: new RegExp(name) }) }
     const tapCircle = () => { fireEvent.pointerDown(circle(), { clientX: 5, clientY: 5 }); fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 }) }
 
+    it('draws an icon for every piece, armed or not, and no placeholder letter', () => {
+      setup(model({ building: true, item: 'repulsor', items: items({ wall: { pressed: false }, repulsor: { pressed: true } }) }))
+      hold()
+      const icons = ['Repulsor', 'Steal', 'Cannon'].map((name) => {
+        const b = screen.getByRole('button', { name: new RegExp(`^${name}`) })
+        expect(b.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+        expect(b.firstChild?.nodeType).not.toBe(Node.TEXT_NODE)
+        return b.firstElementChild!.innerHTML
+      })
+      expect(screen.getByRole('button', { name: /^Repulsor/ }).getAttribute('aria-pressed')).toBe('true')
+      expect(new Set(icons).size).toBe(3)
+    })
+
+    it('dims the power-up circles while the column is open', () => {
+      setup()
+      const probe = document.createElement('i')
+      probe.style.color = visual.tokens.dimOutline
+      const dimmed = () => screen.getAllByRole('button', { name: /^[BRS]\d/ }).map((b) => b.style.color === probe.style.color)
+      expect(dimmed()).toEqual([false, false, false])
+      hold()
+      expect(dimmed()).toEqual([true, true, true])
+      // Lifting off both the circle and the column closes it.
+      fireEvent.pointerUp(circle(), { clientX: 5, clientY: 5 })
+      expect(dimmed()).toEqual([false, false, false])
+    })
+
     it('a tap toggles build mode, idle or building', () => {
       const { p, r } = setup()
       tapCircle()

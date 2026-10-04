@@ -103,11 +103,14 @@ export type ShellProps = {
 export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRecenter, onPowerUp, onConfirm, onMapStretch, onMapClose, onDefenceToggle, onDefenceArm, onRefund, className, style, children }: ShellProps) {
   const color = visual.player.colors[m.active]
   const live = m.breaker.tappable
+  // The power-ups dim to outlines while the Defence circle's column is open over the pitch.
+  const [columnOpen, setColumnOpen] = useState(false)
+  const dim = visual.tokens.dimOutline
   const row: CSSProperties = { ...FONT, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, pointerEvents: 'auto' }
   const auto: CSSProperties = { pointerEvents: 'auto' }
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, padding: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
-      {defence && <DefenceCircle defence={defence} color={color} flipped={flipped} onToggle={onDefenceToggle} onArm={onDefenceArm} style={auto} />}
+      {defence && <DefenceCircle defence={defence} color={color} flipped={flipped} onToggle={onDefenceToggle} onArm={onDefenceArm} onOpen={setColumnOpen} style={auto} />}
       {confirm && <ButtonRow specs={[{ label: 'Confirm', onClick: onConfirm }]} style={auto} />}
       {mapOpen && <ButtonRow specs={[{ label: 'Stretch', onClick: onMapStretch }, { label: 'Close', onClick: onMapClose }]} style={auto} />}
       {m.buttons?.length ? <ButtonRow specs={m.buttons} style={auto} /> : null}
@@ -124,7 +127,7 @@ export function Shell({ hud: m, defence, confirm, mapOpen, flipped, onMap, onRec
           const n = m.players[m.active].inventory[p]
           const armed = p === 'breaker' && m.breaker.armed
           return (
-            <Button key={p} spec={{ label: ICONS[p], onClick: () => onPowerUp(p), disabled: p === 'breaker' && !live }} style={{ position: 'relative', width: 44, height: 44, padding: 0, borderRadius: '50%', border: `2px solid ${color}`, color: armed ? visual.hud.dark : color, background: armed ? color : 'none', opacity: n > 0 ? 1 : 0.35 }}>
+            <Button key={p} spec={{ label: ICONS[p], onClick: () => onPowerUp(p), disabled: p === 'breaker' && !live }} style={{ position: 'relative', width: 44, height: 44, padding: 0, borderRadius: '50%', border: `2px solid ${columnOpen ? dim : color}`, color: columnOpen ? dim : armed ? visual.hud.dark : color, background: armed && !columnOpen ? color : 'none', opacity: n > 0 ? 1 : 0.35 }}>
               {ICONS[p]}
               <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, borderRadius: 9, background: color, color: visual.hud.dark, fontSize: 12 }}>{n}</span>
             </Button>
