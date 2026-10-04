@@ -16,8 +16,8 @@ export class Ball extends Entity {
   placement?: { at: Point; legal: boolean; radius: number }
   /** The shooter whose ball gets the Breaker outline. */
   armed?: PlayerId
-  /** The aim in progress: its phase and tier, the hold's climb to the next tier, its control radius in screen px, and how many screen px a world unit spans. */
-  aim?: Pick<AimView, 'phase' | 'tier' | 'holdProgress' | 'radiusPx' | 'pxPerUnit'>
+  /** The aim in progress: its phase and tier, the hold's climb to the next tier, and how many screen px a world unit spans. The control gauge is `AimGauge`'s. */
+  aim?: Pick<AimView, 'phase' | 'tier' | 'holdProgress' | 'pxPerUnit'>
   /** The ball's charge, null when not Charged: it wears a glow and a badge in its zone's colour, which pop in when a shot brings it to rest in a ring. */
   charge: Charge | null = null
   /** The ball's radius in world units. */
@@ -73,11 +73,6 @@ export class Ball extends Entity {
     return !!this.sinking && this.sinking.age < visual.ball.stealMs
   }
 
-  /** The faint ring around the ball showing how far the aim can drag, in world units. */
-  get controlRing(): { at: Point; radius: number } | undefined {
-    return this.aim && { at: this.state.pos, radius: this.aim.radiusPx / this.aim.pxPerUnit }
-  }
-
   /** While holding still on the ball: the ring filling towards the next tier, in the tier's colour, pulsing (`scale` > 1) just after reaching one. */
   get holdRing(): { at: Point; radius: number; progress: number; color: string; scale: number } | undefined {
     const { aim } = this
@@ -117,17 +112,6 @@ export class Ball extends Entity {
       ctx.strokeStyle = visual.player.colors[this.armed]
       ctx.lineWidth = width
       ctx.stroke()
-    }
-    const ring = this.controlRing
-    if (ring) {
-      const { color, alpha, width } = visual.ball.control
-      ctx.globalAlpha = alpha
-      ctx.beginPath()
-      ctx.arc(ring.at.x, ring.at.y, ring.radius, 0, Math.PI * 2)
-      ctx.strokeStyle = color
-      ctx.lineWidth = width
-      ctx.stroke()
-      ctx.globalAlpha = 1
     }
     const hold = this.holdRing
     if (hold) {
