@@ -258,6 +258,8 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
   const auto: CSSProperties = { pointerEvents: 'auto' }
   const radius = `${flipped ? 0 : dock.cornerPx}px ${flipped ? 0 : dock.cornerPx}px ${flipped ? dock.cornerPx : 0}px ${flipped ? dock.cornerPx : 0}px`
   const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: dock.gapPx + 2, minWidth: 0 }
+  // The screen-edge side clears the home indicator; longhands only, so a flip never mixes them with the `padding` shorthand.
+  const safeEdge = `max(${dock.padPx}px, env(safe-area-inset-bottom))`
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
       {building && strategies && <StrategyTray cards={strategies} color={color} unit={m.balance?.unit ?? 'CR'} turned={m.active === 2 && !flipped} onApply={onStrategy} style={{ alignSelf: 'stretch', padding: `4px ${dock.padPx}px` }} />}
@@ -265,7 +267,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
       {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(18)} />}
       {mapOpen && <MapHint />}
       {children && <div style={auto}>{children}</div>}
-      <div data-testid="dock" data-dock={m.dock} style={{ ...FONT, ...auto, alignSelf: 'stretch', boxSizing: 'border-box', display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', gap: dock.rowGapPx, padding: `${dock.padPx}px ${dock.padPx}px`, [flipped ? 'paddingTop' : 'paddingBottom']: `max(${dock.padPx}px, env(safe-area-inset-bottom))`, background: dock.fill, [flipped ? 'borderBottom' : 'borderTop']: `1px solid ${dock.border}`, borderRadius: radius, boxShadow: `0 ${flipped ? 8 : -8}px 24px ${visual.hud.shadow}` }}>
+      <div data-testid="dock" data-dock={m.dock} style={{ ...FONT, ...auto, alignSelf: 'stretch', boxSizing: 'border-box', display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', gap: dock.rowGapPx, paddingInline: dock.padPx, paddingTop: flipped ? safeEdge : dock.padPx, paddingBottom: flipped ? dock.padPx : safeEdge, background: dock.fill, [flipped ? 'borderBottom' : 'borderTop']: `1px solid ${dock.border}`, borderRadius: radius, boxShadow: `0 ${flipped ? 8 : -8}px 24px ${visual.hud.shadow}` }}>
         <div data-testid="status-row" style={row}>
           {m.balance && <CreditsChip balance={m.balance} color={color} />}
           <Status m={m} />

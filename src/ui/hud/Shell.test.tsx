@@ -386,4 +386,14 @@ describe('Shell', () => {
     expect(shell.style.top).toBe('0px')
     expect(shell.style.flexDirection).toBe('column-reverse')
   })
+
+  it('keeps the dock\'s inner edge padded when the turn flips, whichever side faces the screen edge', () => {
+    const { rerender } = render(<Shell {...props()} />)
+    const dock = () => screen.getByTestId('dock')
+    expect(dock().style.paddingTop).toBe(`${visual.hud.dock.padPx}px`)
+    rerender(<Shell {...props()} flipped />)
+    expect(dock().style.paddingBottom).toBe(`${visual.hud.dock.padPx}px`)
+    rerender(<Shell {...props()} />)
+    expect(dock().style.paddingTop).toBe(`${visual.hud.dock.padPx}px`)
+  })
 })
