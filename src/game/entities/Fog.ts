@@ -33,6 +33,7 @@ export class Fog extends Entity {
     ctx.fillStyle = visual.camera.bg
     ctx.fillRect(-bleed, top, rules.pitchWidth + 2 * bleed, bottom - top)
     ctx.fillStyle = visual.pitch.line
-    ctx.fillRect(0, rules.halfHeight - visual.pitch.halfLineWidth / 2, rules.pitchWidth, visual.pitch.halfLineWidth)
+    const line = visual.pitch.centre.widthPx * visual.pitch.unit
+    ctx.fillRect(0, rules.halfHeight - line / 2, rules.pitchWidth, line)
   }
 }
