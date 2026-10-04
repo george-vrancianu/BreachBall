@@ -21,7 +21,33 @@ export const canRefund = (s: Pick<SimState, 'match' | 'possession'>, p: PlayerId
   modeFor(s.match).mayRefund(s.match) && !s.match.builder && !s.match.choosing && s.possession.shooter === p && !s.possession.inHand && !s.possession.live && s.possession.shots > 0
 
 /** Whether the current build turn may place and demolish (false in a Rearrange turn, which only moves pieces). */
-export const canEdit = (s: SimState): boolean => modeFor(s.match).mayEdit(s.match)
+export const canEdit = (s: Pick<SimState, 'match'>): boolean => modeFor(s.match).mayEdit(s.match)
+
+/** What the pure place/move checks read of a state. */
+type Ledger = Pick<SimState, 'objects' | 'credits' | 'players' | 'match'>
+
+/** Credits moving `was` to `now` costs (negative: refunded); a wall's price follows its units alone. */
+const moveDiff = (was: Structure, now: StructureSpec): number => (was.kind === 'wall' && now.kind === 'wall' ? wallCost(now) - wallCost(was) : 0)
+
+/**
+ * Whether `spec` may be placed as it stands: stock for a tower, Credits for the price, and a legal spot against the objects.
+ * Who is building, and whether this turn may edit, are the caller's: the sim's `placeWall` and the build preview share this.
+ */
+export function canPlace(s: Ledger, spec: StructureSpec): boolean {
+  const stocked = spec.kind === 'wall' || s.players[spec.owner].inventory[spec.power] > 0
+  return stocked && s.credits[spec.owner] >= structureCost(spec) && isLegal(spec, s.objects)
+}
+
+/**
+ * Whether structure `id` may take the shape `spec`: it exists and is of that kind, the spot is legal ignoring itself, and the Credit difference
+ * is covered. A turn that may only move pieces (Rearrange) refuses any change of a wall's length. Who may move it is the caller's.
+ */
+export function canMove(s: Ledger, id: number, spec: StructureSpec): boolean {
+  const was = s.objects.find((o) => o.id === id)
+  if (!was || was.kind !== spec.kind) return false
+  const diff = moveDiff(was, spec)
+  return (diff === 0 || (canEdit(s) && s.credits[spec.owner] >= diff)) && isLegal(spec, s.objects.filter((o) => o.id !== id))
+}
 
 export type SimEvent =
   | { type: 'wall-cracked'; id: number; hp: number; at: Point }
@@ -173,27 +199,21 @@ export function step(
   const edit = mode.mayEdit(match)
   /** Places a piece for the builder if cost, stock and position allow. */
   const place = (spec: StructureSpec): boolean => {
-    const cost = structureCost(spec)
-    const stocked = spec.kind === 'wall' || players[spec.owner].inventory[spec.power] > 0
-    if (spec.owner !== match.builder || !stocked || credits[spec.owner] < cost || !isLegal(spec, objects)) return false
+    if (spec.owner !== match.builder || !canPlace({ objects, credits, players, match }, spec)) return false
     if (spec.kind === 'tower') players = spend(players, spec.owner, spec.power)
     built = [...built, nextId]
     objects = [...objects, { ...spec, id: nextId++, hp: maxHp(spec) }]
-    credits = { ...credits, [spec.owner]: credits[spec.owner] - cost }
+    credits = { ...credits, [spec.owner]: credits[spec.owner] - structureCost(spec) }
     return true
   }
   if (placeWall && !(edit && place(placeWall))) events.push({ type: 'refused' })
   if (move) {
     const it = objects.find((o) => o.id === move.id)
-    const others = objects.filter((o) => o.id !== move.id)
-    const moved = it && (it.kind === 'wall' ? ('a' in move ? { ...it, a: move.a, b: move.b } : undefined) : 'at' in move ? { ...it, at: move.at } : undefined)
-    // A wall's length may change by its ends: the Credit difference is charged (or refunded), and a Rearrange turn refuses any change.
-    const diff = moved && it.kind === 'wall' && moved.kind === 'wall' ? wallCost(moved) - wallCost(it) : 0
-    const owner = it?.owner
-    const affordable = diff === 0 || (edit && owner !== undefined && credits[owner] >= diff)
-    if (moved && move.player === match.builder && it.owner === move.player && built.includes(move.id) && affordable && isLegal(moved, others)) {
-      objects = objects.map((o) => (o.id === move.id ? moved : o))
-      if (diff !== 0) credits = { ...credits, [it.owner]: credits[it.owner] - diff }
+    const spec: StructureSpec | undefined = it && (it.kind === 'wall' ? ('a' in move ? { kind: 'wall', owner: move.player, a: move.a, b: move.b } : undefined) : 'at' in move ? { kind: 'tower', owner: move.player, power: it.power, at: move.at } : undefined)
+    // A wall's length may change by its ends: the Credit difference is charged (or refunded).
+    if (it && spec && move.player === match.builder && it.owner === move.player && built.includes(move.id) && canMove({ objects, credits, players, match }, move.id, spec)) {
+      objects = objects.map((o) => (o.id === move.id ? { ...it, ...spec } : o))
+      credits = { ...credits, [it.owner]: credits[it.owner] - moveDiff(it, spec) }
     } else events.push({ type: 'refused' })
   }
   if (demolish) {

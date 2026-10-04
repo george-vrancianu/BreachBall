@@ -2,8 +2,8 @@ import { visual } from '../../config/visual'
 import { rules } from '../../config/rules'
 import { nearestOnWall } from '../../sim/near'
 import { type PlayerId, type Point } from '../../sim/pitch'
-import { canEdit, type SimInput, type SimState } from '../../sim/step'
-import { isLegal, rotatedWall, structureCost, translatedWall, vertexToWorld, wallCost, wallUnits, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
+import { canEdit, canMove, canPlace, type SimInput, type SimState } from '../../sim/step'
+import { rotatedWall, translatedWall, vertexToWorld, wallCost, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
 import type { ButtonSpec } from './hudModel'
 
 /**
@@ -77,21 +77,9 @@ export function snapBody(w: WallSpec, objects: SimState['objects'], selfId: numb
   return { ...moved, [best.end]: { x: best.to.x, y: best.to.y } }
 }
 
-/**
- * Legal where it stands (ignoring itself when moved) and affordable: a new piece costs its price; a moved wall must keep its length
- * unless this turn may edit, and pay (or be refunded) the Credit difference, as the sim's `moveStructure` does.
- */
+/** Legal where it stands (ignoring itself when moved) and affordable: the sim's own `canPlace` for a new piece, `canMove` for one of the builder's structures. */
 export function legal(s: SimState, sel: Selection): boolean {
-  const others = s.objects.filter((o) => o.id !== sel.id)
-  const was = sel.id === undefined ? undefined : s.objects.find((o) => o.id === sel.id)
-  if (sel.id !== undefined && !was) return false
-  if (sel.spec.kind === 'wall' && was?.kind === 'wall') {
-    if (!canEdit(s) && wallUnits(sel.spec) !== wallUnits(was)) return false
-    if (s.credits[sel.spec.owner] < wallCost(sel.spec) - wallCost(was)) return false
-  }
-  // A new tower spends stock the sim would refuse when there is none.
-  if (sel.id === undefined && sel.spec.kind === 'tower' && s.players[sel.spec.owner].inventory[sel.spec.power] <= 0) return false
-  return isLegal(sel.spec, others) && (sel.id !== undefined || s.credits[sel.spec.owner] >= structureCost(sel.spec))
+  return sel.id === undefined ? canPlace(s, sel.spec) : canMove(s, sel.id, sel.spec)
 }
 
 /** How far to pan while a piece is held near the top or bottom `edgeBand` of the view: toward any of the builder's half that is off screen, never past it. */
