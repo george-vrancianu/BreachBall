@@ -64,8 +64,8 @@ export const visual = {
     goal: { chevronPx: [24, 12], chevronWidthPx: 3, chevronAlpha: 0.35, netLines: 7, netAlpha: 0.45, netWidthPx: 1, lineWidthPx: 4 },
     /** The keep-out arc around each goal: line width and dash, px. */
     keepOut: { widthPx: 2, dashPx: [6, 6] },
-    /** The centre circle (the Centre zone, in the rules config) and the Bullseye ring inside it (radius in the rules config; line width and dash, px), and the dot radius, px. */
-    centre: { widthPx: 3, innerWidthPx: 2, innerDashPx: [4, 6], dotRadiusPx: 6 },
+    /** The centre circle (the Centre zone, in the rules config) and the Bullseye's outline inside it (radius in the rules config; line width and dash, px), and the dot radius, px. */
+    centre: { widthPx: 3, bullseyeWidthPx: 2, bullseyeDashPx: [4, 6], dotRadiusPx: 6 },
     /**
      * The Boost ring and Bullseye zones: each one's colour; the tint's alpha at rest and while it holds a Charged ball (`litAlpha`); the slow pulse (period and alpha swing, none under reduced motion);
      * the arrival of a shot that comes to rest in one (the zone flashes at `flashAlpha`, and a ring grows `grow` times the zone's radius outward over `ms`, `widthPx` wide); and the "x1.5" / "x2" labels (px, alpha, weight, and each one's distance from the centre spot as a fraction of its zone's radius).

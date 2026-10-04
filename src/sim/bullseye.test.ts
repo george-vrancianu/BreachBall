@@ -117,13 +117,13 @@ describe('Bullseye pass-through (Rounds)', () => {
     expect(paid(r.events)).toHaveLength(1)
     expect(r.events).toContainEqual(expect.objectContaining({ type: 'charged', zone: 'bullseye' }))
     expect(r.state.credits[1]).toBe(playState().credits[1] + rules.bullseyeCredits)
-    expect(r.state.charge).toBe(rules.boost.bullseye.factor)
+    expect(r.state.charge).toEqual({ zone: 'bullseye', factor: rules.boost.bullseye.factor })
   })
   it('a shot starting inside it and coming to rest there earns nothing but still Charges', () => {
     const r = run(flying(below(0.5), { x: 0, y: -1 }), defaultConfig)
     expect(boostAt(r.state.ball.pos)).toBe('bullseye')
     expect(paid(r.events)).toEqual([])
-    expect(r.state.charge).toBe(rules.boost.bullseye.factor)
+    expect(r.state.charge).toEqual({ zone: 'bullseye', factor: rules.boost.bullseye.factor })
   })
   it('still pays when the shot ends in a goal', () => {
     const r = step(flying(below(10), { x: 0, y: -66 * 60 }), {}, c)

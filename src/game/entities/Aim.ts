@@ -1,6 +1,6 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
-import { isCharged, type BoostZone, type Point } from '../../sim/pitch'
+import type { Charge, Point } from '../../sim/pitch'
 import { predictPath } from '../../sim/predict'
 import { splashOf } from '../../sim/splash'
 import type { SimConfig, SimState } from '../../sim/step'
@@ -80,22 +80,17 @@ export class Aim extends Entity {
     return points
   }
 
-  /** The factor the ball's next shot is multiplied by (1 = not Charged): the Ghost is drawn wider and badged. */
-  get charge(): number {
-    return this.state?.charge ?? 1
+  /** The ball's charge, null when not Charged: the Ghost is drawn wider and badged. */
+  get charge(): Charge | null {
+    return this.state?.charge ?? null
   }
 
-  /** The zone the charge came from, null when not Charged. */
-  get chargeZone(): BoostZone | null {
-    return this.state?.chargeZone ?? null
-  }
-
-  private drawBadge(ctx: CanvasRenderingContext2D, ghost: Point[], zone: BoostZone): void {
+  private drawBadge(ctx: CanvasRenderingContext2D, ghost: Point[], { zone, factor }: Charge): void {
     const { size, offset, weight } = visual.aim.ghost.badge
     const [a, b] = [ghost.at(-2) ?? ghost[0], ghost.at(-1)!]
     const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
     const at = { x: b.x + ((b.x - a.x) / len) * offset, y: b.y + ((b.y - a.y) / len) * offset }
-    drawLabel(ctx, boostLabel(this.charge), at, { size, weight, color: boostColor(zone), flipped: this.flipped })
+    drawLabel(ctx, boostLabel(factor), at, { size, weight, color: boostColor(zone), flipped: this.flipped })
   }
 
   /** While cancel is armed: an ✕ on the ball, and the Ghost drawn in the same grey. */
@@ -122,11 +117,11 @@ export class Aim extends Entity {
       ghost.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)))
       ctx.lineCap = ctx.lineJoin = 'round'
       ctx.strokeStyle = ghostColor
-      ctx.lineWidth = isCharged(this.charge) ? visual.aim.ghost.chargedWidth : visual.aim.ghost.width
+      const { charge } = this
+      ctx.lineWidth = charge ? visual.aim.ghost.chargedWidth : visual.aim.ghost.width
       ctx.stroke()
       // A Charged ball's Ghost carries its factor at the tip, past the last point along the path's end direction.
-      const zone = this.chargeZone
-      if (zone && isCharged(this.charge) && !cancel) this.drawBadge(ctx, ghost, zone)
+      if (charge && !cancel) this.drawBadge(ctx, ghost, charge)
     }
     if (cancel) {
       const { size, width } = visual.aim.cancel

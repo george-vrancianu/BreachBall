@@ -343,7 +343,6 @@ export class Game implements Sink {
     structures.mark()
     this.pitch.builder = builder ?? undefined
     this.pitch.charge = this.ball.charge = state.charge
-    this.pitch.chargeZone = this.ball.chargeZone = state.chargeZone
     this.ball.radius = this.config.ballRadius
     this.pitch.reduced = reduced
     this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.transition.shown === 2

@@ -1,6 +1,6 @@
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
-import { centreSpot, halfSpan, isCharged, type BoostZone, type PlayerId } from '../../sim/pitch'
+import { centreSpot, halfSpan, type BoostZone, type Charge, type PlayerId } from '../../sim/pitch'
 import { boostColor, boostLabel } from '../boost'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
@@ -21,10 +21,8 @@ const dashed = (dashPx: readonly number[]): number[] => dashPx.map((d) => d * vi
 export class Pitch extends Entity {
   /** Whose build turn it is, if any. */
   builder?: PlayerId
-  /** The ball's charge: a zone holding a Charged ball is tinted stronger (1 = none). */
-  charge = 1
-  /** The zone the charge came from: that zone is tinted stronger. */
-  chargeZone: BoostZone | null = null
+  /** The ball's charge, null when not Charged: the zone holding a Charged ball is tinted stronger. */
+  charge: Charge | null = null
   /** Turns the labels upright for Player 2's view. */
   flipped = false
   /** Reduced motion: no pulse. */
@@ -66,8 +64,7 @@ export class Pitch extends Entity {
   reset(): void {
     this.arrivals = []
     this.credits = []
-    this.charge = 1
-    this.chargeZone = null
+    this.charge = null
   }
 
   override update(dt: number): void {
@@ -94,15 +91,15 @@ export class Pitch extends Entity {
 
     // The Boost ring and Bullseye tints go under the centre line.
     this.drawBoostFills(ctx)
-    // Centre line, circle, Bullseye ring and dot.
+    // Centre line, circle, the Bullseye's outline and dot.
     ctx.lineWidth = v.centre.widthPx * u
     this.halfwayLine(ctx)
     ctx.stroke()
     ctx.beginPath()
     ctx.arc(w / 2, halfHeight, rules.centreZoneRadius, 0, 2 * Math.PI)
     ctx.stroke()
-    ctx.lineWidth = v.centre.innerWidthPx * u
-    ctx.setLineDash(dashed(v.centre.innerDashPx))
+    ctx.lineWidth = v.centre.bullseyeWidthPx * u
+    ctx.setLineDash(dashed(v.centre.bullseyeDashPx))
     ctx.beginPath()
     ctx.arc(w / 2, halfHeight, rules.boost.bullseye.radius, 0, 2 * Math.PI)
     ctx.stroke()
@@ -135,7 +132,7 @@ export class Pitch extends Entity {
   private zoneAlpha(zone: BoostZone): number {
     const { alpha, litAlpha, pulse, arrive, credit } = visual.pitch.boost
     const swing = this.reduced ? 0 : pulse.alphaSwing * Math.sin((2 * Math.PI * this.clock) / pulse.periodMs)
-    const lit = isCharged(this.charge) && this.chargeZone === zone
+    const lit = this.charge?.zone === zone
     const flash = this.arrivals.reduce((a, r) => (r.zone === zone ? Math.max(a, this.fade(arrive.flashAlpha, r.born, arrive.ms)) : a), 0)
     const credited = zone === 'bullseye' ? this.credits.reduce((a, c) => Math.max(a, this.fade(credit.flashAlpha, c.born, credit.ms)), 0) : 0
     return Math.max(lit ? litAlpha : alpha + swing, flash, credited)

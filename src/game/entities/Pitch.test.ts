@@ -145,8 +145,7 @@ describe('Boost ring and Bullseye', () => {
   it('tints the zone holding a Charged ball stronger, and only that one', () => {
     const p = new Pitch()
     p.reduced = true
-    p.charge = rules.boost.bullseye.factor
-    p.chargeZone = 'bullseye'
+    p.charge = { zone: 'bullseye', factor: rules.boost.bullseye.factor }
     expect(fills(p, rules.boost.bullseye.radius)[0].alpha).toBe(visual.pitch.boost.litAlpha)
     expect(fills(p, rules.boost.ring.radius)[0].alpha).toBe(visual.pitch.boost.alpha)
   })

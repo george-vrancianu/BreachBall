@@ -41,8 +41,14 @@ export function bullseyeEntered(from: Point, to: Point): boolean {
   return Math.hypot(from.x + dx * t - x, from.y + dy * t - y) <= r
 }
 
-/** Whether a ball's `charge` factor means it is Charged (1 = not). */
-export const isCharged = (charge: number): boolean => charge > 1
+/** A Charged ball: the zone its last shot came to rest in and the factor its next shot is multiplied by. */
+export type Charge = { zone: BoostZone; factor: number }
+
+/** The charge a shot coming to rest at `pos` earns, null outside both zones. */
+export function chargeAt(pos: Point): Charge | null {
+  const zone = boostAt(pos)
+  return zone && { zone, factor: rules.boost[zone].factor }
+}
 
 /** Where `kicker` kicks off: the centre line, `rules.kickoffGap` out from their own goal line. */
 export const kickoffSpot = (kicker: PlayerId): Point => ({ x: rules.pitchWidth / 2, y: kicker === 1 ? rules.pitchHeight - rules.kickoffGap : rules.kickoffGap })

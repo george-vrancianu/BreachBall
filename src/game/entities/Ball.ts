@@ -1,6 +1,6 @@
 import { visual } from '../../config/visual'
 import type { Ball as BallState } from '../../sim/ball'
-import { isCharged, type BoostZone, type PlayerId, type Point } from '../../sim/pitch'
+import type { Charge, PlayerId, Point } from '../../sim/pitch'
 import { defaultConfig } from '../../sim/step'
 import { boostColor, boostLabel } from '../boost'
 import { tierClimbed } from '../feedback'
@@ -20,10 +20,8 @@ export class Ball extends Entity {
   aim?: Pick<AimView, 'phase' | 'tier' | 'holdProgress' | 'radiusPx' | 'pxPerUnit'>
   /** Reduced motion: reaching a tier changes the hold ring's colour without the pulse. */
   reduced = false
-  /** The factor the ball is Charged by (1 = not Charged): it wears a glow and a badge, which pop in when a shot brings it to rest in a ring. */
-  charge = 1
-  /** The zone the charge came from (colours the glow and badge); null when not Charged. */
-  chargeZone: BoostZone | null = null
+  /** The ball's charge, null when not Charged: it wears a glow and a badge in its zone's colour, which pop in when a shot brings it to rest in a ring. */
+  charge: Charge | null = null
   /** The ball's radius in world units. */
   radius = defaultConfig.ballRadius
   /** Turns the badge upright for Player 2's view. */
@@ -95,8 +93,7 @@ export class Ball extends Entity {
   /** A new match: no pulse, no steal sink, no ghost, no aim. */
   reset(): void {
     this.pulsedAt = this.sinking = this.placement = this.armed = this.aim = this.lastAim = this.reachedAt = this.poppedAt = undefined
-    this.charge = 1
-    this.chargeZone = null
+    this.charge = null
     this.launched = false
   }
 
@@ -114,7 +111,7 @@ export class Ball extends Entity {
       const k = Math.min(age / visual.ball.stealMs, 1)
       this.drawDisc(ctx, { pos: { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k }, vel: { x: 0, y: 0 }, rolled: this.state.rolled }, false, 1 - k)
     } else this.drawDisc(ctx, this.state, this.bright || this.launched, 1)
-    if (this.chargeZone && isCharged(this.charge) && !this.stealing) this.drawCharge(ctx, this.chargeZone)
+    if (this.charge && !this.stealing) this.drawCharge(ctx, this.charge)
     if (this.armed) {
       const { radius, swing, periodMs, width } = visual.ball.armed
       ctx.beginPath()
@@ -161,7 +158,7 @@ export class Ball extends Entity {
   }
 
   /** The Charged ball's glow ring (pulsing, but static under reduced motion) and its badge above. */
-  private drawCharge(ctx: CanvasRenderingContext2D, zone: BoostZone): void {
+  private drawCharge(ctx: CanvasRenderingContext2D, { zone, factor }: Charge): void {
     const { glow, badge } = visual.ball.charged
     const { x, y } = this.state.pos
     const color = boostColor(zone)
@@ -170,7 +167,7 @@ export class Ball extends Entity {
     ctx.strokeStyle = color
     ctx.lineWidth = glow.width
     ctx.stroke()
-    drawLabel(ctx, boostLabel(this.charge), { x, y: y + (this.flipped ? badge.offset : -badge.offset) }, { size: badge.size, weight: badge.weight, color, flipped: this.flipped, scale: this.reduced ? 1 : this.badgeScale })
+    drawLabel(ctx, boostLabel(factor), { x, y: y + (this.flipped ? badge.offset : -badge.offset) }, { size: badge.size, weight: badge.weight, color, flipped: this.flipped, scale: this.reduced ? 1 : this.badgeScale })
   }
 
   private drawDisc(ctx: CanvasRenderingContext2D, { pos, vel, rolled }: BallState, bright: boolean, scale: number): void {
