@@ -211,8 +211,8 @@ function SelectionBar({ buttons }: { buttons: SelectionButton[] }) {
 
 /** A hint pill above the dock: taps pass through it to the pitch. The map's one is a single line; the first-round coaching line may wrap, so the pill grows to fit it. */
 function HintPill({ text, wrap = false }: { text: string; wrap?: boolean }) {
-  const { heightPx, padPx, borderPx, fontPx } = visual.hud.minimap.pill
-  return <div style={{ ...FONT, fontSize: fontPx, [wrap ? 'minHeight' : 'height']: heightPx, padding: wrap ? `${padPx / 3}px ${padPx}px` : `0 ${padPx}px`, maxWidth: `calc(100% - ${2 * visual.hud.gap}px)`, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: heightPx / 2, border: `${borderPx}px solid ${visual.tokens.ghostBorder}`, background: visual.hud.panel, whiteSpace: wrap ? 'normal' : 'nowrap' }}>{text}</div>
+  const { heightPx, padPx, wrapPadPx, borderPx, fontPx } = visual.hud.hintPill
+  return <div style={{ ...FONT, fontSize: fontPx, [wrap ? 'minHeight' : 'height']: heightPx, padding: wrap ? `${wrapPadPx}px ${padPx}px` : `0 ${padPx}px`, maxWidth: `calc(100% - ${2 * visual.hud.gap}px)`, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: heightPx / 2, border: `${borderPx}px solid ${visual.tokens.ghostBorder}`, background: visual.hud.panel, whiteSpace: wrap ? 'normal' : 'nowrap' }}>{text}</div>
 }
 
 export type ShellProps = {

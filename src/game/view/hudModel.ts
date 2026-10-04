@@ -84,17 +84,20 @@ function digitsOf(m: Match, objects: readonly Structure[]): Record<PlayerId, str
 }
 
 /** The first-play hints show only on round 1. */
-export const isFirstRound = (round: number | null | undefined): boolean => round === 1
+const isFirstRound = (round: number | null | undefined): boolean => round === 1
 
-/** The first-play hint is up: round 1, a shot still to be aimed from a placed ball. */
-const aimHint = (s: SimState, c: SimConfig): boolean => isFirstRound(roundOf(s.match)) && !s.match.builder && !s.match.choosing && !s.possession.inHand && !s.possession.live && s.possession.shots === c.shots
+/** A shot still to be aimed from a placed ball. */
+const shotToAim = (s: SimState, c: SimConfig): boolean => !s.match.builder && !s.match.choosing && !s.possession.inHand && !s.possession.live && s.possession.shots === c.shots
+
+/** The first-play aim hint is up: round 1 and a shot still to be aimed. */
+const aimHint = (s: SimState, c: SimConfig): boolean => isFirstRound(roundOf(s.match)) && shotToAim(s, c)
 
 /** The coaching line for what the active player faces first: a build turn that places pieces, the ball to place, or the shot to aim; undefined after round 1 or once they have acted. */
 function hintOf(s: SimState, c: SimConfig, acted?: boolean): string | undefined {
   if (acted || !isFirstRound(roundOf(s.match))) return undefined
   if (s.match.builder) return canEdit(s) ? 'Drag on your half to draw a wall, or pick a piece below, then OK' : undefined
   if (s.possession.inHand) return s.match.choosing ? undefined : 'Tap to place the ball, then Confirm'
-  return aimHint(s, c) ? 'Drag back from the ball to shoot; hold first for Power' : undefined
+  return shotToAim(s, c) ? 'Drag back from the ball to shoot; hold first for Power' : undefined
 }
 
 export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
