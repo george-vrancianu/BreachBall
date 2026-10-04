@@ -128,7 +128,7 @@ const oneUnitCost = () => wallCost({ a: { x: 0, y: 0 }, b: { x: rules.wall.unit 
 const POWER_NAME: Record<TowerPower, string> = { repulsor: 'Repulsor', steal: 'Steal' }
 
 /** A tower's pill: `Repulsor · 3` with its price in Rounds, the bare name in Siege (stock, no price). */
-const towerLabel = (s: SimState, power: TowerPower): string => (modeFor(s.match).hasCredits(s.match) ? `${POWER_NAME[power]} · ${rules.towerCost[power]}` : POWER_NAME[power])
+const towerLabel = (s: SimState, power: TowerPower): string => (modeFor(s.match).paysTowers(s.match) ? `${POWER_NAME[power]} · ${rules.towerCost[power]}` : POWER_NAME[power])
 
 export function defenceCircle(s: SimState, viewer: PlayerId, v: { /** The armed item; undefined outside build mode. */ item?: Item; selection?: Selection; /** A blocking hold or the map is up. */ blocked?: boolean; /** Whether this device plays a seat (hot-seat: every seat). */ mine(p: PlayerId): boolean }, a: Pick<BuildActions, 'cancel' | 'rotate' | 'remove'>): DefenceCircle | undefined {
   if (!s.match.builder) return undefined

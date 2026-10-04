@@ -40,7 +40,7 @@ const lengthOf = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y)
 export const wallUnits = (w: Pick<WallSpec, 'a' | 'b'>, r: WallRules = rules): number => Math.round(lengthOf(w.a, w.b) / r.wall.unit)
 /** Credits a wall costs: units times the per-unit price, whatever the angle. */
 export const wallCost = (w: Pick<WallSpec, 'a' | 'b'>, r: WallRules = rules): number => wallUnits(w, r) * r.wall.unitCost
-/** A structure's price in Credits: a wall's units, a tower's `rules.towerCost`. Siege spends tower stock instead (see `chargeOf`). */
+/** A structure's price in Credits: a wall's units, a tower's `rules.towerCost`. Siege spends tower stock instead (see `chargeOf` in step.ts). */
 export const structureCost = (s: StructureSpec): number => (s.kind === 'wall' ? wallCost(s) : rules.towerCost[s.power])
 
 /** Every allowed direction in degrees, `[0, 360)` and ascending: each allowed angle and its opposite (a wall from a to b at 225 degrees is the same set as 45). */

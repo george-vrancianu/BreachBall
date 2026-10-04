@@ -82,7 +82,7 @@ export function hudModel(s: SimState, c: SimConfig, v: HudInputs): HudModel {
   const digit = digitsOf(s.match, s.objects)
   // Blind opening build: the viewer's opponent's count is a guess, not information.
   const hidden = blindSeat(s.match, v.viewer) ? opponent(v.viewer) : null
-  const inventoryOf = (p: PlayerId) => (modeFor(s.match).hasCredits(s.match) ? null : p === hidden ? STARTING_INVENTORY : s.players[p].inventory)
+  const inventoryOf = (p: PlayerId) => (modeFor(s.match).paysTowers(s.match) ? null : p === hidden ? STARTING_INVENTORY : s.players[p].inventory)
   const digitOf = (p: PlayerId) => (p === hidden ? '?' : digit?.[p] ?? null)
   const timed = b || s.match.choosing ? c.buildTime : c.shotClock
   return {

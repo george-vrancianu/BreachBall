@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { canEdit, defaultConfig as c, initialState, step, type SimState } from '../../sim/step'
 import { rules } from '../../config/rules'
-import { buildState, funded, hseg, siegeBuild } from '../../sim/testkit'
+import { buildState, emptied, funded, hseg, siegeBuild } from '../../sim/testkit'
 import type { PlayerId } from '../../sim/pitch'
 import type { WallSpec } from '../../sim/wall'
 import { anchorOf, defenceCircle, commit, placingOf, landedAs, movedTo, edgeScrollDy, legal, pick, rotated, snapBody, snapStart, towerAt, type BuildActions } from './defenceCircle'
@@ -144,7 +144,7 @@ describe('Defence circle', () => {
   })
   it('Siege towers read their bare name and grey on stock, not Credits', () => {
     const s = siegeBuild(1)
-    const stock = { ...s, players: { ...s.players, 1: { ...s.players[1], inventory: { ...s.players[1].inventory, steal: 0 } } } }
+    const stock = emptied(s, 1, 'steal')
     expect(menuOf(funded(stock, 1, 0), 1, {}, actions).items.map((i) => [i.label, i.disabled])).toEqual([['Wall · 2/unit', true], ['Repulsor', false], ['Steal', true], ['Cannon', true]])
   })
   it('is absent in play, when no build turn is running', () => {

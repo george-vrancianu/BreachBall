@@ -149,6 +149,7 @@ export type ShellProps = {
 /** The in-match controls, in one shell at the bottom of the screen and only for the active viewer. Mount inside the rotating stage. Flipped, the rows run in reverse so the Defence circle is always the row nearest the pitch, where its column opens over the pitch and not the HUD. */
 export function Shell({ hud: m, offence, defence, subterfuge, confirm, mapOpen, minimap, flipped, onMap, onRecenter, onOffenceArm, onConfirm, onDefenceToggle, onDefenceArm, onSubterfuge, onRefund, className, style, children }: ShellProps) {
   const color = visual.player.colors[m.active]
+  const stock = m.players[m.active].inventory
   const { sharedRow } = visual.hud
   // The power-ups dim to outlines while a circle's column is open over the pitch, or the map is.
   const [open, setOpen] = useState({ offence: false, defence: false, subterfuge: false })
@@ -182,9 +183,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, confirm, mapOpen, 
       </div>
       <div style={{ ...row, gap: 16, color }}>
         {([1, 2] as PlayerId[]).filter((id) => m.score === null || id === m.active).map((id) => <Digit key={id} value={m.players[id].digit} color={visual.player.colors[id]} />)}
-        {(Object.keys(ICONS) as (keyof typeof ICONS)[]).map((p) => {
-          const stock = m.players[m.active].inventory
-          if (!stock) return null
+        {stock && (Object.keys(ICONS) as (keyof typeof ICONS)[]).map((p) => {
           const n = stock[p]
           return (
             <div key={p} role="img" aria-label={`${ICONS[p]}${n}`} style={{ ...FONT, position: 'relative', width: 44, height: 44, boxSizing: 'border-box', borderRadius: '50%', border: `2px solid ${dimmed ? dim : color}`, color: dimmed ? dim : color, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: n > 0 ? 1 : 0.35 }}>

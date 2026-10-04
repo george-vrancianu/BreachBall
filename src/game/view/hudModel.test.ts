@@ -132,7 +132,7 @@ describe('hudModel', () => {
     })
     it('does not reveal the opponent\'s towers through their inventory badges', () => {
       const s = afterFirst()
-      expect(s.players[first].inventory!.steal).toBe(2)
+      expect(s.players[first].inventory.steal).toBe(2)
       const m = hudModel(s, c, { ...view, viewer: second })
       expect(m.players[first].inventory).toEqual({ breaker: 3, repulsor: 3, steal: 3 })
       expect(hudModel(s, c, { ...view, viewer: first }).players[first].inventory!.steal).toBe(2)

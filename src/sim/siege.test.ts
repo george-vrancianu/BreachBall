@@ -4,7 +4,7 @@ import { opponent } from './possession'
 import type { PlayerId } from './pitch'
 import { isLegal, type Structure, type TowerSpec, type WallSpec } from './wall'
 import { canFinishBuild, defaultConfig, initialState, step, type SimConfig, type SimEvent, type SimState } from './step'
-import { funded, hseg, siegeBuild } from './testkit'
+import { emptied, funded, hseg, siegeBuild } from './testkit'
 
 const siege: SimConfig = { ...defaultConfig, mode: 'siege' }
 const wall = (id: number, owner: PlayerId, hp = 3, gy = owner === 1 ? 40 : 26): Structure => ({ id, kind: 'wall', owner, ...hseg(5, gy), hp })
@@ -62,7 +62,7 @@ describe('Siege', () => {
     expect(back.credits[1]).toBe(b.credits[1])
     // No Credits do not matter, an empty stock does.
     expect(step(funded(b, 1, 0), { placeWall: spec }, siege).state.objects).toHaveLength(1)
-    const empty = { ...b, players: { ...b.players, 1: { ...b.players[1], inventory: { ...b.players[1].inventory, steal: 0 } } } }
+    const empty = emptied(b, 1, 'steal')
     expect(step(empty, { placeWall: spec }, siege).events).toEqual([{ type: 'refused' }])
   })
 
