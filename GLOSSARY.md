@@ -25,7 +25,7 @@ The direction indicator while aiming a Shot: a glowing spear with an arrowhead f
 _Avoid_: Trajectory, Ghost, arrow
 
 **Splash**:
-The burst every Power Shot sets off where the ball starts, damaging every structure in range, the shooter's own included and across the halfway line. It grows with power within the Tier; the shooter's own structures lose hit points only to its strongest part. It doesn't move the ball.
+The burst every Power Shot sets off where the ball starts, damaging every structure in range (a wall segment by segment), the shooter's own included and across the halfway line. It grows with power within the Tier; the shooter's own structures lose hit points only to its strongest part. It doesn't move the ball.
 _Avoid_: Blast, explosion, area damage
 
 **Tracer**:
@@ -53,11 +53,11 @@ The scorer's reward for a goal in Siege: after the GOAL banner they choose how t
 _Avoid_: Bonus turn, power-up
 
 **Repair**:
-The defence-turn choice that restores every surviving structure the scorer owns to full HP; destroyed structures stay gone.
+The defence-turn choice that restores every surviving structure the scorer owns to full HP; destroyed structures stay gone, and so do Gaps (only standing Wall segments are restored).
 _Avoid_: Heal, rebuild
 
 **Rearrange**:
-The defence-turn choice that opens a build-style turn for the scorer in which every structure they own can be moved and rotated to any legal spot on their half, HP unchanged. Placing and demolishing are refused, so the structure count can only fall. OK ends it, and OK with nothing moved is the escape hatch. The choice is final: there is no way back to Repair.
+The defence-turn choice that opens a build-style turn for the scorer in which every structure they own can be moved and rotated to any legal spot on their half, HP and Gaps unchanged. Placing and demolishing are refused, so the structure count can only fall. OK ends it, and OK with nothing moved is the escape hatch. The choice is final: there is no way back to Repair.
 _Avoid_: Reposition, rebuild
 
 **Wipe-out**:
@@ -113,8 +113,12 @@ One shot of a possession: each possession starts with the configured number (def
 _Avoid_: Shot (for the counter), move, action point
 
 **Defence bar**:
-The segmented bar at the far edge showing how many structures each player still has standing, one segment per structure. It counts structures, not their hit points.
+The segmented bar at the far edge showing how many structures each player still has standing, one Bar segment per structure. It counts structures, not their hit points: a wall is one structure while any of its Wall segments stands.
 _Avoid_: Health, health strip, HP bar
+
+**Bar segment**:
+One slanted piece of the Defence bar, standing for one structure of a player's (or one destroyed in play this match). It empties only when that structure is destroyed; a wall's Gap does not empty it.
+_Avoid_: Segment (bare, for the bar's piece), pip, block
 
 **Subterfuge**:
 The third family of actions, beside Offence and Defence: actions that cripple the opponent's next possession rather than improving your own shot or structures.
@@ -145,12 +149,28 @@ The family of items you build on your half (walls, towers), bought with Credits 
 _Avoid_: Build menu, structures (as the family name)
 
 **Wall**:
-The Defence item drawn on your half as one straight segment in a single drag: it starts where the drag starts and ends where it ends, at one of the allowed angles (default 0°, 45°, 90°, 135°) and a whole number of units long (default 1 or 2). Walls may touch end to end or in a T but never cross or overlap; a corner is two walls whose ends meet (ADR-0005).
+The Defence item drawn on your half as one straight line in a single drag: it starts where the drag starts and ends where it ends, at one of the allowed angles (default 0°, 45°, 90°, 135°) and a whole number of units long (default 1 or 2). Walls may touch end to end or in a T but never cross or overlap; a corner is two walls whose ends meet (ADR-0005). It is cut into Wall segments, one per Unit, each with its own health (ADR-0007).
 _Avoid_: Straight wall, L wall, piece (for a placed wall; "build piece" and "fallback piece" stay), block, barrier
 
 **Unit**:
-The length a wall is measured in and priced by: every unit costs the same Credits at any angle (1 in a build turn, 2 in an in-play build). One unit is the old straight wall's length end to end.
-_Avoid_: Segment, cell (for wall length), tile
+The length a wall is measured in and priced by: every unit costs the same Credits at any angle (1 in a build turn, 2 in an in-play build). One unit is the old straight wall's length end to end. A unit is the length; a Wall segment is the piece of wall of that length.
+_Avoid_: Cell (for wall length), tile
+
+**Wall segment**:
+One unit's length of a Wall, with its own health (3 hit points): a hit, a Splash or a Breaker acts on the segment it reaches. A 2-unit wall has two. At 0 it breaks and leaves a Gap; the wall is destroyed only when its last segment breaks (ADR-0007).
+_Avoid_: Segment (bare: say Wall segment or Bar segment), cell, piece, section
+
+**Gap**:
+What a broken Wall segment leaves: a hole in the wall with no collision, which the ball passes through while the rest of the wall keeps standing. It is permanent (Repair restores standing segments only) and still blocks placing a new wall over it.
+_Avoid_: Hole, opening (and Breach, which is the Breach mark)
+
+**Joint**:
+Where two standing Wall segments of one wall meet, drawn as a dark seam with a small bolt. It has no effect on play.
+_Avoid_: Seam, hinge (a corner is two walls, not a Joint)
+
+**Breach mark**:
+The smudge and rubble a Gap leaves on the pitch, under walls and the ball, for as long as the wall stands, so players see why building there is illegal. It fades when the wall is destroyed.
+_Avoid_: Scorch (that is damage on a wall), crater
 
 **Centre zone**:
 The no-build circle around the centre spot that walls and towers must stay wholly outside, beside the goal no-build zone and the own-half rule. It has the same radius as the Boost ring, but it is a build rule, not a shot rule.
@@ -165,7 +185,7 @@ The drawn edge of the goal no-build zone: a dashed arc around each goal, neutral
 _Avoid_: No-build line, goal arc
 
 **Snap grid**:
-The faint dots, in the builder's colour, at every cell corner (`rules.cellSize`) drawn on the builder's own half during a build, marking the cells a tower sits in (walls are free segments, so they don't snap to it). Separate from the ground's decorative dot grid.
+The faint dots, in the builder's colour, at every cell corner (`rules.cellSize`) drawn on the builder's own half during a build, marking the cells a tower sits in (walls are free lines, so they don't snap to it). Separate from the ground's decorative dot grid.
 _Avoid_: Build grid
 
 **Build-zone edge**:
@@ -173,7 +193,7 @@ The dashed halfway-line marker drawn during a build in the builder's colour. It 
 _Avoid_: Build line, half line
 
 **Breaker**:
-The Offence item that makes the armed shot destroy the first structure it touches, either player's, then carry on.
+The Offence item that makes the armed shot destroy the first tower or Wall segment it touches, either player's, then carry on. It breaks one segment of a wall, not the whole wall.
 _Avoid_: Breach Ball, piercing shot
 
 **Resource bar**:
