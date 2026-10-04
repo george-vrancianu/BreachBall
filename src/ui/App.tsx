@@ -6,6 +6,7 @@ import { defaultSettings, type Settings } from '../game/view/settings'
 import { DefenceBar } from './hud/DefenceBar'
 import { Shell } from './hud/Shell'
 import { SideMenu, SideMenuButton } from './hud/SideMenu'
+import { QueuedIcons } from './hud/SubterfugeCircle'
 import { Overlay } from './overlays/Overlay'
 import { HelpScreen, MatchEndScreen, SettingsScreen, TitleScreen } from './screens/Screens'
 
@@ -43,10 +44,12 @@ export function App() {
           <>
             <Overlay view={view.overlay} flipped={view.flipped} onTap={() => actions().dismiss()} />
             <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} />
+            {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} />}
             <Shell
               hud={view.hud}
               offence={view.offence}
               defence={view.defence}
+              subterfuge={view.subterfuge}
               confirm={view.confirm}
               mapOpen={view.mapOpen}
               minimap={view.minimap}
@@ -58,6 +61,7 @@ export function App() {
               onConfirm={() => actions().confirmBall()}
               onDefenceToggle={() => actions().build.toggle()}
               onDefenceArm={(item) => actions().build.arm(item)}
+              onSubterfuge={(item) => actions().subterfuge(item)}
             />
             {/* Both sit in the stage, so they turn with the flip and open from the viewer's left. */}
             {!screen && !view.menu.open && <SideMenuButton flipped={view.flipped} onOpen={() => actions().menu(true)} />}
