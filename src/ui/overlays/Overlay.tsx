@@ -16,7 +16,7 @@ export function Overlay({ view: v, flipped = false, resourceBar = false, classNa
         pointerEvents: v.kind === 'sweep' || v.kind === 'notice' ? 'none' : 'auto',
         color: v.color,
         background: top || v.band ? 'transparent' : visual.hud.scrim,
-        transform: v.kind === 'sweep' ? `translateX(${(0.5 - v.progress) * 200}%)` : undefined,
+        transform: v.kind === 'sweep' ? `${v.turn ? `rotate(${v.turn}deg) ` : ''}translateX(${(0.5 - v.progress) * 200}%)` : undefined,
         ...style,
       }}
     >
