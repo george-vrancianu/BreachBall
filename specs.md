@@ -195,7 +195,7 @@ A player may seal their own goal. The walls are wasted Credits the opponent can 
 ### Palleted ball (play phase)
 
 - A Pallet swat (ADR-0009) makes the ball a Palleted ball with `rules.pallet.pierces` (2) pierces, held in `SimState.pierces`. Each Wall segment or tower it touches, either player's, breaks or is destroyed outright and uses up one pierce, at any speed; the ball keeps its speed, as with the Breaker. A destroyed Repulsor or Steal does not fire.
-- Board bounces keep the pierces. They clear when both are spent, the ball comes to rest or the shot ends, and a new swat resets the count to 2. A Breaker shot spends its Breaker first.
+- Board bounces keep the pierces. They clear when both are spent, the ball comes to rest or the shot ends, and a new swat resets the count to 2. A Breaker shot that is swatted spends its Breaker first and keeps the 2 pierces, so it breaks 3 pieces in all.
 - The sim emits `palleted-started` (pallet, pierces) on each swat and `palleted-ended` once when the state clears.
 
 ### Repulsor tower (build phase)
