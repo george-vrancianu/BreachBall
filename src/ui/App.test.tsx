@@ -86,7 +86,16 @@ describe('safe-area insets', () => {
     expect(screen.getByRole('button', { name: 'Menu' }).style.bottom).toBe('calc(var(--safe-bottom, 0px) + 36px)')
   })
 
-  it('the insets swap with the HUD layer\'s turn, in the same render', () => {
+  it('Tabletop off: the insets swap with the layout (`flipped`), not at the half turn, so the Dock does not jump twice', () => {
+    inPlay({ tabletop: false, angle: 100, seatAngle: 0, flipped: false })
+    expect(hudVar('--safe-top')).toBe('env(safe-area-inset-top, 0px)')
+    act(() => games[0]!.onView(view({ tabletop: false, angle: 170, seatAngle: 0, flipped: true })))
+    expect(hudVar('--safe-top')).toBe('env(safe-area-inset-bottom, 0px)')
+    act(() => games[0]!.onView(view({ tabletop: false, angle: 10, seatAngle: 0, flipped: false })))
+    expect(hudVar('--safe-top')).toBe('env(safe-area-inset-top, 0px)')
+  })
+
+  it("the insets swap with the HUD layer's turn, in the same render", () => {
     inPlay({ tabletop: true, seatAngle: 0 })
     act(() => games[0]!.onView(view({ tabletop: true, seatAngle: 180 })))
     expect(hudVar('--safe-bottom')).toBe('env(safe-area-inset-top, 0px)')
@@ -190,6 +199,13 @@ it('the Title screen opens the connect overlay, settings, and help and back', ()
 })
 
 describe('Side menu', () => {
+  it('pads the panel by the safe-area insets on its top, bottom and screen-edge sides', () => {
+    inMatch({ open: true })
+    const nav = screen.getByRole('navigation', { name: 'Side menu' })
+    const pad = visual.sideMenu.panelPadPx
+    expect([nav.style.paddingTop, nav.style.paddingBottom, nav.style.paddingLeft, nav.style.paddingRight]).toEqual([`max(${pad}px, var(--safe-top, 0px))`, `max(${pad}px, var(--safe-bottom, 0px))`, `max(${pad}px, var(--safe-left, 0px))`, `${pad}px`])
+  })
+
   const inMatch = (menu: Partial<HudView['menu']> = {}) => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Play' }))

@@ -2,10 +2,10 @@ import type { CSSProperties, ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
-import { inset } from '../../game/view/safeInsets'
 import { FONT } from '../ButtonRow'
 import { JAM } from './icons'
 import { chipClear } from './Minimap'
+import { farEdge, safeInline } from './safeArea'
 
 const { panel } = visual.hud
 
@@ -21,9 +21,10 @@ export function QueuedIcons({ queued, flipped, style }: { queued: SubterfugeCirc
   const { px, edgePx, gapPx, fontPx, iconPx, iconGapPx, borderPx } = visual.hud.queued
   const offset = visual.hud.bar.heightPx + visual.hud.bar.resourceRowPx + edgePx
   return (
-    <div style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'bottom' : 'top']: `calc(${inset(flipped ? 'bottom' : 'top')} + ${offset}px)`, boxSizing: 'border-box', paddingLeft: `max(${visual.hud.gap}px, ${inset('left')})`, paddingRight: `max(${visual.hud.gap}px, ${inset('right')})`, display: 'flex', gap: visual.hud.gap, pointerEvents: 'none', ...FONT, ...style }}>
+    <div style={{ position: 'absolute', left: 0, right: 0, ...farEdge(flipped, offset), boxSizing: 'border-box', ...safeInline(visual.hud.gap), display: 'flex', gap: visual.hud.gap, pointerEvents: 'none', ...FONT, ...style }}>
       {([1, 2] as const).map((id) => (
         <div key={id} style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', gap: gapPx }}>
+          {/* chipClear and the ☰ button's width count only from the chips' own inset, so this relies on the container's `max(gap, inset)` padding absorbing the safe-area inset. */}
           {queued.filter((q) => q.against === id).map((q) => (
             <div key={q.against} role="img" aria-label={`${ITEMS[q.item].name} queued against Player ${q.against}`} style={{ display: 'flex', alignItems: 'center', gap: iconGapPx, height: px, marginLeft: q.against === 1 ? chipClear() : 0, marginRight: q.against === 2 ? visual.sideMenu.buttonInsetPx + visual.sideMenu.buttonPx : 0, padding: `0 ${gapPx}px`, borderRadius: px / 2, border: `${borderPx}px solid ${visual.player.colors[q.by]}`, background: panel, color: visual.player.colors[q.by], fontSize: fontPx }}>
               {ITEMS[q.item].icon(iconPx)}

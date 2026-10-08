@@ -1,13 +1,14 @@
 import type { CSSProperties } from 'react'
 import { visual } from '../../config/visual'
 import type { Band, MinimapView } from '../../game/view/minimap'
-import { inset } from '../../game/view/safeInsets'
+import type { Side } from '../../game/view/physicalEdges'
+import { farEdge, safeInset } from './safeArea'
 
 /** How far in from the far edge the minimap chip (top-left) and the ☰ button (top-right) sit: just inside the Defence bar, and the Resource bar when it is shown. */
 export const underBars = (resourceBar: boolean): number => visual.hud.bar.heightPx + (resourceBar ? visual.hud.bar.resourceRowPx : 0) + visual.sideMenu.buttonInsetPx
 
 /** Where a corner chip sits: `underBars` in from the far edge (the stage's bottom when `flipped`) and `buttonInsetPx` in from the side, both measured from the safe area, so the chip clears the notch or status bar the HUD layer's turn puts there. */
-export const cornerPos = (flipped: boolean, resourceBar: boolean, side: 'left' | 'right'): CSSProperties => ({ [flipped ? 'bottom' : 'top']: `calc(${inset(flipped ? 'bottom' : 'top')} + ${underBars(resourceBar)}px)`, [side]: `calc(${inset(side)} + ${visual.sideMenu.buttonInsetPx}px)` })
+export const cornerPos = (flipped: boolean, resourceBar: boolean, side: Extract<Side, 'left' | 'right'>): CSSProperties => ({ ...farEdge(flipped, underBars(resourceBar)), [side]: `calc(${safeInset(side)} + ${visual.sideMenu.buttonInsetPx}px)` })
 
 /** How much of the stage's left edge the minimap chip takes, inset included: what the queued Subterfuge icons keep clear of. */
 export const chipClear = (): number => visual.sideMenu.buttonInsetPx + visual.hud.minimap.hitPx

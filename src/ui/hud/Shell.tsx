@@ -3,7 +3,7 @@ import { visual } from '../../config/visual'
 import type { DefenceCircle as DefenceCircleView, Item, SelectionAction, SelectionButton } from '../../game/view/defenceCircle'
 import { type ButtonSpec, type HudModel } from '../../game/view/hudModel'
 import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
-import { inset, type Side } from '../../game/view/safeInsets'
+import type { Side } from '../../game/view/physicalEdges'
 import type { StrategyCard } from '../../game/view/strategies'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
@@ -11,6 +11,7 @@ import { FONT } from '../ButtonRow'
 import { CHECK, CLOSE, CREDIT, LAYERS, LOCK, PIECE_ICON, RECENTER, REFUND, ROTATE, TOWER, TRASH } from './icons'
 import { noMenu } from './press'
 import { AbilityBar } from './AbilityBar'
+import { safeInset } from './safeArea'
 import { StrategyTray } from './StrategyTray'
 import { tileBadge, tileLabel, tileStyle } from './tile'
 
@@ -263,7 +264,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
   const radius = `${flipped ? 0 : dock.cornerPx}px ${flipped ? 0 : dock.cornerPx}px ${flipped ? dock.cornerPx : 0}px ${flipped ? dock.cornerPx : 0}px`
   const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: dock.wideGapPx, minWidth: 0 }
   // The screen-edge side clears the home indicator, or the notch or status bar when the HUD layer's turn puts the Dock at the device top: the HUD layer's own inset variables, which follow that turn. Longhands only, so a flip never mixes them with the `padding` shorthand.
-  const safe = (side: Side) => `max(${dock.padPx}px, ${inset(side)})`
+  const safe = (side: Side) => `max(${dock.padPx}px, ${safeInset(side)})`
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
       {/* Assumes the build dock always comes with a balance; without one the Strategies tray silently hides. */}
