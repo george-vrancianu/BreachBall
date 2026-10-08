@@ -204,6 +204,10 @@ _Avoid_: Build grid
 The dashed halfway-line marker drawn during a build in the builder's colour. It is only a marker; building is allowed on the whole half.
 _Avoid_: Build line, half line
 
+**Build overlay**:
+What the renderer draws over the pitch for the builder's own in-progress editing, in a build turn or an In-play build: the build piece (red where it cannot be placed), the landing piece on its way to the sim, the end handles of a movable Wall, the Credit cost beside a new Wall, the outline of this turn's pieces and the mark on an older structure picked to demolish. The Map view shows none of it. Renderer only; the sim never sees it.
+_Avoid_: Build preview, edit layer, Ghost
+
 **Breaker**:
 The Offence item that makes the armed shot destroy the first tower or Wall segment it touches, either player's, then carry on. It breaks one segment of a wall, not the whole wall.
 _Avoid_: Breach Ball, piercing shot

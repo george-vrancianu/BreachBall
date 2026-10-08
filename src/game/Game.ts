@@ -19,7 +19,8 @@ import { Structures } from './entities/Structures'
 import { routeEvents } from './events'
 import { tierBuzz } from './feedback'
 import { InputController } from './input/InputController'
-import { builderNow, defenceCircle, legal, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
+import { buildOverlay } from './view/buildOverlay'
+import { builderNow, defenceCircle, placingOf, type BuildActions, type DefenceCircle } from './view/defenceCircle'
 import { countDestroyed, type Destroyed } from './view/defenceBar'
 import { countBullseyes, type Bullseyes } from './view/resourceBar'
 import { hudModel, type HudModel } from './view/hudModel'
@@ -388,24 +389,13 @@ export class Game implements Sink {
     this.raf = requestAnimationFrame(this.frame)
   }
 
-  /** Hands the entities what this frame shows: the build overlays, the aim, the ball-in-hand placement. */
+  /** Hands the entities what this frame shows: the Build overlay, the aim, the ball-in-hand placement. */
   private present(): void {
     const { state, input, structures, mapOpen } = this
     const { builder } = state.match
     const { shooter } = state.possession
-    const sel = input.selection
-    structures.buildPiece = mapOpen || !sel?.movable ? undefined : sel.spec
-    structures.handles = !mapOpen && sel?.movable && sel.spec.kind === 'wall' ? { a: sel.spec.a, b: sel.spec.b } : undefined
-    structures.costLabel = !mapOpen && !!sel?.movable && sel.id === undefined && sel.spec.kind === 'wall'
-    structures.pieceBlocked = !!sel && !legal(state, sel, this.config.pallets)
-    structures.inPlay = !builder
+    structures.overlay = buildOverlay(state, { selection: input.selection, landing: input.landing, mapOpen, pallets: this.config.pallets })
     structures.flipped = this.viewerTurned()
-    structures.pieceId = sel?.id
-    structures.landing = mapOpen ? undefined : input.landing?.spec
-    structures.landingId = input.landing?.id
-    structures.hidden = mapOpen ? [] : [sel?.movable ? sel.id : undefined, input.landing?.id].filter((id) => id !== undefined)
-    structures.selected = !mapOpen && sel && !sel.movable ? sel.id : undefined
-    structures.movable = builder && !mapOpen ? state.built : []
     const aim = mapOpen ? undefined : input.aimView()
     const buzz = tierBuzz(this.ball.aim, aim)
     if (buzz) navigator.vibrate?.(buzz)

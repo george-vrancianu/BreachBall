@@ -2,8 +2,9 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
 import { splashDamage, splashOf } from '../../sim/splash'
-import { playCost, type SimConfig, type SimState } from '../../sim/step'
-import { segmentCount, segmentEnds, standing, structureCost, type Structure, type StructureSpec } from '../../sim/wall'
+import type { SimConfig, SimState } from '../../sim/step'
+import { segmentCount, segmentEnds, standing, type Structure, type StructureSpec } from '../../sim/wall'
+import { noOverlay, type BuildOverlay, type OverlayPiece } from '../view/buildOverlay'
 import { Entity } from './Entity'
 import { Fixture, type FixtureData } from './Fixture'
 import { drawLabel } from './label'
@@ -26,32 +27,15 @@ const make = (d: FixtureData): Fixture => (d.kind === 'tower' ? new Tower(d) : n
 
 /**
  * Every wall and tower, keyed by sim id. `sync` creates a child as an object appears; one that leaves the sim is dropped at once,
- * unless it was told to `shatter`, in which case it stays until the shatter ends. Holds the build overlays (build piece, landing) and hit particles too.
+ * unless it was told to `shatter`, in which case it stays until the shatter ends. Draws the Build overlay (`overlay`) and holds hit particles too.
  * What flies above the ball and aim (fragments, particles, landing, build piece) is drawn by `fx`, which the game adds to the camera after them.
+ * The Build overlay is a pure view model from `game/view` (`buildOverlay`): the entity takes it as input and draws it, it never derives it.
  */
 export class Structures extends Entity {
-  /** The sim id the build piece or landing piece stands in for (a wall being moved), so a damaged wall keeps its segments, Gaps and cracks while it moves. */
-  pieceId?: number
-  landingId?: number
-  /** The piece being dragged and a placed piece not yet in the sim (the landing one), drawn half-transparent. */
-  buildPiece?: StructureSpec
-  landing?: StructureSpec
-  /** The build piece is a new wall (unplaced or being drawn): its Credit cost shows beside its midpoint. Towers spend stock, not Credits, so show none. */
-  costLabel = false
-  /** The piece is an in-play build: its cost label reads the in-play price (`rules.playBuild`). */
-  inPlay = false
-  /** The build piece fails the full legality check (the Credit balance too), which the build piece's own geometry check cannot see. */
-  pieceBlocked = false
-  /** The selected movable wall's two ends: handles are drawn on them. */
-  handles?: { a: Point; b: Point }
+  /** The Build overlay this frame shows (build piece, landing piece, handles, cost label, hidden, selected and movable ids): one read-only value from `buildOverlay`, which keeps its rules. */
+  overlay: BuildOverlay = noOverlay
   /** The viewer is Player 2, whose end the stage is turned to or, in Tabletop mode, who sits across the table: text and lighting are turned for their view so they read upright. */
   flipped = false
-  /** Ids stood in for by the build piece or landing piece. */
-  hidden: number[] = []
-  /** An older structure picked to demolish. */
-  selected?: number
-  /** Ids placed this turn. */
-  movable: number[] = []
   /** Splash preview: ids in range, and whether each is the shooter's own. */
   preview = new Map<number, boolean>()
   /** Drawn above the ball and aim: the game adds it to the camera after them. */
@@ -147,10 +131,7 @@ export class Structures extends Entity {
   reset(): void {
     for (const [id, f] of this.fixtures) this.drop(id, f)
     this.pool.clear()
-    this.buildPiece = this.landing = this.selected = this.handles = this.pieceId = this.landingId = undefined
-    this.costLabel = this.pieceBlocked = false
-    this.hidden = []
-    this.movable = []
+    this.overlay = noOverlay
     this.preview = new Map()
   }
 
@@ -161,13 +142,14 @@ export class Structures extends Entity {
     this.preview = new Map(splash === null ? [] : splashDamage(state.objects, state.ball.pos, splash, shooter).map((h) => [h.wall.id, h.wall.owner === shooter]))
   }
 
-  /** Hands each child what this frame shows (build overlays, splash preview). Call before drawing. */
+  /** Hands each child what this frame shows (the Build overlay's hidden, movable and selected ids, the Splash preview). Call before drawing. */
   mark(): void {
+    const { hidden, movable, selected } = this.overlay
     for (const [id, f] of this.fixtures) {
       f.flipped = this.flipped
-      f.hidden = this.hidden.includes(id)
-      f.movable = this.movable.includes(id)
-      f.selected = this.selected === id
+      f.hidden = hidden.includes(id)
+      f.movable = movable.includes(id)
+      f.selected = selected === id
       const hit = this.preview.get(id)
       f.tint = hit === undefined ? undefined : hit ? visual.wall.ownTint : visual.wall.illegal
     }
@@ -204,10 +186,12 @@ export class Structures extends Entity {
 
   /** The landing piece (placed, on its way to the sim), then the one being dragged. */
   drawPieces(ctx: CanvasRenderingContext2D): void {
-    if (this.landing) this.drawBuildPiece(ctx, this.landing, false, this.landingId)
-    if (this.buildPiece) this.drawBuildPiece(ctx, this.buildPiece, true, this.pieceId)
-    if (this.buildPiece && this.costLabel) this.drawCost(ctx, this.buildPiece)
-    if (this.handles) this.drawHandles(ctx, this.handles)
+    const { piece, landing } = this.overlay
+    if (landing) this.drawBuildPiece(ctx, landing, false, false)
+    if (!piece) return
+    this.drawBuildPiece(ctx, piece, true, piece.blocked)
+    if (piece.cost !== undefined) this.drawCost(ctx, piece.spec, piece.cost, piece.blocked)
+    if (piece.handles) this.drawHandles(ctx, piece.handles)
   }
 
   /** A circle on each end of the selected wall: what a finger or the mouse grabs to swing and resize it. */
@@ -226,15 +210,15 @@ export class Structures extends Entity {
     ctx.restore()
   }
 
-  /** The piece's Credit cost beside its midpoint, red where it cannot be placed. */
-  private drawCost(ctx: CanvasRenderingContext2D, spec: StructureSpec): void {
+  /** The piece's Credit `cost` beside its midpoint, red where it cannot be placed (`blocked`). */
+  private drawCost(ctx: CanvasRenderingContext2D, spec: StructureSpec, cost: number, blocked: boolean): void {
     const { size, offset } = visual.wall.cost
     const at = costLabelAt(spec, offset, this.flipped)
-    drawLabel(ctx, String(this.inPlay ? playCost(spec) : structureCost(spec)), at, { size, weight: visual.wall.cost.weight, color: this.pieceBlocked ? visual.wall.illegal : visual.hud.ink, flipped: this.flipped })
+    drawLabel(ctx, String(cost), at, { size, weight: visual.wall.cost.weight, color: blocked ? visual.wall.illegal : visual.hud.ink, flipped: this.flipped })
   }
 
-  /** A translucent piece: a bare spec draws clean Wall segments with their joints; one standing in for a placed wall (`id`) draws that wall's real Wall segments, Gaps and damage while the length is unchanged. */
-  private drawBuildPiece(ctx: CanvasRenderingContext2D, spec: StructureSpec, selected: boolean, id?: number): void {
+  /** A translucent piece (`selected` marks the build piece; `blocked` tints it red): a bare spec draws clean Wall segments with their joints; one standing in for a placed wall (`id`) draws that wall's real Wall segments, Gaps and damage while the length is unchanged. */
+  private drawBuildPiece(ctx: CanvasRenderingContext2D, { spec, id }: OverlayPiece, selected: boolean, blocked: boolean): void {
     const real = id === undefined ? undefined : this.fixtures.get(id)?.data
     const data = spec.kind === 'wall' && real?.kind === 'wall' && real.segments?.length === segmentCount(spec) ? { ...spec, id, segments: real.segments } : spec
     const f = make(data)
@@ -243,7 +227,7 @@ export class Structures extends Entity {
     f.selected = selected
     f.flipped = this.flipped
     f.simplified = isSimplified(ctx)
-    if (selected && this.pieceBlocked) f.tint = visual.wall.illegal
+    if (blocked) f.tint = visual.wall.illegal
     if (f instanceof Wall) f.drawBreach(ctx)
     f.draw(ctx)
   }
