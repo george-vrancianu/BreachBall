@@ -57,7 +57,7 @@ export function App() {
       <div data-testid="canvas-layer" style={layerStyle(canvasAngle)}>
         <canvas ref={canvas} />
       </div>
-      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. It sets the safe-area insets as variables by the physical edge each of its sides is on, so they swap with its turn. The overlay goes under the shell so the controls stay tappable during a hold. In Tabletop mode only this layer turns at a handover, to face the active player; with it off both layers turn together. */}
+      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. It sets the safe-area insets as variables by the physical edge each of its sides is on, swapping at `safeAngle` above. The overlay goes under the shell so the controls stay tappable during a hold. In Tabletop mode only this layer turns at a handover, to face the active player; with it off both layers turn together. */}
       <div data-testid="hud-layer" style={layerStyle(hudAngle, { pointerEvents: 'none', ...safeAreaVars(safeAngle) })}>
         {view && (
           <>
