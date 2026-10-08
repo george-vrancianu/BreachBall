@@ -32,6 +32,17 @@ describe('Done with an unplaced piece', () => {
   })
 })
 
+describe('Done behind a hold', () => {
+  it('is disabled and sends nothing while an overlay or hold hides the board', () => {
+    const state = buildState(1)
+    const sent: SimInput[] = []
+    const [done] = phaseButtons(state, c, { mine: hotSeat, current: () => state, send: (i) => sent.push(i), choosable: false })!
+    expect(done!.disabled).toBe(true)
+    done!.onClick()
+    expect(sent).toEqual([])
+  })
+})
+
 describe('defence choice buttons', () => {
   const owing = (player: 1 | 2): SimState => {
     const s = initialState(1, { ...c, mode: 'siege' })

@@ -189,14 +189,14 @@ export class Game implements Sink {
       refund: (count) => {
         // Only the device that plays the shooter's seat refunds for it, as only it may aim.
         const { shooter } = this.state.possession
-        if (!mine(shooter)) return
+        if (!mine(shooter) || this.inputBlocked()) return
         if (count >= 1) this.act({ refund: { player: shooter, count } })
         else navigator.vibrate?.([...visual.hud.refund.denied])
       },
       subterfuge: (item) => {
         // Whoever acts (the builder, else the shooter) buys it, on the device that plays their seat.
         const player = whoActs(this.state)
-        if (mine(player)) this.act({ subterfuge: { player, item } })
+        if (mine(player) && !this.inputBlocked()) this.act({ subterfuge: { player, item } })
       },
       confirmBall: this.input.confirmBall,
       menu: (open) => this.toggleMenu(open),
@@ -452,7 +452,7 @@ export class Game implements Sink {
     const { inHand } = state.possession
     const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: this.act, choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, acted: this.acted || (!!transition.flip && transition.flip.swapMs === undefined) || this.leaving(), destroyed: this.destroyed, bullseyes: this.bullseyes }),
+      hud: hudModel(state, this.config, { blocked, active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: this.act, choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, acted: this.acted || (!!transition.flip && transition.flip.swapMs === undefined) || this.leaving(), destroyed: this.destroyed, bullseyes: this.bullseyes }),
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),

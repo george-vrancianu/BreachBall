@@ -6,6 +6,7 @@ import { defaultSettings, withMode } from '../sim/settings'
 import { LocalDriver, type Driver } from './driver'
 import type { Structure } from '../sim/wall'
 import { Game, type HudView } from './Game'
+import type { SimInput } from '../sim/step'
 import { hseg } from '../sim/testkit'
 import { STRATEGIES } from './view/strategies'
 import type { Transition } from './view/transition'
@@ -135,10 +136,65 @@ describe('Game', () => {
       step()
       expect(flip(game)).toBeDefined()
       // Stands in for the drop of a half-made aim that the hold forces: it goes through the same send, while the board is blocked.
-      game.actions.subterfuge('jam')
+      ;(game as unknown as { act(i: SimInput): void }).act({ aiming: null })
       step(slideMs + 100)
       expect(flip(game)).toBeUndefined()
       expect(view().hud.hint).toMatch(/draw a wall/)
+    })
+
+    it('a Subterfuge buy sent behind a blocking hold or the Side menu is ignored, and nothing is spent', () => {
+      const { game, step, view } = opened('rounds')
+      const send = vi.spyOn((game as unknown as { driver: Driver }).driver, 'send')
+      const attempt = () => {
+        const credits = game.state.credits
+        game.actions.subterfuge('jam')
+        step()
+        expect(send).not.toHaveBeenCalled()
+        expect(game.state.credits).toEqual(credits)
+        expect(game.state.subterfuge.queued).toEqual({ 1: null, 2: null })
+      }
+      game.actions.menu(true)
+      attempt()
+      game.actions.menu(false)
+      step()
+      view().hud.buttons!.find((b) => b.label === 'Done')!.onClick()
+      send.mockClear()
+      step()
+      expect(flip(game)).toBeDefined()
+      attempt()
+    })
+
+    it('Done and the Refund tile are inert behind a hold, and the buttons say so', () => {
+      const { game, step, view } = opened('rounds')
+      const send = vi.spyOn((game as unknown as { driver: Driver }).driver, 'send')
+      const done = () => view().hud.buttons!.find((b) => b.label === 'Done')!
+      // The first Done starts a handover flip, where the incoming builder's Done is inert.
+      done().onClick()
+      step()
+      expect(flip(game)).toBeDefined()
+      expect(done().disabled).toBe(true)
+      send.mockClear()
+      done().onClick()
+      expect(send).not.toHaveBeenCalled()
+      step(slideMs + 100)
+      // The second ends the opening builds and leaves the shooter to play; a GOAL hold stands in for a play-phase hold.
+      done().onClick()
+      step(slideMs + 100)
+      expect(game.state.match.builder).toBeNull()
+      const { shotsLeft } = view().hud
+      const credits = game.state.credits
+      expect(view().hud.refundable).toBe(true)
+      const t = performance.now()
+      ;(game as unknown as { transition: Transition }).transition.overlay = { kind: 'goal', at: t, player: 1, text: 'GOAL', ms: visual.transition.goalMs }
+      step()
+      expect(view().hud.refundable).toBe(false)
+      send.mockClear()
+      game.actions.refund(1)
+      step()
+      expect(send).not.toHaveBeenCalled()
+      expect(view().hud.refundable).toBe(false)
+      expect(view().hud.shotsLeft).toBe(shotsLeft)
+      expect(game.state.credits).toEqual(credits)
     })
 
     it('the Strategies tray opens and closes, with a card per layout', () => {
