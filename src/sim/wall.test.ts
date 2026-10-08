@@ -280,6 +280,13 @@ describe('isLegal', () => {
     expect(isLegal(tower(2, 16, 24), [], spots)).toBe(false)
     expect(isLegal(tower(2, 14, 24), [], spots)).toBe(true)
   })
+  it('keeps a wall wholly outside a ring: its body counts, not just its centreline', () => {
+    const spots = rules.pallet.spots
+    // Centreline 5.2 from the pivot (outside the radius 5), but the wall is 0.7 thick, so its near face is 4.85 away.
+    expect(isLegal(wall(1, p(2, 59.2), p(10, 59.2)), [], spots)).toBe(false)
+    // Centreline 5.5 leaves the face 5.15 away: clear.
+    expect(isLegal(wall(1, p(2, 59.5), p(10, 59.5)), [], spots)).toBe(true)
+  })
   it('judges a tower by its whole cell against the halfway line', () => {
     const tower = (owner: 1 | 2, gy: number): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx: 2, gy } })
     // The halfway line is at grid row 27: a cell resting on it, wholly on the owner's side, is legal.

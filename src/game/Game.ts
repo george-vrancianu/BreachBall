@@ -302,6 +302,7 @@ export class Game implements Sink {
     const s = this.driver.start(this.config, seed)
     // Sim ids restart, so the last match's visual state must not leak into this one.
     for (const e of [this.camera, this.structures, this.gauge, this.ball, this.aim, this.pitch]) e.reset()
+    this.pitch.pallets = this.config.pallets
     this.input.resetBuild()
     this.menuOpen = false
     this.strategiesOpen = false
@@ -396,7 +397,7 @@ export class Game implements Sink {
     structures.buildPiece = mapOpen || !sel?.movable ? undefined : sel.spec
     structures.handles = !mapOpen && sel?.movable && sel.spec.kind === 'wall' ? { a: sel.spec.a, b: sel.spec.b } : undefined
     structures.costLabel = !mapOpen && !!sel?.movable && sel.id === undefined && sel.spec.kind === 'wall'
-    structures.pieceBlocked = !!sel && !legal(state, sel)
+    structures.pieceBlocked = !!sel && !legal(state, sel, this.config.pallets)
     structures.inPlay = !builder
     structures.flipped = this.viewerTurned()
     structures.pieceId = sel?.id
@@ -415,7 +416,6 @@ export class Game implements Sink {
     // The snap grid and build edge show for an in-play build too, while an item is armed.
     this.pitch.builder = builder ?? (input.item ? builderNow(state) ?? undefined : undefined)
     this.pitch.charge = this.ball.charge = state.charge
-    this.pitch.pallets = this.config.pallets
     this.ball.radius = this.config.ballRadius
     this.ball.tracer.pxPerUnit = this.camera.view(this.canvas).sy / this.dpr
     this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.gauge.flipped = this.viewerTurned()

@@ -11,7 +11,7 @@ export type SideMenuView = { open: boolean; hotSeat: boolean; settings: SettingR
 /** The settings the match was started with, as the Side menu lists them: mode, then the sliders its mode uses (Rounds: Rounds, Credits per round, Opening Credits, Refund rate; Siege: Wall points), with the balance's unit where it has one (the refund rate is credits back per refunded piece, not a percentage), then On time out and Pallets. Shots per possession is left to the settings screen. */
 export function settingRows(c: Pick<SimConfig, 'mode' | 'rounds' | 'credits' | 'openingCredits' | 'refundRate' | 'expiry' | 'pallets'>): SettingRow[] {
   const sliders = slidersFor(c.mode).filter((k) => k !== 'shots')
-  // The config keeps only the spots: Pallets were on if there are any.
+  // The config keeps only the spots, not the setting: Pallets were on if there are any (a map with none reads as Off).
   const palletsOn = c.pallets.length > 0
   return [
     { label: 'Mode', value: MODES.find((m) => m.mode === c.mode)!.label },

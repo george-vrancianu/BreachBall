@@ -307,9 +307,9 @@ export class Pitch extends Entity {
   /** Each Activation ring, a no-build zone: dashed like the keep-out arc, in the builder's colour. The Pallet itself is drawn elsewhere. */
   private drawPalletRings(ctx: CanvasRenderingContext2D, builder: PlayerId): void {
     withDash(ctx, visual.pitch.palletRing, visual.player.colors[builder], () => {
-      for (const at of this.pallets) {
+      for (const pivot of this.pallets) {
         ctx.beginPath()
-        ctx.arc(at.x, at.y, rules.pallet.ringRadius, 0, 2 * Math.PI)
+        ctx.arc(pivot.x, pivot.y, rules.pallet.ringRadius, 0, 2 * Math.PI)
         ctx.stroke()
       }
     })

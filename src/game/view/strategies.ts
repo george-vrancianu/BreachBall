@@ -24,7 +24,7 @@ const vee = (x: number, y: number): StrategyPiece[] => [wall(x, y, x + d1, y + d
 
 /**
  * The layouts on offer, each placing whole within the Opening Credits (in Rounds; Siege pays walls in Wall points and towers from its stock) and spending within
- * five of them, so no Strategy is lean; with Pallets on, a piece inside an Activation ring is skipped, at most the forward side stubs. Grouped by archetype: wall-heavy, then hybrid, then tower-heavy. No layout seals the pitch: every one leaves a path from the Kick-off spot to the goal mouth.
+ * five of them (with Pallets off), so no Strategy is lean. With Pallets on, a piece inside an Activation ring is skipped: 10 of the 16 (Bulwark, Honeycomb, Bastion, Labyrinth, Chevron, Zigzag, Pinball, Wings, Gauntlet, Spider) lose 1 to 4 pieces and spend 1 to 12 Credits less (Bastion 24 against 36). Grouped by archetype: wall-heavy, then hybrid, then tower-heavy. No layout seals the pitch: every one leaves a path from the Kick-off spot to the goal mouth.
  */
 export const STRATEGIES: readonly Strategy[] = [
   // Wall-heavy. Full rows, most of them doubled, with offset gaps (sides, middle, right), so the ball must weave: the goal-side row and a Steal at its seam are the core, one Repulsor up the pitch.

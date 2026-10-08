@@ -13,6 +13,8 @@ const pitchDots = '#1c2540'
 const tokens = { bg, pitchDots, /** The ring around a primary circle: a gap in the background colour, then a dotted-grid line. */ halo: `0 0 0 4px ${bg}, 0 0 0 6px ${pitchDots}`, lines: '#3b4f7a', muted: '#8d94ab', ghostBorder: '#4a5068', ghostGlyph: '#c3c8d6', dimOutline: '#2a3147' }
 
 /** The pitch width the design handoff is authored at, px. */
+/** The keep-out arc's stroke, shared by the Pallets' Activation rings (both are no-build zones). */
+const noBuildStroke = { widthPx: 2, dashPx: [6, 6] }
 const referencePitchPx = 390
 
 /** Every visual value, grouped by the entity that draws or animates it. Times are ms unless named otherwise. */
@@ -67,9 +69,9 @@ export const visual = {
     /** The goal mouth behind the end line: chevron size and stroke, px; net line count, alpha and width px; alphas; goal line px. */
     goal: { chevronPx: [24, 12], chevronWidthPx: 3, chevronAlpha: 0.35, netLines: 7, netAlpha: 0.45, netWidthPx: 1, lineWidthPx: 4 },
     /** The keep-out arc around each goal: line width and dash, px. */
-    keepOut: { widthPx: 2, dashPx: [6, 6] },
-    /** Each Pallet's Activation ring during a build, a no-build zone drawn like the keep-out arc in the builder's colour: line width and dash, px. */
-    palletRing: { widthPx: 2, dashPx: [5, 5] },
+    keepOut: noBuildStroke,
+    /** Each Pallet's Activation ring during a build, a no-build zone drawn like the keep-out arc (the same stroke) in the builder's colour. */
+    palletRing: noBuildStroke,
     /** The centre circle (the Centre zone, in the rules config) and the Bullseye's outline inside it (radius in the rules config; line width and dash, px), and the dot radius, px. */
     centre: { widthPx: 3, bullseyeWidthPx: 2, bullseyeDashPx: [4, 6], dotRadiusPx: 6 },
     /**

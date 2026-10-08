@@ -3,20 +3,26 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import { Pitch } from './Pitch'
 
-type Call = { fn: string; fillStyle: unknown; strokeStyle: unknown; dash: number[]; alpha: unknown; args: unknown[] }
+type Call = { arcR?: unknown; fn: string; fillStyle: unknown; strokeStyle: unknown; dash: number[]; alpha: unknown; args: unknown[] }
 
 /** A canvas context that records every draw call with the style state at the time. */
 function recorder() {
   const calls: Call[] = []
   const state: Record<string, unknown> = { fillStyle: '', strokeStyle: '', globalAlpha: 1 }
   let dash: number[] = []
+  let arcR: unknown
   const ctx = new Proxy(
     {},
     {
       get: (_t, k: string) => {
         if (k === 'setLineDash') return (d: number[]) => void (dash = d)
         if (k === 'measureText') return (t: string) => ({ width: t.length })
-        if (['stroke', 'fill', 'fillRect', 'arc', 'fillText', 'translate'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
+        if (['stroke', 'fill', 'fillRect', 'arc', 'fillText', 'translate'].includes(k))
+          return (...args: unknown[]) => {
+            if (k === 'arc') arcR = args[2]
+            calls.push({ arcR: k === 'stroke' ? arcR : undefined, fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
+            if (k === 'stroke') arcR = undefined
+          }
         return state[k] ?? (() => {})
       },
       set: (_t, k: string, v) => ((state[k] = v), true),
@@ -26,8 +32,10 @@ function recorder() {
 }
 
 const { unit } = visual.pitch
-const keepOut = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.keepOut.dashPx[0] * unit)
-const rings = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.palletRing.dashPx[0] * unit)
+// The keep-out arc and the Activation ring share one stroke, so tell them apart by the radius of the arc just drawn.
+const arcStrokes = (calls: Call[], radius: number) => calls.filter((c) => c.fn === 'stroke' && c.arcR === radius)
+const keepOut = (calls: Call[]) => arcStrokes(calls, rules.noBuildRadius)
+const rings = (calls: Call[]) => arcStrokes(calls, rules.pallet.ringRadius)
 const buildEdges = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.buildEdge.dashPx[0] * unit)
 const snapDots = (calls: Call[]) => calls.filter((c) => c.fn === 'fillRect' && c.alpha === visual.pitch.snapGrid.alpha && c.args[2] === visual.pitch.snapGrid.dotPx * unit)
 

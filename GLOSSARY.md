@@ -36,6 +36,10 @@ _Avoid_: Trail, streak, trajectory; "Ghost" for the path already travelled
 The match setting, shown in every mode, for what an expiring shot clock does with the shooter's turn: **Shoot** (the default) fires the aim they are holding, or burns the shot if they hold none (not yet dragged, or cancel-armed at the edge); **Burn** always burns the shot. In code, `expiry: 'shoot' | 'burn'`.
 _Avoid_: Auto-fire, expiry mode, Fire
 
+**Pallets**:
+The match setting, shown in every mode, for whether the mode's Pallets are in play: **On** (the default) puts them at the mode's spots, with their Activation rings as no-build zones; **Off** plays without them. In code, `palletsOn: boolean`, which `configFrom` turns into `config.pallets` (the mode's spots, or none).
+_Avoid_: Bumpers, flippers toggle
+
 **Rounds**:
 The game mode where a match is a series of rounds, each with its own build phase, decided by score after the configured number of rounds (a tie goes to sudden death).
 _Avoid_: Classic, standard mode

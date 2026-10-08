@@ -96,30 +96,30 @@ describe('pick', () => {
 describe('selection', () => {
   it('a new tower is illegal when its price is not affordable', () => {
     const sel = { spec: towerAt('steal', 1, { x: 20, y: 80 }), movable: true }
-    expect(legal(buildState(1), sel)).toBe(true)
-    expect(legal(funded(buildState(1), 1, rules.towerCost.steal), sel)).toBe(true)
-    expect(legal(funded(buildState(1), 1, rules.towerCost.steal - 1), sel)).toBe(false)
+    expect(legal(buildState(1), sel, [])).toBe(true)
+    expect(legal(funded(buildState(1), 1, rules.towerCost.steal), sel, [])).toBe(true)
+    expect(legal(funded(buildState(1), 1, rules.towerCost.steal - 1), sel, [])).toBe(false)
   })
   it('a structure the sim no longer has is illegal', () => {
-    expect(legal(buildState(1), { spec: wall, id: 99, movable: true })).toBe(false)
+    expect(legal(buildState(1), { spec: wall, id: 99, movable: true }, [])).toBe(false)
   })
   it('moving is free; a new piece must be affordable', () => {
     const s = { ...placed(), credits: { 1: 0, 2: 0 } }
     const spec = { ...wall, ...hseg(4, 40) }
-    expect(legal(s, { spec, id: 1, movable: true })).toBe(true)
-    expect(legal(s, { spec, movable: true })).toBe(false)
+    expect(legal(s, { spec, id: 1, movable: true }, [])).toBe(true)
+    expect(legal(s, { spec, movable: true }, [])).toBe(false)
   })
   it('a moved wall may not change length when the turn only rearranges, and must be affordable otherwise', () => {
     const longer = { ...wall, ...hseg(10, 40, 2) }
     const s = placed()
-    expect(legal(s, { spec: longer, id: 1, movable: true })).toBe(true)
-    expect(legal({ ...s, credits: { 1: 0, 2: 0 } }, { spec: longer, id: 1, movable: true })).toBe(false)
+    expect(legal(s, { spec: longer, id: 1, movable: true }, [])).toBe(true)
+    expect(legal({ ...s, credits: { 1: 0, 2: 0 } }, { spec: longer, id: 1, movable: true }, [])).toBe(false)
     const siege = { ...c, mode: 'siege' as const }
     const base = initialState(1, siege)
     const rearrange = { ...base, match: { ...base.match, builder: 1, opening: false } as SimState['match'], objects: s.objects, built: s.built }
     expect(canEdit(rearrange)).toBe(false)
-    expect(legal(rearrange, { spec: longer, id: 1, movable: true })).toBe(false)
-    expect(legal(rearrange, { spec: { ...wall, ...hseg(4, 40) }, id: 1, movable: true })).toBe(true)
+    expect(legal(rearrange, { spec: longer, id: 1, movable: true }, [])).toBe(false)
+    expect(legal(rearrange, { spec: { ...wall, ...hseg(4, 40) }, id: 1, movable: true }, [])).toBe(true)
   })
   it('commit places a new piece or moves a structure; nothing for an older one', () => {
     expect(commit({ spec: wall, movable: true })).toEqual({ placeWall: wall })

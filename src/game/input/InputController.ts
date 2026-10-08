@@ -153,7 +153,7 @@ export class InputController {
       const next = rotated(before)
       if (before.id !== undefined) {
         // A placed wall never stays displaced and unsent: an illegal turn is ignored, a turn during a landing is sent by settle().
-        if (!legal(this.host.state(), next)) return
+        if (!legal(this.host.state(), next, this.host.config().pallets)) return
         this.selection = next
         if (this.landing) return void (this.deferredOrigin = before.spec)
       } else this.selection = next
@@ -194,7 +194,7 @@ export class InputController {
   /** Sends the selection if it stands legal (a new piece is placed, a structure moved) and keeps it drawn as `landing` until the sim has it. */
   private place(): void {
     const { selection } = this
-    const input = !this.landing && selection && legal(this.host.state(), selection) && commit(selection)
+    const input = !this.landing && selection && legal(this.host.state(), selection, this.host.config().pallets) && commit(selection)
     if (input) (this.host.send(input), (this.landing = selection), (this.landingTicks = 0), (this.selection = undefined))
   }
 
@@ -251,7 +251,7 @@ export class InputController {
       const origin = this.deferredOrigin
       this.deferredOrigin = undefined
       const { selection } = this
-      if (selection) legal(state, selection) ? this.place() : (this.selection = { ...selection, spec: origin })
+      if (selection) legal(state, selection, this.host.config().pallets) ? this.place() : (this.selection = { ...selection, spec: origin })
     }
     // An in-play build is over (the round's first shot is away, or the possession changed hands): build mode goes.
     if (this.item && !state.match.builder && !builderNow(state)) this.leaveBuild()
@@ -545,7 +545,7 @@ export class InputController {
     // Back where it stood: nothing to send.
     if (JSON.stringify(selection.spec) === JSON.stringify(press.origin)) return
     if (this.landing) this.deferredOrigin = press.origin
-    else if (!legal(this.host.state(), selection)) this.selection = { ...selection, spec: press.origin }
+    else if (!legal(this.host.state(), selection, this.host.config().pallets)) this.selection = { ...selection, spec: press.origin }
     else this.place()
   }
 
