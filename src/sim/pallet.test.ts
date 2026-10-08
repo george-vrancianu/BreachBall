@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import { defaultConfig, initialState, step, type SimConfig, type SimEvent, type SimState } from './step'
-import { initialPallets, startAngle } from './pallet'
+import { frozenArmStop, initialPallets, startAngle } from './pallet'
 import { place, playState } from './testkit'
 import type { Point } from './pitch'
 
@@ -280,5 +280,21 @@ describe('far from the rings', () => {
       b = step(b, {}, { ...config, pallets: [] }).state
       expect(a.ball).toEqual(b.ball)
     }
+  })
+})
+
+describe('frozenArmStop', () => {
+  // A small ball makes the arm's tip a thin target: a 12-unit segment through the ring grazes it along a chord of about 0.57 units. With the real ballRadius the length-based sample count equals `P.substeps` (the longest in-ring stretch is the ring diameter), so only a small ball makes it observable.
+  const small: SimConfig = { ...config, ballRadius: 0.1 }
+  const arm = { ...initialPallets([PIVOT], 1)[0], angle: 0.2 }
+  const tip = { x: PIVOT.x + p.length * Math.cos(0.2), y: PIVOT.y + p.length * Math.sin(0.2) }
+
+  it('catches a graze shorter than the substep spacing on a long segment', () => {
+    const x = tip.x + 0.2
+    expect(frozenArmStop([arm], { x, y: 36 }, { x, y: 24 }, small)?.arm).toBe(true)
+  })
+  it('lets the same segment pass just outside the tip, leaving the ring instead', () => {
+    const x = tip.x + 0.6
+    expect(frozenArmStop([arm], { x, y: 36 }, { x, y: 24 }, small)?.arm).toBe(false)
   })
 })
