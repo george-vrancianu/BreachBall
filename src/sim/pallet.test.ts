@@ -284,7 +284,7 @@ describe('far from the rings', () => {
 })
 
 describe('frozenArmStop', () => {
-  // A small ball makes the arm's tip a thin target: a 12-unit segment through the ring grazes it along a chord of about 0.57 units.
+  // A small ball makes the arm's tip a thin target: a 12-unit segment through the ring grazes it along a chord of about 0.57 units. With the real ballRadius the length-based sample count equals `P.substeps` (the longest in-ring stretch is the ring diameter), so only a small ball makes it observable.
   const small: SimConfig = { ...config, ballRadius: 0.1 }
   const arm = { ...initialPallets([PIVOT], 1)[0], angle: 0.2 }
   const tip = { x: PIVOT.x + p.length * Math.cos(0.2), y: PIVOT.y + p.length * Math.sin(0.2) }
