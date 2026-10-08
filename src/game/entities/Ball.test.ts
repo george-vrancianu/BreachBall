@@ -114,6 +114,28 @@ describe('Ball hold ring', () => {
   })
 })
 
+describe('Ball Palleted look', () => {
+  it('draws a halo and a ring only while it has pierces left', () => {
+    const rings = (pierces: number) => {
+      const b = new Ball()
+      b.pierces = pierces
+      const arcs: unknown[][] = []
+      const ctx = new Proxy({}, { get: (_t, k: string) => (k === 'arc' ? (...a: unknown[]) => void arcs.push(a) : k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : () => {}), set: () => true }) as unknown as CanvasRenderingContext2D
+      b.draw(ctx)
+      return arcs.filter((a) => a[2] === b.radius + visual.pallet.palleted.ring.offset).length
+    }
+    expect(rings(2)).toBe(1)
+    expect(rings(0)).toBe(0)
+  })
+
+  it('clears its pierces on a new match', () => {
+    const b = new Ball()
+    b.pierces = 2
+    b.reset()
+    expect(b.pierces).toBe(0)
+  })
+})
+
 describe('Ball reset', () => {
   it('forgets a pulse, a steal sink and an aim in progress', () => {
     const b = new Ball()

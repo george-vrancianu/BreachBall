@@ -247,6 +247,28 @@ export const visual = {
     /** The hold ring, `radiusPx` screen px out, filling while the shooter holds still; reaching a new tier pulses it (up to `grow` larger) over `pulseMs`. */
     hold: { radiusPx: 36, width: 0.3, trackAlpha: 0.25, pulseMs: 300, grow: 0.35 },
   },
+  /**
+   * The Pallets (ADR-0009), neutral, so drawn in `color` rather than a player's. The arm is a tapered capsule (the radii are the sim's `rules.pallet`) filled at `fillAlpha` with an outline;
+   * the pivot is a dark disc with a ring. The Activation ring is stroked like the build-time ring (`pitch.palletRing`, so the two overlay exactly) at `idleAlpha`, and at `trackAlpha` only while that Pallet tracks. A swing leaves
+   * `ghosts` copies of the arm behind it, `ghostGap` radians apart, fading from `ghostAlpha`. A swat flashes for `flash.ms`: the arm glows (`armGlow` blur, world units), a radial glow
+   * (`glowRadius`, `glowAlpha`) and a ring snap out (`ringFrom` to `ringTo`, easing out with power `ringEase`, thinning from `ringWidth`), and `sparks` go into the shared particle pool.
+   * A Palleted ball wears a pulsing halo (`radius` in ball radii, `alpha`, and the pulse's `swing` and `periodMs`) and a ring `offset` past its edge, until its pierces run out.
+   */
+  pallet: {
+    color: '#a78bfa',
+    fillAlpha: 0.85,
+    outline: white,
+    outlineAlpha: 0.6,
+    outlineWidth: 0.1,
+    pivot: { fill: dark, radius: 0.55, width: 0.15 },
+    ring: { idleAlpha: 0.22, trackAlpha: 0.6 },
+    ghosts: 6,
+    ghostGap: 0.09,
+    ghostAlpha: 0.3,
+    flash: { ms: 320, armGlow: 1.5, glowRadius: 3, glowAlpha: 0.8, ringFrom: 0.6, ringTo: 3.2, ringEase: 3, ringWidth: 0.35 },
+    sparks: { count: 12, speed: 18, lifeMs: [250, 500] as readonly number[] },
+    palleted: { halo: { radius: 3, alpha: 0.55, swing: 0.15, periodMs: 700 }, ring: { offset: 0.35, width: 0.15 } },
+  },
   aim: {
     /** A press this close to the ball's centre (or within its on-screen radius, if larger) starts aiming, in screen px. */
     ballHitPx: 28,

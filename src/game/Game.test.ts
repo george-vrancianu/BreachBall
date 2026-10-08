@@ -278,6 +278,29 @@ describe('Game', () => {
     expect(game.fog.blind).toBeUndefined()
   })
 
+  it('draws the Pallets after the fog, so they stay in view through a blind build, and gives them the sim\'s Pallets', () => {
+    const game = make()
+    game.actions.start(withMode({ ...defaultSettings, palletsOn: true }, 'siege'))
+    expect(game.fog.blind).toBeDefined()
+    const order: string[] = []
+    for (const [e, tag] of [[game.camera, 'camera'], [game.fog, 'fog'], [game.pallets, 'pallets'], [game.edgeFade, 'edgeFade']] as const) {
+      const orig = e.draw.bind(e)
+      e.draw = (ctx: CanvasRenderingContext2D) => (order.push(tag), orig(ctx))
+    }
+    frame(performance.now())
+    expect(order).toEqual(['camera', 'fog', 'pallets', 'edgeFade'])
+    expect(game.pallets.pallets).toHaveLength(rules.pallet.spots.length)
+    expect(game.pallets.pallets).toBe(game.state.pallets)
+  })
+
+  it('gives the ball the sim\'s pierces, so a Palleted ball wears its look', () => {
+    const game = make()
+    game.actions.start(defaultSettings)
+    game.state = { ...game.state, pierces: 2 }
+    frame(performance.now())
+    expect(game.ball.pierces).toBe(2)
+  })
+
   it('draws the fx layer last, above the ball and aim', () => {
     const game = make()
     expect(game.camera.children.slice(-3)).toEqual([game.ball, game.aim, game.structures.fx])

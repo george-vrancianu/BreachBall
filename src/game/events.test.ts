@@ -7,6 +7,7 @@ import type { Structure } from '../sim/wall'
 import { Aim } from './entities/Aim'
 import { Ball } from './entities/Ball'
 import { Camera } from './entities/Camera'
+import { Pallets } from './entities/Pallets'
 import { Pitch } from './entities/Pitch'
 import { Structures } from './entities/Structures'
 import { Tower } from './entities/Tower'
@@ -18,7 +19,7 @@ const wall: Structure = { id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), segmen
 const tower: Structure = { id: 2, kind: 'tower', owner: 2, power: 'repulsor', at: { gx: 5, gy: 10 }, hp: 3 }
 
 function setup(objects: Structure[]) {
-  const t = { camera: new Camera(54), structures: new Structures(), ball: new Ball(), aim: new Aim(), pitch: new Pitch(), vibrate: vi.fn() }
+  const t = { camera: new Camera(54), structures: new Structures(), ball: new Ball(), aim: new Aim(), pitch: new Pitch(), pallets: new Pallets(() => new Camera(54), () => ({ x: 0, y: 0 })), vibrate: vi.fn() }
   t.structures.sync(objects)
   t.aim.sync({ ...playState(), ball: t.ball.state }, defaultConfig)
   const route = (events: SimEvent[], left: Structure[]) => routeEvents(events, t, left)
@@ -26,6 +27,13 @@ function setup(objects: Structure[]) {
 }
 
 describe('routeEvents', () => {
+  it('a Pallet swat flashes that Pallet and sprays sparks from the swat point', () => {
+    const w = setup([])
+    w.route([{ type: 'pallet-hit', pallet: 1, speed: 30, at }], [])
+    expect(w.pallets.flashCount).toBe(1)
+    expect(w.structures.particleCount).toBe(visual.pallet.sparks.count)
+  })
+
   it('a shot that comes to rest Charged pops the ball badge and sends a ring out of the zone', () => {
     const w = setup([])
     w.route([{ type: 'charged', zone: 'bullseye', factor: 2, at }], [])

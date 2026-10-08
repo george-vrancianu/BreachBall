@@ -14,6 +14,7 @@ import { Ball } from './entities/Ball'
 import { anchorY, Camera, hudReserve, screenDown, viewOutline } from './entities/Camera'
 import { EdgeFade } from './entities/EdgeFade'
 import { Fog } from './entities/Fog'
+import { Pallets } from './entities/Pallets'
 import { Pitch } from './entities/Pitch'
 import { Structures } from './entities/Structures'
 import { routeEvents } from './events'
@@ -128,6 +129,8 @@ export class Game implements Sink {
   readonly ball = new Ball()
   readonly aim = new Aim()
   readonly fog = new Fog(() => this.viewCam(), () => this.camera.shakeNow)
+  /** Top-level like the fog and drawn after it, so the Pallets show through a blind build's fog. */
+  readonly pallets = new Pallets(() => this.viewCam(), () => this.camera.shakeNow)
   readonly edgeFade = new EdgeFade(() => this.viewCam())
   readonly actions: GameActions
   state!: SimState
@@ -291,7 +294,7 @@ export class Game implements Sink {
     }
     this.announce(events)
     this.aim.sync(state, this.config)
-    routeEvents(events, { camera, structures: this.structures, ball: this.ball, aim: this.aim, pitch: this.pitch, vibrate: (p) => navigator.vibrate?.(p) }, state.objects)
+    routeEvents(events, { camera, structures: this.structures, ball: this.ball, aim: this.aim, pitch: this.pitch, pallets: this.pallets, vibrate: (p) => navigator.vibrate?.(p) }, state.objects)
     this.structures.sync(state.objects)
     const queue = this.strategyQueue
     if (queue && (state.match.builder !== queue.builder || !queue.inputs.length)) this.strategyQueue = undefined
@@ -302,7 +305,7 @@ export class Game implements Sink {
   private newMatch(seed = (Math.random() * 2 ** 31) | 0): void {
     const s = this.driver.start(this.config, seed)
     // Sim ids restart, so the last match's visual state must not leak into this one.
-    for (const e of [this.camera, this.structures, this.gauge, this.ball, this.aim, this.pitch]) e.reset()
+    for (const e of [this.camera, this.structures, this.gauge, this.ball, this.aim, this.pitch, this.pallets]) e.reset()
     this.pitch.pallets = this.config.pallets
     this.input.resetBuild()
     this.menuOpen = false
@@ -362,6 +365,7 @@ export class Game implements Sink {
     this.resize()
     // Clocks advance before the sim ticks, so an effect the tick starts is drawn at age 0.
     this.camera.update(dt)
+    this.pallets.update(dt)
     this.driver.update(dt)
     this.announce([])
     // The Side menu is the HUD's: it must not turn under the finger, so a mid-match change of Tabletop mode waits for it to close.
@@ -406,6 +410,8 @@ export class Game implements Sink {
     // The snap grid and build edge show for an in-play build too, while an item is armed.
     this.pitch.builder = builder ?? (input.item ? builderNow(state) ?? undefined : undefined)
     this.pitch.charge = this.ball.charge = state.charge
+    this.pallets.pallets = state.pallets
+    this.ball.pierces = state.pierces
     this.ball.radius = this.config.ballRadius
     this.ball.tracer.pxPerUnit = this.camera.view(this.canvas).sy / this.dpr
     this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.gauge.flipped = this.viewerTurned()
@@ -426,6 +432,7 @@ export class Game implements Sink {
     if (this.viewCam() === mapCam) mapCam.draw(ctx, camera.children, camera.shakeNow)
     else camera.draw(ctx)
     this.fog.draw(ctx)
+    this.pallets.draw(ctx)
     this.edgeFade.draw(ctx)
     if (this.mapOpen) {
       // The main view's frame: dashed, with solid corner brackets.
