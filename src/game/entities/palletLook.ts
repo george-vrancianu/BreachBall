@@ -1,8 +1,8 @@
 import { visual } from '../../config/visual'
 import type { Pallet } from '../../sim/pallet'
 
-/** The alpha of a Pallet's Activation ring: faint at rest, bright only while it tracks the ball. */
-export const ringAlpha = (phase: Pallet['phase']): number => (phase === 'track' ? visual.pallet.ring.trackAlpha : visual.pallet.ring.idleAlpha)
+/** The alpha of a Pallet's Activation ring: faint at rest, bright from tracking the ball through the swing, as in the prototype. */
+export const ringAlpha = (phase: Pallet['phase']): number => (phase === 'idle' ? visual.pallet.ring.idleAlpha : visual.pallet.ring.activeAlpha)
 
 /** The arm's motion ghosts during a swing, oldest (faintest) first: `draw` is called for each copy trailing the arm against its swing direction, `ghostGap` apart, as many as the swing has covered so far (up to `ghosts`). None outside a swing. */
 export function ghostsOf({ phase, angle, dir, swept }: Pick<Pallet, 'phase' | 'angle' | 'dir' | 'swept'>, draw: (angle: number, alpha: number) => void): void {

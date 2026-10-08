@@ -37,11 +37,11 @@ const arcsOf = (calls: Call[], radius: number) => calls.filter((c) => c.fn === '
 const outlines = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.width === visual.pallet.outlineWidth)
 
 describe('Pallets', () => {
-  it('draws each Activation ring dashed like the build-time ring, bright only for the tracking Pallet', () => {
+  it('draws each Activation ring dashed like the build-time ring, bright only for an active Pallet', () => {
     const { ctx, calls } = recorder()
-    made(['track', 'idle']).draw(ctx)
+    made(['swing', 'idle']).draw(ctx)
     const rings = calls.filter((c) => c.fn === 'stroke' && c.dash.length > 0)
-    expect(rings.map((c) => c.alpha)).toEqual([visual.pallet.ring.trackAlpha, visual.pallet.ring.idleAlpha])
+    expect(rings.map((c) => c.alpha)).toEqual([visual.pallet.ring.activeAlpha, visual.pallet.ring.idleAlpha])
     expect(rings[0].dash).toEqual(visual.pitch.palletRing.dashPx.map((d) => d * visual.pitch.unit))
     expect(arcsOf(calls, rules.pallet.ringRadius).map((c) => [c.args[0], c.args[1]])).toEqual([[6, 54], [34, 54]])
   })

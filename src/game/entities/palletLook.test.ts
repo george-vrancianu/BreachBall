@@ -3,10 +3,10 @@ import { visual } from '../../config/visual'
 import { flashLeft, ghostsOf, ringAlpha } from './palletLook'
 
 describe('Activation ring', () => {
-  it('brightens only while the Pallet tracks', () => {
-    expect(ringAlpha('track')).toBe(visual.pallet.ring.trackAlpha)
+  it('stays bright from tracking through the swing, faint only when idle', () => {
+    expect(ringAlpha('track')).toBe(visual.pallet.ring.activeAlpha)
+    expect(ringAlpha('swing')).toBe(visual.pallet.ring.activeAlpha)
     expect(ringAlpha('idle')).toBe(visual.pallet.ring.idleAlpha)
-    expect(ringAlpha('swing')).toBe(visual.pallet.ring.idleAlpha)
   })
 })
 

@@ -249,7 +249,7 @@ export const visual = {
   },
   /**
    * The Pallets (ADR-0009), neutral, so drawn in `color` rather than a player's. The arm is a tapered capsule (the radii are the sim's `rules.pallet`) filled at `fillAlpha` with an outline;
-   * the pivot is a dark disc with a ring. The Activation ring is stroked like the build-time ring (`pitch.palletRing`, so the two overlay exactly) at `idleAlpha`, and at `trackAlpha` only while that Pallet tracks. A swing leaves
+   * the pivot is a dark disc with a ring. The Activation ring is stroked like the build-time ring (`pitch.palletRing`, so the two overlay exactly) at `idleAlpha`, and at `activeAlpha` while that Pallet tracks or swings. A swing leaves
    * `ghosts` copies of the arm behind it, `ghostGap` radians apart, fading from `ghostAlpha`. A swat flashes for `flash.ms`: the arm glows (a stroke `armGlow` wide, at `armGlowAlpha`, world units), a radial glow
    * (`glowRadius`, `glowAlpha`) and a ring snap out (`ringFrom` to `ringTo`, easing out with power `ringEase`, thinning from `ringWidth`), and `sparks` go into the shared particle pool.
    * A Palleted ball wears a pulsing halo (`radius` in ball radii, `alpha`, and the pulse's `swing` and `periodMs`) and a ring `offset` past its edge, until its pierces run out.
@@ -261,7 +261,7 @@ export const visual = {
     outlineAlpha: 0.6,
     outlineWidth: 0.1,
     pivot: { fill: dark, radius: 0.55, width: 0.15 },
-    ring: { idleAlpha: 0.22, trackAlpha: 0.6 },
+    ring: { idleAlpha: 0.22, activeAlpha: 0.6 },
     ghosts: 6,
     ghostGap: 0.09,
     ghostAlpha: 0.3,
