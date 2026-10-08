@@ -142,13 +142,12 @@ describe('Game', () => {
       expect(view().hud.hint).toMatch(/draw a wall/)
     })
 
-    it('a Subterfuge buy or a Refund sent behind a blocking hold or the Side menu is ignored, and nothing is spent', () => {
+    it('a Subterfuge buy sent behind a blocking hold or the Side menu is ignored, and nothing is spent', () => {
       const { game, step, view } = opened('rounds')
       const send = vi.spyOn((game as unknown as { driver: Driver }).driver, 'send')
       const attempt = () => {
         const credits = game.state.credits
         game.actions.subterfuge('jam')
-        game.actions.refund(1)
         step()
         expect(send).not.toHaveBeenCalled()
         expect(game.state.credits).toEqual(credits)
@@ -157,11 +156,45 @@ describe('Game', () => {
       game.actions.menu(true)
       attempt()
       game.actions.menu(false)
+      step()
       view().hud.buttons!.find((b) => b.label === 'Done')!.onClick()
       send.mockClear()
       step()
       expect(flip(game)).toBeDefined()
       attempt()
+    })
+
+    it('Done and the Refund tile are inert behind a hold, and the buttons say so', () => {
+      const { game, step, view } = opened('rounds')
+      const send = vi.spyOn((game as unknown as { driver: Driver }).driver, 'send')
+      const done = () => view().hud.buttons!.find((b) => b.label === 'Done')!
+      // The first Done starts a handover flip, where the incoming builder's Done is inert.
+      done().onClick()
+      step()
+      expect(flip(game)).toBeDefined()
+      expect(done().disabled).toBe(true)
+      send.mockClear()
+      done().onClick()
+      expect(send).not.toHaveBeenCalled()
+      step(slideMs + 100)
+      // The second ends the opening builds and leaves the shooter to play; a GOAL hold stands in for a play-phase hold.
+      done().onClick()
+      step(slideMs + 100)
+      expect(game.state.match.builder).toBeNull()
+      const { shotsLeft } = view().hud
+      const credits = game.state.credits
+      expect(view().hud.refundable).toBe(true)
+      const t = performance.now()
+      ;(game as unknown as { transition: Transition }).transition.overlay = { kind: 'goal', at: t, player: 1, text: 'GOAL', ms: visual.transition.goalMs }
+      step()
+      expect(view().hud.refundable).toBe(false)
+      send.mockClear()
+      game.actions.refund(1)
+      step()
+      expect(send).not.toHaveBeenCalled()
+      expect(view().hud.refundable).toBe(false)
+      expect(view().hud.shotsLeft).toBe(shotsLeft)
+      expect(game.state.credits).toEqual(credits)
     })
 
     it('the Strategies tray opens and closes, with a card per layout', () => {
