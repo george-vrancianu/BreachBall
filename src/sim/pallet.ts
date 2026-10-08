@@ -1,7 +1,7 @@
 import { rules } from '../config/rules'
-import { rollBall, type Ball } from './ball'
+import { rollBall, type Ball, type RollOptions } from './ball'
 import { seedHash } from './match'
-import type { PlayerId, Point } from './pitch'
+import type { Point } from './pitch'
 import type { SimConfig, SimEvent } from './step'
 import type { Structure } from './wall'
 
@@ -171,23 +171,23 @@ export function rollWithPallets(
   objects: Structure[],
   pallets: Pallet[],
   c: SimConfig,
-  { live, breaker, shooter }: { live: boolean; breaker: boolean; shooter: PlayerId },
-): { ball: Ball; objects: Structure[]; pallets: Pallet[]; events: SimEvent[]; breaker: boolean } {
+  { live, breaker, pierces, shooter }: RollOptions & { live: boolean },
+): { ball: Ball; objects: Structure[]; pallets: Pallet[]; events: SimEvent[]; breaker: boolean; pierces: number } {
   const dt = 1 / c.tickHz
   const near = live && pallets.some((p) => distToPivot(p, ball.pos) <= ringReach(c) + Math.hypot(ball.vel.x, ball.vel.y) / c.tickHz + P.trackSlack)
   // Cooldown counts whole ticks.
   pallets = pallets.map((p) => ({ ...p, cooldown: Math.max(0, p.cooldown - 1) }))
   if (!near) {
     pallets = pallets.map((p) => updatePallet(p, c, dt, null))
-    return { ...rollBall(ball, objects, c, breaker, shooter), pallets }
+    return { ...rollBall(ball, objects, c, { breaker, pierces, shooter }), pallets }
   }
   const h = dt / P.substeps
   const events: SimEvent[] = []
   const hit = new Set<number>()
   for (let i = 0; i < P.substeps; i++) {
     pallets = pallets.map((p) => updatePallet(p, c, h, ball))
-    const r = rollBall(ball, objects, c, breaker, shooter, h)
-    ;({ ball, objects, breaker } = r)
+    const r = rollBall(ball, objects, c, { breaker, pierces, shooter }, h)
+    ;({ ball, objects, breaker, pierces } = r)
     events.push(...r.events)
     // A Steal stops the ball: no more collisions or rolling this tick, so the arm cannot kick a dead ball.
     if (r.events.some((e) => e.type === 'steal-triggered')) break
@@ -197,8 +197,11 @@ export function rollWithPallets(
       if (contact.hit && !hit.has(p.id)) {
         hit.add(p.id)
         events.push({ type: 'pallet-hit', pallet: p.id, ...contact.hit })
+        // A swat makes a Palleted ball, or tops one up: the count resets to the full number.
+        pierces = P.pierces
+        events.push({ type: 'palleted-started', pallet: p.id, pierces })
       }
     }
   }
-  return { ball, objects, pallets, events, breaker }
+  return { ball, objects, pallets, events, breaker, pierces }
 }

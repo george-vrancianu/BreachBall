@@ -3,7 +3,7 @@ import { type PlayerId, type Point } from './pitch'
 import type { SimConfig, SimEvent } from './step'
 import { damageSegment, segmentAt, standingPieces, type Segment, type Structure } from './wall'
 
-export type Ball = { pos: Point; vel: Point; /** Distance travelled, drives the rolling dot. */ rolled: number }
+export type Ball = { pos: Point; vel: Point; /** Distance travelled, drives the rolling dot. */ rolled: number; /** The wall a pierce just broke a segment of, while the ball still touches it: its other segments are the same contact (a Joint is no second hit) until a roll passes without touching it. Set by the last pierce too, so a ball with none left still passes the neighbour's end at that Joint rather than bouncing off it. */ through?: number }
 
 const seg = (x1: number, y1: number, x2: number, y2: number): Segment => ({ a: { x: x1, y: y1 }, b: { x: x2, y: y2 } })
 const NET = rules.netDepth + rules.board
@@ -45,15 +45,23 @@ function sweep(p: Point, d: Point, { a, b }: Segment, r: number): { t: number; n
   return best
 }
 
-/** One tick of ball motion: friction, then swept movement with bounces; walls hit hard enough lose hp. */
-/** With `breaker`, the first structure touched is destroyed outright and the ball keeps its speed. `dt` is the seconds the call covers (a tick by default). */
-export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker = false, shooter: PlayerId = 1, dt = 1 / c.tickHz): { ball: Ball; objects: Structure[]; events: SimEvent[]; breaker: boolean } {
+/** What shapes a roll: the Breaker still armed, the Palleted ball's pierces left, and whose shot it is. */
+export type RollOptions = { breaker: boolean; pierces: number; shooter: PlayerId }
+
+/**
+ * One tick of ball motion: friction, then swept movement with bounces; walls hit hard enough lose hp.
+ * With `breaker`, the first structure touched is destroyed outright and the ball keeps its speed. A Palleted ball does the same for each of its `pierces`, one per structure, and is marked apart from the Breaker.
+ * `dt` is the seconds the call covers (a tick by default).
+ */
+export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, { breaker = false, pierces = 0, shooter = 1 }: Partial<RollOptions> = {}, dt = 1 / c.tickHz): { ball: Ball; objects: Structure[]; events: SimEvent[]; breaker: boolean; pierces: number } {
   const decay = 0.5 ** (dt / c.halfLife)
-  let { pos, vel, rolled } = ball
+  let { pos, vel, rolled, through } = ball
   vel = { x: vel.x * decay, y: vel.y * decay }
   if (Math.hypot(vel.x, vel.y) < c.restSpeed) vel = { x: 0, y: 0 }
   const events: SimEvent[] = []
   let left = 1
+  // Whether the ball is still in contact with the wall it pierced.
+  let touching = false
   // The cap only matters when wedged in a corner; the rest of that tick's motion is dropped.
   for (let i = 0; i < 8 && left > 0 && (vel.x || vel.y); i++) {
     const d = { x: vel.x * dt * left, y: vel.y * dt * left }
@@ -62,7 +70,8 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker
     const candidates: [Segment, Structure?, number?][] = [...boards.map((s): [Segment] => [s]), ...objects.flatMap((w) => standingPieces(w).map(({ seg, index }): [Segment, Structure, number?] => [seg, w, index]))]
     for (const [s, wall, segment] of candidates) {
       const h = sweep(pos, d, s, c.ballRadius)
-      if (h && (!best || h.t < best.t)) best = { ...h, wall, segment }
+      if (h && wall && wall.id === through) touching = true
+      else if (h && (!best || h.t < best.t)) best = { ...h, wall, segment }
     }
     const len = Math.hypot(d.x, d.y)
     if (!best) {
@@ -77,18 +86,23 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker
     if (!best.wall) events.push({ type: 'ball-hit-board', speed, at: pos })
     else {
       events.push({ type: 'ball-hit-wall', wall: best.wall.id, speed, at: pos })
-      if (breaker) {
-        breaker = false
+      if (breaker || pierces > 0) {
+        // The Breaker is spent first; a Palleted ball's pierces mark nothing on the events.
+        const mark: { breaker?: true } = breaker ? { breaker: true } : {}
+        if (breaker) breaker = false
+        else pierces--
         // A tower goes whole; a wall loses the segment it touched, and goes only with its last.
         if (best.wall.kind === 'tower') {
           const gone = { ...best.wall, hp: 0 }
           objects = objects.filter((w) => w.id !== gone.id)
-          events.push({ type: 'wall-destroyed', wall: gone, at: pos, breaker: true })
+          events.push({ type: 'wall-destroyed', wall: gone, at: pos, ...mark })
         } else {
           const r = damageSegment(objects, best.wall.id, best.segment ?? segmentAt(best.wall, pos), pos, rules.wallHp)
           objects = r.objects
-          events.push(...r.events.map((e) => (e.type === 'wall-destroyed' || e.type === 'segment-broken' ? { ...e, breaker: true as const } : e)))
+          events.push(...r.events.map((e) => (e.type === 'wall-destroyed' || e.type === 'segment-broken' ? { ...e, ...mark } : e)))
         }
+        // Only a pierce skips the neighbour: the Breaker's one structure is spent, and it bounces off the next segment's end as it always has.
+        if (!mark.breaker) [through, touching] = [best.wall.id, true]
         continue
       }
       if (best.wall.kind === 'tower' && best.wall.power === 'steal' && best.wall.owner !== shooter) {
@@ -119,5 +133,5 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker
       events.push({ type: 'repulsor-fired', tower: t.id, at: pos })
     }
   }
-  return { ball: { pos, vel, rolled }, objects, events, breaker }
+  return { ball: touching ? { pos, vel, rolled, through } : { pos, vel, rolled }, objects, events, breaker, pierces }
 }
