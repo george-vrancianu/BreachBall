@@ -123,7 +123,7 @@ it('draws the overlay under the shell, so the controls stay tappable during a ho
   render(<App />)
   fireEvent.click(screen.getByRole('button', { name: 'Play' }))
   fireEvent.click(screen.getByText('Start'))
-  act(() => games[0]!.onView(view({ overlay: { kind: 'goal', placement: 'center', band: true, text: 'Player 2', color: '#fff', progress: 0 } })))
+  act(() => games[0]!.onView(view({ overlay: { kind: 'goal', placement: 'center', band: true, text: 'Player 2', color: '#fff', progress: 0, turn: 0, fades: true } })))
   const card = screen.getByText('Player 2').parentElement!
   const map = screen.getByRole('button', { name: 'Map' })
   expect(card.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

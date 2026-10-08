@@ -403,4 +403,39 @@ describe('Tabletop handover slide', () => {
     expect(t.hudSeat).toBe(2)
     expect(slideAt(t, 2100)).toEqual({ dock: 0, chrome: 1 })
   })
+  describe('a phase sweep on the same frame', () => {
+    /** The Build to Play handover to seat 2: the PLAY sweep and the slide begin together at 2000. */
+    const sweeping = () => go(go(go(newTransition(1, true), tt({ phase: 'Build' })), tt({ now: 400, phase: 'Build' })), tt({ now: 2000, active: 2, phase: 'Play' }))
+    it('is oriented to the incoming seat from the start: turned against the old HUD seat before the swap, upright once the layer has turned', () => {
+      const t = sweeping()
+      expect(t.overlay).toMatchObject({ kind: 'sweep', text: 'PLAY' })
+      expect(overlayView(t, 2000)!.turn).toBe(180)
+      expect(overlayView(go(t, tt({ now: swapAt - 1, active: 2, phase: 'Play' })), swapAt - 1)!.turn).toBe(180)
+      const swapped = go(t, tt({ now: swapAt, active: 2, phase: 'Play' }))
+      expect(swapped.hudSeat).toBe(2)
+      expect(overlayView(swapped, swapAt)!.turn).toBe(0)
+    })
+    it('faces the same way on screen on both sides of the swap (layer angle plus turn)', () => {
+      const t = sweeping()
+      const swapped = go(t, tt({ now: swapAt, active: 2, phase: 'Play' }))
+      const screenAngle = (x: Transition, now: number) => seatAngle(x) + overlayView(x, now)!.turn
+      expect(screenAngle(t, 2000) % 360).toBe(screenAngle(swapped, swapAt) % 360)
+    })
+    it('is not faded by the chrome while the slide runs', () => {
+      const t = sweeping()
+      expect(slideAt(t, swapAt).chrome).toBe(0)
+      expect(overlayView(t, swapAt)!.fades).toBe(false)
+    })
+    it('is left alone when it was already running as the slide began: no jump, still fading with the chrome', () => {
+      const early = go(go(go(go(newTransition(1, true), tt({ phase: 'Play' })), tt({ now: 400, phase: 'Play' })), tt({ now: 1500, phase: 'Build' })), tt({ now: 2000, active: 2, phase: 'Build' }))
+      expect(early.overlay).toMatchObject({ kind: 'sweep', at: 1500 })
+      expect(early.flip).toBeDefined()
+      expect(overlayView(early, 2000)).toMatchObject({ turn: 0, fades: true })
+    })
+    it('needs no turn without a slide: at rest, and in the whole-stage flip', () => {
+      expect(overlayView(go(go(go(fresh(1), {}), { now: 400 }), { now: 2000, phase: 'Build' }), 2000)!.turn).toBe(0)
+      const flipping = go(go(go(fresh(1), { phase: 'Build' }), { now: 400, phase: 'Build' }), { now: 2000, active: 2, phase: 'Play' })
+      expect(overlayView(flipping, 2000)!.turn).toBe(0)
+    })
+  })
 })
