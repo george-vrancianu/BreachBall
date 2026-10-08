@@ -8,7 +8,7 @@ export type Limit = { maxBounces: number; maxLength: number }
 /** Where a predicted path touched something: `wall` for a structure, `board` for a board, `pallet` for a Pallet's arm (held frozen, ADR-0009). */
 export type Contact = { at: Point; kind: 'wall' | 'board' | 'pallet' }
 
-/** The ball's predicted path from its launch position, and where it touched a structure or board. */
+/** The ball's predicted path from its launch position, and where it touched a structure, a board or a Pallet's arm. */
 export type Path = { points: Point[]; contacts: Contact[] }
 
 /** Seconds of play a prediction may cover, a safeguard against a ball that never settles. */
@@ -25,7 +25,7 @@ export function predictPath(state: SimState, shot: NonNullable<SimInput['shot']>
   const points: Point[] = [state.ball.pos]
   const contacts: Contact[] = []
   let left = maxLength
-  /** Extends the path toward `p`, cut where the length runs out; whether it reached `p`. */
+  /** Extends the path toward `p`, cut where the length runs out or a Pallet's arm or ring exit stops it (an arm adds its contact); whether it reached `p`, so false when stopped. */
   const extendTo = (to: Point): boolean => {
     const last = points.at(-1)!
     const stop = state.pallets.length ? frozenArmStop(state.pallets, last, to, config) : null

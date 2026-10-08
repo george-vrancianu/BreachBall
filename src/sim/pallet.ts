@@ -42,7 +42,7 @@ type Body = { pos: Point; vel: Point }
 
 const distToPivot = (p: Pallet, at: Point) => Math.hypot(at.x - p.pivot.x, at.y - p.pivot.y)
 /** How close the ball's centre must come for a Pallet to notice it. */
-export const ringReach = (c: SimConfig) => P.ringRadius + c.ballRadius
+const ringReach = (c: SimConfig) => P.ringRadius + c.ballRadius
 
 const wrap = (a: number) => {
   a = (a + Math.PI) % TAU
@@ -212,7 +212,7 @@ export function rollWithPallets(
 /**
  * For the Ghost (ADR-0009): where a ball centre moving straight from `from` to `to` first meets a Pallet's arm, held as it is, or leaves its Activation ring
  * without having touched it; null when neither happens on this stretch. `t` is how far along (0-1), `arm` whether it was the arm (else the ring).
- * Only the stretch inside a ring is searched, at the sim's substep spacing and then bisected. Allocates only for a result.
+ * Only the stretch inside a ring is searched, at least as finely as the sim's substeps and never coarser than the arm is thick, then bisected. Cheap but not allocation-free (a point per sample); it runs only for balls with Pallets on the map.
  */
 export function frozenArmStop(pallets: readonly Pallet[], from: Point, to: Point, c: SimConfig): { t: number; arm: boolean } | null {
   const [vx, vy] = [to.x - from.x, to.y - from.y]
@@ -233,8 +233,9 @@ export function frozenArmStop(pallets: readonly Pallet[], from: Point, to: Point
     const [t0, t1] = [Math.max(0, mid - Math.sqrt(disc)), Math.min(1, mid + Math.sqrt(disc))]
     if (t0 > t1) continue
     let [lo, hi] = [-1, -1]
-    for (let i = 0; i <= P.substeps; i++) {
-      const t = t0 + ((t1 - t0) * i) / P.substeps
+    const n = Math.max(P.substeps, Math.ceil((Math.sqrt(vv) * (t1 - t0)) / (P.tipRadius + c.ballRadius)))
+    for (let i = 0; i <= n; i++) {
+      const t = t0 + ((t1 - t0) * i) / n
       if (clear(p, t) < 0) {
         hi = t
         break

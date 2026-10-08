@@ -123,6 +123,16 @@ describe('Aim Ghost', () => {
   it('shows no Ghost before the drag', () => {
     expect(ghostOf(far, {})).toBeUndefined()
   })
+  it('reuses the prediction across ticks when the map has no Pallets', () => {
+    const a = new Aim()
+    const s = { ...shooting(), pallets: [] }
+    a.sync(s, defaultConfig)
+    a.aim = { tier: 0, ghost: far, dir: { x: 0, y: -1 }, power: 0.45, pxPerUnit: 10 }
+    const first = a.ghost
+    // Every tick maps the (empty) Pallets into a new array.
+    a.sync({ ...s, tick: s.tick + 1, pallets: s.pallets.map((p) => p) }, defaultConfig)
+    expect(a.ghost).toBe(first)
+  })
   describe('with a Pallet', () => {
     const pivot = { x: 10, y: 30 }
     const config = { ...defaultConfig, pallets: [pivot] }

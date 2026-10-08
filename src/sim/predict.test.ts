@@ -156,6 +156,42 @@ describe('predictPath with Pallets (frozen arm, ADR-0009)', () => {
     const far = predictPath({ ...s, pallets: initialPallets([pivot], 1) }, { ...fast, dir: { x: 0.6, y: -0.8 } }, pc, { maxBounces: 2, maxLength: Infinity })
     expect(far).toEqual(plain)
   })
+  describe('on the default map', () => {
+    const dc = { ...c, pallets: rules.pallet.spots }
+    const reach = rules.pallet.ringRadius + c.ballRadius
+    const mapAt = (pos: Point, angle = up_, extra: Partial<SimState> = {}): SimState => ({ ...at(pos), pallets: initialPallets(dc.pallets, 1).map((p) => ({ ...p, angle })), ...extra })
+    const right: NonNullable<SimInput['shot']> = { ...fast, dir: { x: 1, y: 0 } }
+    const left: NonNullable<SimInput['shot']> = { ...fast, dir: { x: -1, y: 0 } }
+
+    it('ends where a shot fired from rest inside a ring leaves it', () => {
+      // Arm pointing away from the line of fire (toward the board), ball 2 units from the pivot.
+      const p = predictPath(mapAt({ x: 8, y: 54 }, Math.PI), right, dc, unlimited)
+      expect(p.contacts).toEqual([])
+      expect(p.points.at(-1)!.x).toBeCloseTo(6 + reach, 2)
+    })
+    it('ends at the first ring met when the line runs past both', () => {
+      const [a, b] = [predictPath(mapAt({ x: 20, y: 58 }), left, dc, unlimited), predictPath(mapAt({ x: 20, y: 58 }), right, dc, unlimited)]
+      const half = Math.sqrt(reach ** 2 - 16)
+      expect(a.points.at(-1)!.x).toBeCloseTo(6 - half, 2)
+      expect(b.points.at(-1)!.x).toBeCloseTo(34 + half, 2)
+      expect([...a.contacts, ...b.contacts]).toEqual([])
+    })
+    it('catches a Charged x2 shot grazing the arm tip, and lets one pass just outside it', () => {
+      const charged = { charge: { zone: 'bullseye', factor: 2 } } as const
+      // The arm lies along +x from (10, 30); its tip is at x = 12.5 with radius 0.25, the ball's 1.
+      const hit = predictPath({ ...withArm(13.7, 0), ...charged }, fast, pc, unlimited)
+      const miss = predictPath({ ...withArm(13.8, 0), ...charged }, fast, pc, unlimited)
+      expect(hit.contacts.map((k) => k.kind)).toEqual(['pallet'])
+      expect(miss.contacts).toEqual([])
+    })
+    it('counts a board bounce inside the reach band before the path leaves the ring', () => {
+      // Along y = 57, 3 off the pivot (6, 54): the left board turns the ball back at x = 1, still inside the ring.
+      const p = predictPath(mapAt({ x: 20, y: 57 }), left, dc, { maxBounces: 3, maxLength: Infinity })
+      expect(p.contacts.map((k) => k.kind)).toEqual(['board'])
+      expect(p.contacts[0].at.x).toBeCloseTo(1)
+      expect(p.points.at(-1)!.x).toBeCloseTo(6 + Math.sqrt(reach ** 2 - 9), 2)
+    })
+  })
   it('leaves the Pallets of the input state unchanged', () => {
     const s = withArm(10, up_)
     const before = structuredClone(s)

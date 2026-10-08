@@ -149,7 +149,7 @@ export class Aim extends Entity {
     const { tier, dir, power, ghost } = aim
     const key = JSON.stringify([tier, dir, power, ghost, comet.span, state.ball.pos, state.possession.shooter, state.charge])
     const p = this.predicted
-    if (p?.key === key && p.objects === state.objects && p.pallets === state.pallets) return p.path
+    if (p?.key === key && p.objects === state.objects && (!state.pallets.length || p.pallets === state.pallets)) return p.path
     const limit = { maxBounces: ghost.maxBounces, maxLength: comet.span + reachOf(tier, power, ghost) }
     const path = predictPath(state, { player: state.possession.shooter, tier, dir, power }, config, limit)
     this.predicted = { key, objects: state.objects, pallets: state.pallets, path }
