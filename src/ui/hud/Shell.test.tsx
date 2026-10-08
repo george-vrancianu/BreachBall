@@ -423,4 +423,14 @@ describe('Shell', () => {
     rerender(<Shell {...props()} />)
     expect(dock().style.paddingTop).toBe(`${visual.hud.dock.padPx}px`)
   })
+
+  it("pads the dock's screen-edge side, and its two ends, by the HUD layer's safe-area insets", () => {
+    const { rerender } = render(<Shell {...props()} />)
+    const dock = () => screen.getByTestId('dock')
+    const pad = visual.hud.dock.padPx
+    expect(dock().style.paddingBottom).toBe(`max(${pad}px, var(--safe-bottom, 0px))`)
+    expect([dock().style.paddingLeft, dock().style.paddingRight]).toEqual([`max(${pad}px, var(--safe-left, 0px))`, `max(${pad}px, var(--safe-right, 0px))`])
+    rerender(<Shell {...props()} flipped />)
+    expect(dock().style.paddingTop).toBe(`max(${pad}px, var(--safe-top, 0px))`)
+  })
 })

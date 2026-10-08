@@ -3,6 +3,7 @@ import { visual } from '../../config/visual'
 import type { DefenceCircle as DefenceCircleView, Item, SelectionAction, SelectionButton } from '../../game/view/defenceCircle'
 import { type ButtonSpec, type HudModel } from '../../game/view/hudModel'
 import type { OffenceCircle as OffenceCircleView, OffenceItemSpec } from '../../game/view/offenceCircle'
+import type { Side } from '../../game/view/physicalEdges'
 import type { StrategyCard } from '../../game/view/strategies'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
@@ -10,6 +11,7 @@ import { FONT } from '../ButtonRow'
 import { CHECK, CLOSE, CREDIT, LAYERS, LOCK, PIECE_ICON, RECENTER, REFUND, ROTATE, TOWER, TRASH } from './icons'
 import { noMenu } from './press'
 import { AbilityBar } from './AbilityBar'
+import { safeInset } from './safeArea'
 import { StrategyTray } from './StrategyTray'
 import { tileBadge, tileLabel, tileStyle } from './tile'
 
@@ -261,8 +263,8 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
   const auto: CSSProperties = { pointerEvents: 'auto' }
   const radius = `${flipped ? 0 : dock.cornerPx}px ${flipped ? 0 : dock.cornerPx}px ${flipped ? dock.cornerPx : 0}px ${flipped ? dock.cornerPx : 0}px`
   const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: dock.wideGapPx, minWidth: 0 }
-  // The screen-edge side clears the home indicator; longhands only, so a flip never mixes them with the `padding` shorthand.
-  const safeEdge = `max(${dock.padPx}px, env(safe-area-inset-bottom))`
+  // The screen-edge side clears the home indicator, or the notch or status bar when the HUD layer's turn puts the Dock at the device top: the HUD layer's own inset variables, which follow that turn. Longhands only, so a flip never mixes them with the `padding` shorthand.
+  const safe = (side: Side) => `max(${dock.padPx}px, ${safeInset(side)})`
   return (
     <div className={className} style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'top' : 'bottom']: 0, display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', alignItems: 'center', gap: visual.hud.gap, pointerEvents: 'none', color: visual.hud.ink, ...style }}>
       {/* Assumes the build dock always comes with a balance; without one the Strategies tray silently hides. */}
@@ -271,7 +273,7 @@ export function Shell({ hud: m, offence, defence, subterfuge, strategies, confir
       {confirm && <Primary spec={{ label: 'Confirm', onClick: onConfirm }} color={color} icon={CHECK(dock.primary.iconPx)} />}
       {mapOpen ? <HintPill text="Tap to jump · tap ✕ to close" /> : m.hint && <HintPill text={m.hint} wrap />}
       {children && <div style={auto}>{children}</div>}
-      <div data-testid="dock" data-dock={m.dock} style={{ ...FONT, ...auto, alignSelf: 'stretch', boxSizing: 'border-box', display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', gap: dock.rowGapPx, paddingInline: dock.padPx, paddingTop: flipped ? safeEdge : dock.padPx, paddingBottom: flipped ? dock.padPx : safeEdge, background: dock.fill, [flipped ? 'borderBottom' : 'borderTop']: `${dock.borderPx}px solid ${dock.border}`, borderRadius: radius, boxShadow: `0 ${flipped ? dock.shadowPx.y : -dock.shadowPx.y}px ${dock.shadowPx.blur}px ${visual.hud.shadow}` }}>
+      <div data-testid="dock" data-dock={m.dock} style={{ ...FONT, ...auto, alignSelf: 'stretch', boxSizing: 'border-box', display: 'flex', flexDirection: flipped ? 'column-reverse' : 'column', gap: dock.rowGapPx, paddingLeft: safe('left'), paddingRight: safe('right'), paddingTop: flipped ? safe('top') : dock.padPx, paddingBottom: flipped ? dock.padPx : safe('bottom'), background: dock.fill, [flipped ? 'borderBottom' : 'borderTop']: `${dock.borderPx}px solid ${dock.border}`, borderRadius: radius, boxShadow: `0 ${flipped ? dock.shadowPx.y : -dock.shadowPx.y}px ${dock.shadowPx.blur}px ${visual.hud.shadow}` }}>
         <div data-testid="status-row" style={row}>
           {m.balance && <CreditsChip balance={m.balance} color={color} />}
           <Status m={m} />

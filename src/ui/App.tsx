@@ -11,6 +11,7 @@ import { ResourceBar } from './hud/ResourceBar'
 import { Shell } from './hud/Shell'
 import { Minimap } from './hud/Minimap'
 import { SideMenu, SideMenuButton } from './hud/SideMenu'
+import { safeAreaVars } from './hud/safeArea'
 import { QueuedIcons } from './hud/QueuedIcons'
 import { Overlay } from './overlays/Overlay'
 import { TabletopToggle } from './ButtonRow'
@@ -49,13 +50,15 @@ export function App() {
   const tabletop = view ? view.tabletop : loadTabletop()
   const { canvasAngle, hudAngle } = stageLayers({ tabletop, stageAngle: view?.angle ?? 0, seatAngle: view?.seatAngle ?? 0 })
 
+  // The insets follow where the layout has put the Dock: Tabletop on, the HUD layer's own turn (the swap is in the slide's hidden beat); off, `flipped`, which changes at the flip's end together with the layout, not at the half turn.
+  const safeAngle = tabletop ? hudAngle : view?.flipped ? 180 : 0
   return (
     <>
       <div data-testid="canvas-layer" style={layerStyle(canvasAngle)}>
         <canvas ref={canvas} />
       </div>
-      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. The overlay goes under the shell so the controls stay tappable during a hold. In Tabletop mode only this layer turns at a handover, to face the active player; with it off both layers turn together. */}
-      <div data-testid="hud-layer" style={layerStyle(hudAngle, { pointerEvents: 'none' })}>
+      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. It sets the safe-area insets as variables by the physical edge each of its sides is on, swapping at `safeAngle` above. The overlay goes under the shell so the controls stay tappable during a hold. In Tabletop mode only this layer turns at a handover, to face the active player; with it off both layers turn together. */}
+      <div data-testid="hud-layer" style={layerStyle(hudAngle, { pointerEvents: 'none', ...safeAreaVars(safeAngle) })}>
         {view && (
           <>
             <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} style={fade(view.slide.chrome)} />

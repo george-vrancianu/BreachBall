@@ -2,14 +2,16 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { visual } from '../../config/visual'
 import type { SideMenuView } from '../../game/view/sideMenu'
 import { Button, FONT, ghostCircle } from '../ButtonRow'
-import { underBars } from './Minimap'
+import type { Side } from '../../game/view/physicalEdges'
+import { cornerPos } from './Minimap'
+import { safeInset } from './safeArea'
 
 const { sideMenu, tokens } = visual
 
 /** The ☰ ghost button that opens the Side menu. Mount inside the rotating stage: it sits at the stage's top-right (the minimap chip has the top-left), just inside the Defence bar at the far edge (below it, or above it when `flipped` puts the bar at the stage's bottom), so it never covers the bar's P1 digit. With the Resource bar shown (`resourceBar`) it sits below that too. */
 export function SideMenuButton({ onOpen, flipped, resourceBar = false, className, style }: { onOpen(): void; flipped: boolean; resourceBar?: boolean; className?: string; style?: CSSProperties }) {
   return (
-    <button aria-label="Menu" className={className} onClick={onOpen} style={{ ...ghostCircle(sideMenu.buttonPx), position: 'absolute', [flipped ? 'bottom' : 'top']: underBars(resourceBar), right: sideMenu.buttonInsetPx, background: visual.hud.dock.fill, zIndex: sideMenu.buttonZ, pointerEvents: 'auto', ...style }}>
+    <button aria-label="Menu" className={className} onClick={onOpen} style={{ ...ghostCircle(sideMenu.buttonPx), position: 'absolute', ...cornerPos(flipped, resourceBar, 'right'), background: visual.hud.dock.fill, zIndex: sideMenu.buttonZ, pointerEvents: 'auto', ...style }}>
       ☰
     </button>
   )
@@ -43,10 +45,12 @@ export function SideMenu({ menu, onResume, onHelp, onRestart, onQuit, className,
   useEffect(() => setArmed(undefined), [menu.open])
   if (!menu.open) return null
   const confirm = (which: 'restart' | 'quit', label: string, go: () => void) => ({ label: armed === which ? `${label}? Tap again` : label, onClick: () => (armed === which ? go() : setArmed(which)) })
+  // The panel is as tall as the HUD layer and starts at its left edge, so it clears whatever notch the layer's turn puts on those sides.
+  const safe = (side: Side) => `max(${sideMenu.panelPadPx}px, ${safeInset(side)})`
   const wide: CSSProperties = { width: '100%' }
   return (
     <div className={className} style={{ ...FONT, position: 'absolute', inset: 0, zIndex: sideMenu.z, display: 'flex', pointerEvents: 'auto', ...style }}>
-      <nav aria-label="Side menu" style={{ boxSizing: 'border-box', width: `min(${sideMenu.panelWidthPct}%, ${sideMenu.panelMaxPx}px)`, height: '100%', overflowY: 'auto', padding: sideMenu.panelPadPx, display: 'flex', flexDirection: 'column', gap: sideMenu.gapPx, background: visual.hud.panel, color: visual.hud.ink, borderRight: `2px solid ${tokens.ghostBorder}` }}>
+      <nav aria-label="Side menu" style={{ boxSizing: 'border-box', width: `min(${sideMenu.panelWidthPct}%, ${sideMenu.panelMaxPx}px)`, height: '100%', overflowY: 'auto', paddingTop: safe('top'), paddingBottom: safe('bottom'), paddingLeft: safe('left'), paddingRight: sideMenu.panelPadPx, display: 'flex', flexDirection: 'column', gap: sideMenu.gapPx, background: visual.hud.panel, color: visual.hud.ink, borderRight: `2px solid ${tokens.ghostBorder}` }}>
         <Button spec={{ label: 'Resume', onClick: onResume }} style={wide} />
         <Button spec={{ label: 'Help', onClick: onHelp }} style={wide} />
         <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: '1fr auto', gap: sideMenu.rowGap, color: tokens.muted }}>
