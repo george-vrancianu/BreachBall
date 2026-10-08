@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import type { SubterfugeCircle as SubterfugeCircleView } from '../../game/view/subterfugeCircle'
 import type { SubterfugeItem } from '../../game/Game'
+import { inset } from '../../game/view/safeInsets'
 import { FONT } from '../ButtonRow'
 import { JAM } from './icons'
 import { chipClear } from './Minimap'
@@ -20,7 +21,7 @@ export function QueuedIcons({ queued, flipped, style }: { queued: SubterfugeCirc
   const { px, edgePx, gapPx, fontPx, iconPx, iconGapPx, borderPx } = visual.hud.queued
   const offset = visual.hud.bar.heightPx + visual.hud.bar.resourceRowPx + edgePx
   return (
-    <div style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'bottom' : 'top']: offset, boxSizing: 'border-box', padding: `0 ${visual.hud.gap}px`, display: 'flex', gap: visual.hud.gap, pointerEvents: 'none', ...FONT, ...style }}>
+    <div style={{ position: 'absolute', left: 0, right: 0, [flipped ? 'bottom' : 'top']: `calc(${inset(flipped ? 'bottom' : 'top')} + ${offset}px)`, boxSizing: 'border-box', paddingLeft: `max(${visual.hud.gap}px, ${inset('left')})`, paddingRight: `max(${visual.hud.gap}px, ${inset('right')})`, display: 'flex', gap: visual.hud.gap, pointerEvents: 'none', ...FONT, ...style }}>
       {([1, 2] as const).map((id) => (
         <div key={id} style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', gap: gapPx }}>
           {queued.filter((q) => q.against === id).map((q) => (

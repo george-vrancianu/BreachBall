@@ -45,10 +45,10 @@ describe('minimap chip', () => {
   it('sits at the top-left just inside the far-edge bars (the stage bottom when turned), lower when the Resource bar shows', () => {
     const { rerender } = render(<Minimap {...props()} />)
     const at = () => screen.getByRole('button', { name: 'Map' }).style
-    expect([at().top, at().bottom, at().left]).toEqual(['36px', '', '8px'])
+    expect([at().top, at().bottom, at().left]).toEqual(['calc(var(--safe-top, 0px) + 36px)', '', 'calc(var(--safe-left, 0px) + 8px)'])
     rerender(<Minimap {...props()} resourceBar />)
-    expect(at().top).toBe('56px')
+    expect(at().top).toBe('calc(var(--safe-top, 0px) + 56px)')
     rerender(<Minimap {...props()} flipped />)
-    expect([at().bottom, at().top]).toEqual(['36px', ''])
+    expect([at().bottom, at().top]).toEqual(['calc(var(--safe-bottom, 0px) + 36px)', ''])
   })
 })

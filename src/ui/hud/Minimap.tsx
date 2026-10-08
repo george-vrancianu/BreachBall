@@ -1,9 +1,13 @@
 import type { CSSProperties } from 'react'
 import { visual } from '../../config/visual'
 import type { Band, MinimapView } from '../../game/view/minimap'
+import { inset } from '../../game/view/safeInsets'
 
 /** How far in from the far edge the minimap chip (top-left) and the ☰ button (top-right) sit: just inside the Defence bar, and the Resource bar when it is shown. */
 export const underBars = (resourceBar: boolean): number => visual.hud.bar.heightPx + (resourceBar ? visual.hud.bar.resourceRowPx : 0) + visual.sideMenu.buttonInsetPx
+
+/** Where a corner chip sits: `underBars` in from the far edge (the stage's bottom when `flipped`) and `buttonInsetPx` in from the side, both measured from the safe area, so the chip clears the notch or status bar the HUD layer's turn puts there. */
+export const cornerPos = (flipped: boolean, resourceBar: boolean, side: 'left' | 'right'): CSSProperties => ({ [flipped ? 'bottom' : 'top']: `calc(${inset(flipped ? 'bottom' : 'top')} + ${underBars(resourceBar)}px)`, [side]: `calc(${inset(side)} + ${visual.sideMenu.buttonInsetPx}px)` })
 
 /** How much of the stage's left edge the minimap chip takes, inset included: what the queued Subterfuge icons keep clear of. */
 export const chipClear = (): number => visual.sideMenu.buttonInsetPx + visual.hud.minimap.hitPx
@@ -21,7 +25,7 @@ export function Minimap({ minimap, open, color, flipped, resourceBar = false, on
       aria-label={open ? 'Close map' : 'Map'}
       aria-expanded={open}
       onClick={onToggle}
-      style={{ position: 'absolute', [flipped ? 'bottom' : 'top']: underBars(resourceBar), left: visual.sideMenu.buttonInsetPx, width: hitPx, height: chipH, padding: 0, border: 0, background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', zIndex: visual.sideMenu.buttonZ, ...style }}
+      style={{ position: 'absolute', ...cornerPos(flipped, resourceBar, 'left'), width: hitPx, height: chipH, padding: 0, border: 0, background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', zIndex: visual.sideMenu.buttonZ, ...style }}
     >
       <span style={{ boxSizing: 'border-box', width: chipW, height: chipH, borderRadius: radiusPx, border: `${borderPx}px solid ${open ? color : tokens.ghostBorder}`, background: open ? color : visual.hud.dock.fill, boxShadow: `0 4px 12px ${visual.hud.shadow}`, color: visual.hud.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: fontPx, lineHeight: 1 }}>
         {open ? (

@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { GameActions, HudView } from '../game/Game'
+import { visual } from '../config/visual'
 
 // Game needs a real canvas; the seam under test is how App creates, feeds and drives it.
 const freshView = vi.hoisted(() => () => ({ angle: 0, seatAngle: 0, slide: { dock: 0, chrome: 1 }, flipped: false, tabletop: true, confirm: false, mapOpen: false, minimap: { frame: { top: 0, height: 0.5 } }, menu: { open: false, hotSeat: true, settings: [{ label: 'Mode', value: 'Rounds' }, { label: 'Rounds', value: '5' }] }, result: '', hud: { players: { 1: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } }, 2: { digit: '0', inventory: { breaker: 1, repulsor: 1, steal: 1 } } }, active: 1, round: 1, rounds: 5, clock: null, shotsLeft: 3, shotsMax: 3, defenceBar: { 1: { count: '0', segments: [] }, 2: { count: '0', segments: [] } }, resourceBar: null, refundable: false, score: null, phase: 'Play', dock: 'play', balance: null, refundRate: null }, offence: { armed: false, available: false, shooter: 1, items: [] } }) as HudView)
@@ -53,6 +54,45 @@ it('Tabletop mode on: only the HUD layer turns, to face its seat', () => {
   act(() => games[0]!.onView(view({ tabletop: true, angle: 0, seatAngle: 180 })))
   expect(screen.getByTestId('canvas-layer').style.transform).toBe('rotate(0deg)')
   expect(screen.getByTestId('hud-layer').style.transform).toBe('rotate(180deg)')
+})
+
+describe('safe-area insets', () => {
+  const hudVar = (name: string) => screen.getByTestId('hud-layer').style.getPropertyValue(name)
+  const dock = () => screen.getByTestId('dock')
+  const inPlay = (over: Partial<HudView>) => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+    fireEvent.click(screen.getByText('Start'))
+    act(() => games[0]!.onView(view(over)))
+  }
+
+  it("Tabletop on, Player 1: the Dock pads by the device bottom and the far-edge strips and chips by the device top", () => {
+    inPlay({ tabletop: true, seatAngle: 0 })
+    expect([hudVar('--safe-top'), hudVar('--safe-bottom')]).toEqual(['env(safe-area-inset-top, 0px)', 'env(safe-area-inset-bottom, 0px)'])
+    expect(dock().style.paddingBottom).toBe(`max(${visual.hud.dock.padPx}px, var(--safe-bottom, 0px))`)
+  })
+
+  it("Tabletop on, Player 2: the HUD layer's bottom is the device top, so the Dock pads by the top inset and the strips by the bottom one", () => {
+    inPlay({ tabletop: true, seatAngle: 180 })
+    expect([hudVar('--safe-top'), hudVar('--safe-bottom'), hudVar('--safe-left'), hudVar('--safe-right')]).toEqual(['env(safe-area-inset-bottom, 0px)', 'env(safe-area-inset-top, 0px)', 'env(safe-area-inset-right, 0px)', 'env(safe-area-inset-left, 0px)'])
+    expect(dock().style.paddingBottom).toBe(`max(${visual.hud.dock.padPx}px, var(--safe-bottom, 0px))`)
+    expect(screen.getByRole('button', { name: 'Menu' }).style.top).toBe('calc(var(--safe-top, 0px) + 36px)')
+  })
+
+  it("Tabletop off, Player 2: the stage is turned, the Dock is at the HUD layer's top (the device bottom) and the strips at its bottom (the device top)", () => {
+    inPlay({ tabletop: false, angle: 180, seatAngle: 180, flipped: true })
+    expect([hudVar('--safe-top'), hudVar('--safe-bottom')]).toEqual(['env(safe-area-inset-bottom, 0px)', 'env(safe-area-inset-top, 0px)'])
+    expect(dock().style.paddingTop).toBe(`max(${visual.hud.dock.padPx}px, var(--safe-top, 0px))`)
+    expect(screen.getByRole('button', { name: 'Menu' }).style.bottom).toBe('calc(var(--safe-bottom, 0px) + 36px)')
+  })
+
+  it('the insets swap with the HUD layer\'s turn, in the same render', () => {
+    inPlay({ tabletop: true, seatAngle: 0 })
+    act(() => games[0]!.onView(view({ tabletop: true, seatAngle: 180 })))
+    expect(hudVar('--safe-bottom')).toBe('env(safe-area-inset-top, 0px)')
+    act(() => games[0]!.onView(view({ tabletop: true, seatAngle: 0 })))
+    expect(hudVar('--safe-bottom')).toBe('env(safe-area-inset-bottom, 0px)')
+  })
 })
 
 it('the Tabletop slide moves the Dock off the layer bottom and fades the strips and chips, which take no taps meanwhile', () => {
@@ -170,10 +210,10 @@ describe('Side menu', () => {
 
   it('the ☰ button sits just inside the Defence bar: below it, or above it when the bar is at the stage bottom', () => {
     inMatch()
-    expect(screen.getByRole('button', { name: 'Menu' }).style.top).toBe('36px')
+    expect(screen.getByRole('button', { name: 'Menu' }).style.top).toBe('calc(var(--safe-top, 0px) + 36px)')
     act(() => games[0]!.onView(view({ flipped: true })))
     const flipped = screen.getByRole('button', { name: 'Menu' })
-    expect(flipped.style.bottom).toBe('36px')
+    expect(flipped.style.bottom).toBe('calc(var(--safe-bottom, 0px) + 36px)')
     expect(flipped.style.top).toBe('')
   })
 
@@ -182,8 +222,8 @@ describe('Side menu', () => {
     const menu = screen.getByRole('button', { name: 'Menu' })
     const chip = screen.getByRole('button', { name: 'Map' })
     expect(chip.style.top).toBe(menu.style.top)
-    expect([menu.style.right, menu.style.left]).toEqual(['8px', ''])
-    expect(chip.style.left).toBe('8px')
+    expect([menu.style.right, menu.style.left]).toEqual(['calc(var(--safe-right, 0px) + 8px)', ''])
+    expect(chip.style.left).toBe('calc(var(--safe-left, 0px) + 8px)')
     fireEvent.click(chip)
     expect(games[0]!.actions.map).toHaveBeenCalled()
   })
@@ -193,9 +233,9 @@ describe('Side menu', () => {
     const bar = { 1: { credits: 3, share: 0.5, bullseyes: 0 }, 2: { credits: 3, share: 0.5, bullseyes: 0 } }
     const hud = { ...freshView().hud, resourceBar: bar }
     act(() => games[0]!.onView(view({ hud })))
-    expect(screen.getByRole('button', { name: 'Menu' }).style.top).toBe('56px')
+    expect(screen.getByRole('button', { name: 'Menu' }).style.top).toBe('calc(var(--safe-top, 0px) + 56px)')
     act(() => games[0]!.onView(view({ hud, flipped: true })))
-    expect(screen.getByRole('button', { name: 'Menu' }).style.bottom).toBe('56px')
+    expect(screen.getByRole('button', { name: 'Menu' }).style.bottom).toBe('calc(var(--safe-bottom, 0px) + 56px)')
   })
 
   it('lists Resume, Help, the settings, Restart and Quit when open in hot-seat; Resume closes it', () => {

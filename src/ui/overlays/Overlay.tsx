@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { visual } from '../../config/visual'
+import { inset } from '../../game/view/safeInsets'
 import type { OverlayView } from '../../game/view/transition'
 
 /** The one interstitial layer: GOAL banner, BUILD/PLAY/REPAIRED sweep and the REVEAL and "Opponent is choosing" labels (pinned to the top, no band, so the pitch stays visible). The top labels clear the Defence bar and, when `resourceBar` is set, the Resource bar under it. Mount inside the rotating stage; no view renders nothing. */
@@ -21,7 +22,7 @@ export function Overlay({ view: v, flipped = false, resourceBar = false, classNa
       }}
     >
       {/* The margin clears the Defence bar (and the Resource bar under it, when shown) at the far edge, which is the stage's bottom when flipped. */}
-      <div style={top ? { padding: '1vmin 3vmin', [flipped ? 'marginBottom' : 'marginTop']: visual.hud.bar.heightPx + (resourceBar ? visual.hud.bar.resourceRowPx : 0) + visual.hud.gap * 2, background: visual.hud.scrimLight, borderRadius: '1vmin', fontSize: '6vmin' } : v.band ? { width: '100%', padding: '2vmin 0', background: visual.hud.scrim, ...(v.kind === 'goal' ? { borderBlock: `1vmin solid ${v.color}` } : {}) } : undefined}>{v.text}</div>
+      <div style={top ? { padding: '1vmin 3vmin', [flipped ? 'marginBottom' : 'marginTop']: `calc(${inset(flipped ? 'bottom' : 'top')} + ${visual.hud.bar.heightPx + (resourceBar ? visual.hud.bar.resourceRowPx : 0) + visual.hud.gap * 2}px)`, background: visual.hud.scrimLight, borderRadius: '1vmin', fontSize: '6vmin' } : v.band ? { width: '100%', padding: '2vmin 0', background: visual.hud.scrim, ...(v.kind === 'goal' ? { borderBlock: `1vmin solid ${v.color}` } : {}) } : undefined}>{v.text}</div>
       {children}
     </div>
   )

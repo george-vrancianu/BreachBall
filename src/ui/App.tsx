@@ -5,6 +5,7 @@ import { Game, type HudView } from '../game/Game'
 import { showConnectScreen } from '../net/connectScreen'
 import { defaultSettings, type Settings } from '../game/view/settings'
 import { loadTabletop } from '../game/deviceSettings'
+import { safeAreaVars } from '../game/view/safeInsets'
 import { stageLayers } from '../game/view/stageLayers'
 import { DefenceBar } from './hud/DefenceBar'
 import { ResourceBar } from './hud/ResourceBar'
@@ -54,8 +55,8 @@ export function App() {
       <div data-testid="canvas-layer" style={layerStyle(canvasAngle)}>
         <canvas ref={canvas} />
       </div>
-      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. The overlay goes under the shell so the controls stay tappable during a hold. In Tabletop mode only this layer turns at a handover, to face the active player; with it off both layers turn together. */}
-      <div data-testid="hud-layer" style={layerStyle(hudAngle, { pointerEvents: 'none' })}>
+      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. It sets the safe-area insets as variables by the physical edge each of its sides is on, so they swap with its turn. The overlay goes under the shell so the controls stay tappable during a hold. In Tabletop mode only this layer turns at a handover, to face the active player; with it off both layers turn together. */}
+      <div data-testid="hud-layer" style={layerStyle(hudAngle, { pointerEvents: 'none', ...safeAreaVars(hudAngle) })}>
         {view && (
           <>
             <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} style={fade(view.slide.chrome)} />

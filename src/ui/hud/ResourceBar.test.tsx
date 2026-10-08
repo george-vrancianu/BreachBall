@@ -20,10 +20,10 @@ describe('ResourceBar', () => {
   it('sits under the Defence bar, or above it from the bottom when flipped, and takes no pointer input', () => {
     const { container, rerender } = render(<ResourceBar bar={bar} flipped={false} />)
     const el = () => container.firstElementChild as HTMLElement
-    expect(el().style.top).toBe('28px')
+    expect(el().style.top).toBe('calc(var(--safe-top, 0px) + 28px)')
     expect(el().style.pointerEvents).toBe('none')
     rerender(<ResourceBar bar={bar} flipped />)
-    expect(el().style.bottom).toBe('28px')
+    expect(el().style.bottom).toBe('calc(var(--safe-bottom, 0px) + 28px)')
   })
   it("flashes a player's Credits when they earn a Bullseye Credit, and only theirs", () => {
     const animate = vi.fn()
