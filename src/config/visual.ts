@@ -12,9 +12,9 @@ const bg = '#070a14'
 const pitchDots = '#1c2540'
 const tokens = { bg, pitchDots, /** The ring around a primary circle: a gap in the background colour, then a dotted-grid line. */ halo: `0 0 0 4px ${bg}, 0 0 0 6px ${pitchDots}`, lines: '#3b4f7a', muted: '#8d94ab', ghostBorder: '#4a5068', ghostGlyph: '#c3c8d6', dimOutline: '#2a3147' }
 
-/** The pitch width the design handoff is authored at, px. */
 /** The keep-out arc's stroke, shared by the Pallets' Activation rings (both are no-build zones). */
 const noBuildStroke = { widthPx: 2, dashPx: [6, 6] }
+/** The pitch width the design handoff is authored at, px. */
 const referencePitchPx = 390
 
 /** Every visual value, grouped by the entity that draws or animates it. Times are ms unless named otherwise. */

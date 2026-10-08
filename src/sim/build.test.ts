@@ -285,13 +285,26 @@ describe('Activation rings', () => {
     const tower = (gx: number, gy: number): TowerSpec => ({ kind: 'tower', owner: 1, power: 'repulsor', at: { gx, gy } })
     expect(step(s, { placeWall: tower(3, 28) }, pc).events).toEqual([{ type: 'refused' }])
     expect(step(s, { placeWall: tower(5, 29) }, pc).events).toEqual([])
+    const placed = step(s, { placeWall: tower(5, 29) }, pc)
+    const move = (at: { gx: number; gy: number }) => step(placed.state, { moveStructure: { player: 1, id: placed.state.objects[0].id, at } }, pc).events
+    expect(move({ gx: 3, gy: 28 })).toEqual([{ type: 'refused' }])
+    expect(move({ gx: 7, gy: 40 })).toEqual([])
+  })
+  it('refuses an in-play tower in a ring', () => {
+    const b = withPallets()
+    const s = { ...b, match: { ...b.match, builder: null }, possession: { shooter: 1 as const, shots: pc.shots, inHand: false, live: false } }
+    const tower = (gx: number, gy: number): TowerSpec => ({ kind: 'tower', owner: 1, power: 'repulsor', at: { gx, gy } })
+    expect(step(s, { placeWall: tower(3, 28) }, pc).events).toEqual([{ type: 'refused' }])
+    expect(step(s, { placeWall: tower(5, 29) }, pc).events).toEqual([])
   })
   it('refuses the ball placed in a ring and allows it clear of one', () => {
     const s = { ...playState(1, pc), possession: { shooter: 1 as const, shots: pc.shots, inHand: true, live: false } }
     const placeBall = (at: { x: number; y: number }) => step(s, { placeBall: { player: 1, at } }, pc).state.ball.pos
     const start = s.ball.pos
-    // The ball (radius 0.5?) touching the ring's edge is inside it; well clear is placed.
+    // The whole ball (radius 1) must clear the ring (radius 5): inside is refused, and so is touching it (distance 6, inclusive); just beyond is placed.
     expect(placeBall({ x: 6, y: 58.6 })).toEqual(start)
+    expect(placeBall({ x: 6, y: 60 })).toEqual(start)
+    expect(placeBall({ x: 6, y: 60.01 })).toEqual({ x: 6, y: 60.01 })
     expect(placeBall({ x: 6, y: 62 })).toEqual({ x: 6, y: 62 })
   })
   it('refuses an in-play build in a ring', () => {
