@@ -46,8 +46,11 @@ function sweep(p: Point, d: Point, { a, b }: Segment, r: number): { t: number; n
 }
 
 /** One tick of ball motion: friction, then swept movement with bounces; walls hit hard enough lose hp. */
-/** With `breaker`, the first structure touched is destroyed outright and the ball keeps its speed. `dt` is the seconds the call covers (a tick by default). */
-export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker = false, shooter: PlayerId = 1, dt = 1 / c.tickHz): { ball: Ball; objects: Structure[]; events: SimEvent[]; breaker: boolean } {
+/**
+ * With `breaker`, the first structure touched is destroyed outright and the ball keeps its speed. A Palleted ball does the same for each of its `pierces`, one per structure, and is marked apart from the Breaker.
+ * `dt` is the seconds the call covers (a tick by default).
+ */
+export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker = false, shooter: PlayerId = 1, pierces = 0, dt = 1 / c.tickHz): { ball: Ball; objects: Structure[]; events: SimEvent[]; breaker: boolean; pierces: number } {
   const decay = 0.5 ** (dt / c.halfLife)
   let { pos, vel, rolled } = ball
   vel = { x: vel.x * decay, y: vel.y * decay }
@@ -77,17 +80,20 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker
     if (!best.wall) events.push({ type: 'ball-hit-board', speed, at: pos })
     else {
       events.push({ type: 'ball-hit-wall', wall: best.wall.id, speed, at: pos })
-      if (breaker) {
-        breaker = false
+      if (breaker || pierces > 0) {
+        // The Breaker is spent first; a Palleted ball's pierces mark nothing on the events.
+        const mark = breaker ? { breaker: true as const } : {}
+        if (breaker) breaker = false
+        else pierces--
         // A tower goes whole; a wall loses the segment it touched, and goes only with its last.
         if (best.wall.kind === 'tower') {
           const gone = { ...best.wall, hp: 0 }
           objects = objects.filter((w) => w.id !== gone.id)
-          events.push({ type: 'wall-destroyed', wall: gone, at: pos, breaker: true })
+          events.push({ type: 'wall-destroyed', wall: gone, at: pos, ...mark })
         } else {
           const r = damageSegment(objects, best.wall.id, best.segment ?? segmentAt(best.wall, pos), pos, rules.wallHp)
           objects = r.objects
-          events.push(...r.events.map((e) => (e.type === 'wall-destroyed' || e.type === 'segment-broken' ? { ...e, breaker: true as const } : e)))
+          events.push(...r.events.map((e) => (e.type === 'wall-destroyed' || e.type === 'segment-broken' ? { ...e, ...mark } : e)))
         }
         continue
       }
@@ -119,5 +125,5 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, breaker
       events.push({ type: 'repulsor-fired', tower: t.id, at: pos })
     }
   }
-  return { ball: { pos, vel, rolled }, objects, events, breaker }
+  return { ball: { pos, vel, rolled }, objects, events, breaker, pierces }
 }
