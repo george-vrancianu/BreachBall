@@ -116,10 +116,18 @@ describe('draw order', () => {
 })
 
 describe('end handles', () => {
+  /** A context that records its `arc` calls and swallows the rest; the build piece is drawn too, so it hands back a transform and a gradient. */
+  const recorder = (calls: number[][]) => {
+    const methods: Record<string | symbol, unknown> = {
+      arc: (...a: number[]) => calls.push(a),
+      getTransform: () => ({ a: 10, b: 0 }),
+      createLinearGradient: () => ({ addColorStop: () => {} }),
+    }
+    return new Proxy({}, { get: (_, k) => methods[k] ?? (() => {}), set: () => true }) as unknown as CanvasRenderingContext2D
+  }
   const arcs = (s: Structures) => {
     const calls: number[][] = []
-    // The build piece is drawn too, so the context hands back a gradient and a transform; only the arcs are recorded.
-    const rec = new Proxy({}, { get: (_, k) => (k === 'arc' ? (...a: number[]) => calls.push(a) : k === 'getTransform' ? () => ({ a: 10, b: 0 }) : () => ({ addColorStop: () => {} })), set: () => true }) as unknown as CanvasRenderingContext2D
+    const rec = recorder(calls)
     s.drawPieces(rec)
     return calls
   }
@@ -156,7 +164,7 @@ describe('Structures reset', () => {
     s.shatter(1, from)
     s.burst(from, 'red', 3)
     expect(s.particleCount).toBeGreaterThanOrEqual(3)
-    s.overlay = { ...noOverlay, piece: { spec: wall(3), blocked: false } }
+    s.overlay = { ...noOverlay, piece: { spec: { kind: 'wall', owner: 1, ...hseg(10, 40) }, blocked: false, handles: hseg(10, 40) } }
     s.reset()
     expect([s.count, s.children.length, s.overlay]).toEqual([0, 0, noOverlay])
     s.sync([tower(1)])

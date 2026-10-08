@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { rules } from '../../config/rules'
-import { defaultConfig as c, step, type SimState } from '../../sim/step'
+import { defaultConfig as c, playCost, step, type SimState } from '../../sim/step'
 import { buildState, hseg, playState } from '../../sim/testkit'
-import { structureCost, type StructureSpec, type WallSpec } from '../../sim/wall'
-import { buildOverlay, noOverlay } from './buildOverlay'
+import { structureCost, type StructureSpec, type TowerSpec, type WallSpec } from '../../sim/wall'
+import { buildOverlay, noOverlay, type OverlayBuildPiece } from './buildOverlay'
 import type { Selection } from './defenceCircle'
 
 const wall: WallSpec = { kind: 'wall', owner: 1, ...hseg(10, 40) }
-const tower: StructureSpec = { kind: 'tower', owner: 1, power: 'repulsor', at: { gx: 10, gy: 44 } }
+const tower: TowerSpec = { kind: 'tower', owner: 1, power: 'repulsor', at: { gx: 10, gy: 44 } }
 /** Player 1's build turn with `spec` placed this turn: its id is movable. */
 const placed = (spec: StructureSpec = wall): { s: SimState; id: number } => {
   const s = step(buildState(1), { placeWall: spec }, c).state
@@ -27,6 +26,10 @@ describe('buildOverlay', () => {
   it('a selected tower is the build piece with no handles', () => {
     const { s, id } = placed(tower)
     expect(of(s, { spec: tower, id, movable: true }).piece?.handles).toBeUndefined()
+    // The type keeps handles and a Credit cost on a Wall's branch: a tower piece cannot carry them.
+    // @ts-expect-error a tower build piece has no handles
+    const bad: OverlayBuildPiece = { spec: tower, blocked: false, handles: { a: wall.a, b: wall.b } }
+    expect(bad.spec.kind).toBe('tower')
   })
 
   it('an older wall (not movable) is only selected: no build piece, no handles, nothing hidden', () => {
@@ -67,7 +70,7 @@ describe('buildOverlay', () => {
   it('reads a Credit cost only on a new unplaced wall: a build turn\'s price, or the in-play price when no builder', () => {
     const { s, id } = placed()
     expect(of(buildState(1), { spec: wall, movable: true }).piece?.cost).toBe(structureCost(wall))
-    expect(of(playState(), { spec: wall, movable: true }).piece?.cost).toBe(rules.playBuild.wallUnitCost)
+    expect(of(playState(), { spec: wall, movable: true }).piece?.cost).toBe(playCost(wall))
     expect(of(s, { spec: wall, id, movable: true }).piece?.cost).toBeUndefined()
     expect(of(buildState(1), { spec: tower, movable: true }).piece?.cost).toBeUndefined()
   })

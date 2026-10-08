@@ -29,9 +29,10 @@ const make = (d: FixtureData): Fixture => (d.kind === 'tower' ? new Tower(d) : n
  * Every wall and tower, keyed by sim id. `sync` creates a child as an object appears; one that leaves the sim is dropped at once,
  * unless it was told to `shatter`, in which case it stays until the shatter ends. Draws the Build overlay (`overlay`) and holds hit particles too.
  * What flies above the ball and aim (fragments, particles, landing, build piece) is drawn by `fx`, which the game adds to the camera after them.
+ * The Build overlay is a pure view model from `game/view` (`buildOverlay`): the entity takes it as input and draws it, it never derives it.
  */
 export class Structures extends Entity {
-  /** The Build overlay this frame shows (build piece, landing piece, handles, cost label, hidden, selected and movable ids): one value from `buildOverlay`, so its invariants hold by construction. */
+  /** The Build overlay this frame shows (build piece, landing piece, handles, cost label, hidden, selected and movable ids): one read-only value from `buildOverlay`, which keeps its rules. */
   overlay: BuildOverlay = noOverlay
   /** The viewer is Player 2, whose end the stage is turned to or, in Tabletop mode, who sits across the table: text and lighting are turned for their view so they read upright. */
   flipped = false
