@@ -1,6 +1,7 @@
 import { rules } from '../config/rules'
 import { centreSpot, halfOf, type PlayerId, type Point } from './pitch'
 import { insideTower, nearestOnWall } from './near'
+import { inActivationRing } from './pallet'
 import type { SimConfig, SimEvent, SimState } from './step'
 import type { Structure } from './wall'
 
@@ -12,13 +13,14 @@ export const whoActs = (s: SimState): PlayerId => s.match.builder ?? s.match.cho
 
 export const opponent = (p: PlayerId): PlayerId => (p === 1 ? 2 : 1)
 
-/** Own half strictly (not the line), inside the boards, clear of every wall. The no-build zone does not apply. */
+/** Own half strictly (not the line), inside the boards, clear of every wall and of every Activation ring (the whole ball, as for a wall). The no-build zone does not apply. */
 export function canPlaceBall(player: PlayerId, at: Point, objects: Structure[], c: SimConfig): boolean {
   const r = c.ballRadius
   return (
     halfOf(at.y) === player &&
     at.x >= r && at.x <= rules.pitchWidth - r && at.y >= rules.board && at.y <= rules.pitchHeight - rules.board &&
-    objects.every((w) => nearestOnWall(w, at).dist > r + rules.wallHalf && !insideTower(w, at))
+    objects.every((w) => nearestOnWall(w, at).dist > r + rules.wallHalf && !insideTower(w, at)) &&
+    !inActivationRing(c.pallets, (p) => Math.hypot(at.x - p.x, at.y - p.y), r)
   )
 }
 

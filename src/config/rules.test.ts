@@ -10,6 +10,9 @@ describe('rules', () => {
     expect([rules.goalLeft, rules.goalRight]).toEqual([15, 25])
     expect([rules.mapTop, rules.mapHeight, rules.mapY]).toEqual([-4, 116, 54])
   })
+  it('puts the default Pallets on the halfway line, each Activation ring a unit clear of a side board', () => {
+    expect(rules.pallet.spots).toEqual([{ x: 6, y: 54 }, { x: 34, y: 54 }])
+  })
   it('sizes the Shot tiers\' control radii to fit a phone: Touch 150 px, Power 84 px', () => {
     expect(rules.shot.tiers.map((t) => [t.name, t.radiusPx])).toEqual([['Touch', 150], ['Power', 84]])
   })

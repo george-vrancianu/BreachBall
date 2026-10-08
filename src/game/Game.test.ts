@@ -7,7 +7,6 @@ import { LocalDriver, type Driver } from './driver'
 import type { Structure } from '../sim/wall'
 import { Game, type HudView } from './Game'
 import { hseg } from '../sim/testkit'
-import { STRATEGIES } from './view/strategies'
 import type { Transition } from './view/transition'
 
 // No DOM in the test run: a canvas that is an EventTarget, a window that is one, a context that swallows every call.
@@ -156,10 +155,12 @@ describe('Game', () => {
       const { game, step, view } = opened('rounds')
       const builder = game.state.match.builder!
       const credits = game.state.credits[builder]
-      const pieces = (id: string) => STRATEGIES.find((st) => st.id === id)!.pieces.length
       game.actions.strategies.toggle()
       step()
-      const bulwarkCost = view().strategies!.find((k) => k.id === 'bulwark')!.cost
+      // The pieces each card says fit: a piece in an Activation ring is skipped.
+      const cards = view().strategies!
+      const pieces = (id: string) => cards.find((k) => k.id === id)!.placed
+      const bulwarkCost = cards.find((k) => k.id === 'bulwark')!.cost
       game.actions.strategies.apply('chevron')
       for (let i = 0; i < 60; i++) step()
       expect(game.state.objects.filter((o) => o.owner === builder)).toHaveLength(pieces('chevron'))

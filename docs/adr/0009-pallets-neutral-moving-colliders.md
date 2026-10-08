@@ -21,9 +21,9 @@ Until now every collider in the sim was static and every piece of the map had an
 
 ## Consequences
 
-- **Config:** `SimConfig.pallets: PalletSpot[]`, with a default per game mode. Both Rounds and Siege default to two spots on the halfway line at (6, 54) and (34, 54): Activation ring radius 5, arm length 2.5 (the ring must cover the arm, its tip and a ball on each side), swing and idle tunables in `rules`. A Settings toggle turns Pallets off.
-- **Build rules:** each Activation ring is a no-build zone, like the Centre zone. This covers ball-in-hand placement too.
+- **Config:** `SimConfig.pallets: readonly PalletSpot[]`, with a default per game mode (`GameMode.pallets`). Both Rounds and Siege default to two spots on the halfway line at (6, 54) and (34, 54) (`rules.pallet.spots`): Activation ring radius 5, arm length 2.5 (the ring must cover the arm, its tip and a ball on each side), swing and idle tunables in `rules`. A Settings toggle (`palletsOn`, on by default) turns Pallets off, leaving `SimConfig.pallets` empty.
+- **Build rules:** each Activation ring is a no-build zone, like the Centre zone: a wall's centreline and a tower's cell must stay outside it. This covers ball-in-hand placement too, where the whole ball must stay outside. One rule, `inActivationRing`, serves both.
 - **Palleted ball:** a Pallet hit sets 2 pierces. While pierces remain, each touched Wall segment breaks fully and each tower is destroyed outright, either player's, with no speed threshold. The ball keeps its speed, as with the Breaker. A destroyed Repulsor or Steal does not fire. Bouncing off the boards keeps the pierces. The state ends when both pierces are spent or the ball comes to rest. A new Pallet hit resets it to 2.
 - **Ghost cost:** one `predictPath` per frame while aiming.
-- **Rendering:** a faint dashed ring that brightens while tracking, swing ghosts and a hit flash, always visible through Fog. Pallets are not drawn on the Minimap chip.
+- **Rendering:** a faint dashed ring that brightens while tracking, swing ghosts and a hit flash, always visible through Fog. During a build each ring is dashed in the builder's colour, like the Keep-out arc. Pallets are not drawn on the Minimap chip.
 - **Determinism:** the substeps are fixed-count and float-only, the same as the rest of the sim. Determinism tests must cover a Pallet swat.

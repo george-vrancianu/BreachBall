@@ -71,21 +71,22 @@ export const canAffordTower = (s: Pick<SimState, 'match' | 'credits' | 'players'
 /**
  * Whether `spec` may be placed as it stands: payable (Credits for the price, or stock for a Siege tower) and a legal spot against the objects.
  * Who is building, and whether this turn may edit, are the caller's: the sim's `placeWall` and the build preview share this.
+ * `pallets` is the match's Pallet spots (`config.pallets`), whose Activation rings are no-build zones.
  */
-export function canPlace(s: Ledger, spec: StructureSpec): boolean {
+export function canPlace(s: Ledger, spec: StructureSpec, pallets: readonly PalletSpot[]): boolean {
   const payable = spec.kind === 'wall' ? s.credits[spec.owner] >= wallCost(spec) : canAffordTower(s, spec.owner, spec.power)
-  return payable && isLegal(spec, s.objects)
+  return payable && isLegal(spec, s.objects, pallets)
 }
 
 /**
  * Whether structure `id` may take the shape `spec`: it exists and is of that kind, the spot is legal ignoring itself, and the Credit difference
  * is covered. A turn that may only move pieces (Rearrange) refuses any change of a wall's length. Who may move it is the caller's.
  */
-export function canMove(s: Ledger, id: number, spec: StructureSpec): boolean {
+export function canMove(s: Ledger, id: number, spec: StructureSpec, pallets: readonly PalletSpot[]): boolean {
   const was = s.objects.find((o) => o.id === id)
   if (!was || was.kind !== spec.kind) return false
   const diff = moveDiff(was, spec)
-  return (diff === 0 || (canEdit(s) && s.credits[spec.owner] >= diff)) && isLegal(spec, s.objects.filter((o) => o.id !== id))
+  return (diff === 0 || (canEdit(s) && s.credits[spec.owner] >= diff)) && isLegal(spec, s.objects.filter((o) => o.id !== id), pallets)
 }
 
 /** Credits an in-play build of `spec` costs (`rules.playBuild`): a wall by its units, a tower at its in-play price. */
@@ -96,9 +97,9 @@ export const canPlayBuild = (s: Pick<SimState, 'match' | 'possession'>, p: Playe
   modeFor(s.match).mayPlayBuild(s.match) && !s.match.builder && !s.match.choosing && !s.match.winner && s.possession.shooter === p && !s.possession.live
 
 /** Whether `spec` may be placed now, by whichever way is open: a build turn's `canPlace`, else an in-play build at its in-play price. */
-export function placeable(s: Ledger & Pick<SimState, 'possession'>, spec: StructureSpec): boolean {
-  if (s.match.builder) return canPlace(s, spec)
-  return canPlayBuild(s, spec.owner) && s.credits[spec.owner] >= playCost(spec) && isLegal(spec, s.objects)
+export function placeable(s: Ledger & Pick<SimState, 'possession'>, spec: StructureSpec, pallets: readonly PalletSpot[]): boolean {
+  if (s.match.builder) return canPlace(s, spec, pallets)
+  return canPlayBuild(s, spec.owner) && s.credits[spec.owner] >= playCost(spec) && isLegal(spec, s.objects, pallets)
 }
 
 export type SimEvent =
@@ -224,8 +225,8 @@ export type SimConfig = {
   buildTime: number
   /** What an expiring shot clock does: 'shoot' shoots the held aim (burning if there is none), 'burn' always burns the shot. */
   expiry: 'shoot' | 'burn'
-  /** Pivots of the map's Pallets; none by default. */
-  pallets: PalletSpot[]
+  /** Pivots of the map's Pallets; none by default (`configFrom` sets the mode's). */
+  pallets: readonly PalletSpot[]
 }
 
 export const defaultConfig: SimConfig = {
@@ -282,9 +283,11 @@ export function step(
   const { placeWall, demolish, moveStructure: move } = input
   // A Rearrange turn moves pieces only: placing and demolishing are refused.
   const edit = mode.mayEdit(match)
+  /** What the place/move checks read, as it stands now. */
+  const ledger = (): Ledger => ({ objects, credits, players, match })
   /** Places a piece for the builder if cost (or Siege stock) and position allow. */
   const place = (spec: StructureSpec): boolean => {
-    if (spec.owner !== match.builder || !canPlace({ objects, credits, players, match }, spec)) return false
+    if (spec.owner !== match.builder || !canPlace(ledger(), spec, config.pallets)) return false
     players = restocked(match, players, spec, 1)
     built = [...built, nextId]
     objects = [...objects, newStructure(spec, nextId++)]
@@ -293,7 +296,7 @@ export function step(
   }
   /** An in-play build: placed at its in-play price and never added to `built`, so it can be neither moved nor demolished. */
   const placeInPlay = (spec: StructureSpec): boolean => {
-    if (!placeable({ objects, credits, players, match, possession: state.possession }, spec)) return false
+    if (!placeable({ ...ledger(), possession: state.possession }, spec, config.pallets)) return false
     objects = [...objects, newStructure(spec, nextId++)]
     credits = { ...credits, [spec.owner]: credits[spec.owner] - playCost(spec) }
     return true
@@ -303,7 +306,7 @@ export function step(
     const it = objects.find((o) => o.id === move.id)
     const spec: StructureSpec | undefined = it && (it.kind === 'wall' ? ('a' in move ? { kind: 'wall', owner: move.player, a: move.a, b: move.b } : undefined) : 'at' in move ? { kind: 'tower', owner: move.player, power: it.power, at: move.at } : undefined)
     // A wall's length may change by its ends: the Credit difference is charged (or refunded).
-    if (it && spec && move.player === match.builder && it.owner === move.player && built.includes(move.id) && canMove({ objects, credits, players, match }, move.id, spec)) {
+    if (it && spec && move.player === match.builder && it.owner === move.player && built.includes(move.id) && canMove(ledger(), move.id, spec, config.pallets)) {
       // A resize re-creates full segments (a build turn's own pieces are undamaged); a plain move keeps every segment's health, Gaps included.
       const moved: Structure = it.kind === 'wall' && spec.kind === 'wall' ? (segmentCount(spec) !== it.segments.length ? newStructure(spec, it.id) : { ...it, ...spec }) : it.kind === 'tower' && spec.kind === 'tower' ? { ...it, ...spec } : it
       objects = objects.map((o) => (o.id === move.id ? moved : o))

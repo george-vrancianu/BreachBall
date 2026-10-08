@@ -3,7 +3,7 @@ import { coinFlip } from './match'
 import { opponent } from './possession'
 import { defaultConfig as c, initialState, step, type SimInput, type SimState } from './step'
 import { rules } from '../config/rules'
-import { healthOf, buildState, roundsMatch, hseg } from './testkit'
+import { healthOf, buildState, playState, roundsMatch, hseg } from './testkit'
 import type { TowerSpec, Wall, WallSpec } from './wall'
 
 const wall = (owner: 1 | 2, units = 1): WallSpec => ({ kind: 'wall', owner, ...hseg(10, owner === 1 ? 40 : 10, units) })
@@ -261,5 +261,56 @@ describe('moving and refunding this turn\'s items', () => {
     const r = step(s, { demolish: { player: loser, wall: 1 } }, c)
     expect(r.events).toEqual([])
     expect(r.state.credits[loser]).toBe(c.credits - 1)
+  })
+})
+
+describe('Activation rings', () => {
+  const pc = { ...c, pallets: rules.pallet.spots }
+  /** Player 1's build turn on a map with the default Pallets; the ring around (6, 54) reaches y 59. */
+  const withPallets = (): SimState => {
+    const s = playState(1, pc)
+    return { ...s, match: { ...s.match, builder: 1 } }
+  }
+  const inRing: WallSpec = { kind: 'wall', owner: 1, a: { x: 2, y: 58 }, b: { x: 10, y: 58 } }
+  const clear: WallSpec = { kind: 'wall', owner: 1, a: { x: 2, y: 60 }, b: { x: 10, y: 60 } }
+  it('refuses placing or moving a piece into a ring, and allows one clear of it', () => {
+    const s = withPallets()
+    expect(step(s, { placeWall: inRing }, pc).events).toEqual([{ type: 'refused' }])
+    const placed = step(s, { placeWall: clear }, pc)
+    expect(placed.events).toEqual([])
+    expect(step(placed.state, { moveStructure: { player: 1, id: placed.state.objects[0].id, a: inRing.a, b: inRing.b } }, pc).events).toEqual([{ type: 'refused' }])
+  })
+  it('refuses a tower in a ring and allows one clear of it', () => {
+    const s = withPallets()
+    const tower = (gx: number, gy: number): TowerSpec => ({ kind: 'tower', owner: 1, power: 'repulsor', at: { gx, gy } })
+    expect(step(s, { placeWall: tower(3, 28) }, pc).events).toEqual([{ type: 'refused' }])
+    expect(step(s, { placeWall: tower(5, 29) }, pc).events).toEqual([])
+    const placed = step(s, { placeWall: tower(5, 29) }, pc)
+    const move = (at: { gx: number; gy: number }) => step(placed.state, { moveStructure: { player: 1, id: placed.state.objects[0].id, at } }, pc).events
+    expect(move({ gx: 3, gy: 28 })).toEqual([{ type: 'refused' }])
+    expect(move({ gx: 7, gy: 40 })).toEqual([])
+  })
+  it('refuses an in-play tower in a ring', () => {
+    const b = withPallets()
+    const s = { ...b, match: { ...b.match, builder: null }, possession: { shooter: 1 as const, shots: pc.shots, inHand: false, live: false } }
+    const tower = (gx: number, gy: number): TowerSpec => ({ kind: 'tower', owner: 1, power: 'repulsor', at: { gx, gy } })
+    expect(step(s, { placeWall: tower(3, 28) }, pc).events).toEqual([{ type: 'refused' }])
+    expect(step(s, { placeWall: tower(5, 29) }, pc).events).toEqual([])
+  })
+  it('refuses the ball placed in a ring and allows it clear of one', () => {
+    const s = { ...playState(1, pc), possession: { shooter: 1 as const, shots: pc.shots, inHand: true, live: false } }
+    const placeBall = (at: { x: number; y: number }) => step(s, { placeBall: { player: 1, at } }, pc).state.ball.pos
+    const start = s.ball.pos
+    // The whole ball (radius 1) must clear the ring (radius 5): inside is refused, and so is touching it (distance 6, inclusive); just beyond is placed.
+    expect(placeBall({ x: 6, y: 58.6 })).toEqual(start)
+    expect(placeBall({ x: 6, y: 60 })).toEqual(start)
+    expect(placeBall({ x: 6, y: 60.01 })).toEqual({ x: 6, y: 60.01 })
+    expect(placeBall({ x: 6, y: 62 })).toEqual({ x: 6, y: 62 })
+  })
+  it('refuses an in-play build in a ring', () => {
+    const b = withPallets()
+    const s = { ...b, match: { ...b.match, builder: null }, possession: { shooter: 1 as const, shots: pc.shots, inHand: false, live: false } }
+    expect(step(s, { placeWall: inRing }, pc).events).toEqual([{ type: 'refused' }])
+    expect(step(s, { placeWall: clear }, pc).events).toEqual([])
   })
 })

@@ -1,6 +1,7 @@
 import type { Point } from '../../sim/pitch'
 import { playCost, type SimState } from '../../sim/step'
 import { structureCost, type StructureSpec, type TowerSpec, type WallSpec } from '../../sim/wall'
+import type { PalletSpot } from '../../sim/pallet'
 import { legal, type Selection } from './defenceCircle'
 
 /** A translucent piece drawn over the pitch: its spec, and the sim id it stands in for when it is a placed structure (so a damaged wall keeps its Wall segments, Gaps and cracks while it moves). */
@@ -50,10 +51,10 @@ export const noOverlay: BuildOverlay = { hidden: [], movable: [] }
  * The Build overlay for this frame, from the sim state, the builder's `selection` and `landing` (as `InputController` holds them) and
  * whether the Map view is open. A movable selection becomes the build piece; an older one is only `selected`. Pure: same inputs, same value.
  */
-export function buildOverlay(s: SimState, v: { selection?: Selection; landing?: Selection; mapOpen: boolean }): BuildOverlay {
+export function buildOverlay(s: SimState, v: { selection?: Selection; landing?: Selection; mapOpen: boolean; /** The match's Pallet spots (`config.pallets`), whose Activation rings are no-build zones. */ pallets: readonly PalletSpot[] }): BuildOverlay {
   if (v.mapOpen) return noOverlay
   const sel = v.selection
-  const piece = sel?.movable ? pieceOf(s, sel) : undefined
+  const piece = sel?.movable ? pieceOf(s, sel, v.pallets) : undefined
   const landing = v.landing && { spec: v.landing.spec, id: v.landing.id }
   return {
     piece,
@@ -65,9 +66,9 @@ export function buildOverlay(s: SimState, v: { selection?: Selection; landing?: 
 }
 
 /** The build piece of a movable selection: grab handles on a wall, the live Credit cost on a new wall (in-play prices when no build turn is running). */
-function pieceOf(s: SimState, sel: Selection): OverlayBuildPiece {
+function pieceOf(s: SimState, sel: Selection, pallets: readonly PalletSpot[]): OverlayBuildPiece {
   const { spec, id } = sel
-  const blocked = !legal(s, sel)
+  const blocked = !legal(s, sel, pallets)
   if (spec.kind === 'tower') return { spec, id, blocked }
   return { spec, id, blocked, handles: { a: spec.a, b: spec.b }, ...(id === undefined && { cost: s.match.builder ? structureCost(spec) : playCost(spec) }) }
 }

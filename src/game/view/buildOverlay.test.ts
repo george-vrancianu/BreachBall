@@ -12,7 +12,7 @@ const placed = (spec: StructureSpec = wall): { s: SimState; id: number } => {
   const s = step(buildState(1), { placeWall: spec }, c).state
   return { s, id: s.objects[0].id }
 }
-const of = (s: SimState, selection?: Selection, landing?: Selection, mapOpen = false) => buildOverlay(s, { selection, landing, mapOpen })
+const of = (s: SimState, selection?: Selection, landing?: Selection, mapOpen = false) => buildOverlay(s, { selection, landing, mapOpen, pallets: [] })
 
 describe('buildOverlay', () => {
   it('a selected movable wall is the build piece, with handles on its two ends and its id hidden', () => {

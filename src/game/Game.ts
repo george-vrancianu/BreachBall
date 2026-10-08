@@ -303,6 +303,7 @@ export class Game implements Sink {
     const s = this.driver.start(this.config, seed)
     // Sim ids restart, so the last match's visual state must not leak into this one.
     for (const e of [this.camera, this.structures, this.gauge, this.ball, this.aim, this.pitch]) e.reset()
+    this.pitch.pallets = this.config.pallets
     this.input.resetBuild()
     this.menuOpen = false
     this.strategiesOpen = false
@@ -393,7 +394,7 @@ export class Game implements Sink {
     const { state, input, structures, mapOpen } = this
     const { builder } = state.match
     const { shooter } = state.possession
-    structures.overlay = buildOverlay(state, { selection: input.selection, landing: input.landing, mapOpen })
+    structures.overlay = buildOverlay(state, { selection: input.selection, landing: input.landing, mapOpen, pallets: this.config.pallets })
     structures.flipped = this.viewerTurned()
     const aim = mapOpen ? undefined : input.aimView()
     const buzz = tierBuzz(this.ball.aim, aim)

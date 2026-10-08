@@ -2,6 +2,7 @@ import { visual } from '../../config/visual'
 import { rules } from '../../config/rules'
 import { modeFor } from '../../sim/mode'
 import { nearestOnWall } from '../../sim/near'
+import type { PalletSpot } from '../../sim/pallet'
 import { halfSpan, type PlayerId, type Point } from '../../sim/pitch'
 import { canAffordTower, canEdit, canMove, canPlayBuild, placeable, type SimInput, type SimState } from '../../sim/step'
 import { distToSegment, rotatedWall, translatedWall, vertexToWorld, wallCost, type WallSpec, type StructureSpec, type TowerPower } from '../../sim/wall'
@@ -82,8 +83,8 @@ export function snapBody(w: WallSpec, objects: SimState['objects'], selfId: numb
 }
 
 /** Legal where it stands (ignoring itself when moved) and affordable: the sim's own `placeable` for a new piece (a build turn's prices, or in-play prices), `canMove` for one of the builder's structures. */
-export function legal(s: SimState, sel: Selection): boolean {
-  return sel.id === undefined ? placeable(s, sel.spec) : canMove(s, sel.id, sel.spec)
+export function legal(s: SimState, sel: Selection, pallets: readonly PalletSpot[]): boolean {
+  return sel.id === undefined ? placeable(s, sel.spec, pallets) : canMove(s, sel.id, sel.spec, pallets)
 }
 
 /** Who builds now: the build turn's builder, else the shooter while an in-play build is open to them (Rounds, before the round's first shot). */

@@ -1,15 +1,17 @@
 import { expect, it } from 'vitest'
+import { rules } from '../../config/rules'
 import { defaultConfig } from '../../sim/step'
 import { pausesSim, settingRows } from './sideMenu'
 
-it('lists a Rounds match: mode, rounds, Credits per round, Opening Credits, refund rate, On time out', () => {
-  expect(settingRows({ ...defaultConfig, mode: 'rounds', rounds: 7, credits: 12, openingCredits: 50, refundRate: 3, expiry: 'burn' })).toEqual([
+it('lists a Rounds match: mode, rounds, Credits per round, Opening Credits, refund rate, On time out, Pallets', () => {
+  expect(settingRows({ ...defaultConfig, mode: 'rounds', rounds: 7, credits: 12, openingCredits: 50, refundRate: 3, expiry: 'burn', pallets: rules.pallet.spots })).toEqual([
     { label: 'Mode', value: 'Rounds' },
     { label: 'Rounds', value: '7' },
     { label: 'Credits per round', value: '12 credits' },
     { label: 'Opening Credits', value: '50 credits' },
     { label: 'Refund rate', value: '3 credits' },
     { label: 'On time out', value: 'Burn' },
+    { label: 'Pallets', value: 'On' },
   ])
 })
 
@@ -18,6 +20,7 @@ it('lists a Siege match without rounds or refunds, its Opening amount as Wall po
     { label: 'Mode', value: 'Siege' },
     { label: 'Wall points', value: '30 pts' },
     { label: 'On time out', value: 'Shoot' },
+    { label: 'Pallets', value: 'Off' },
   ])
 })
 
