@@ -111,6 +111,10 @@ describe('hudModel', () => {
       const shooter = s.possession.shooter
       expect(hudModel(s, defaultConfig, { ...view, active: shooter }).refundable).toBe(true)
     })
+    it('are not refundable behind a blocking hold or the Side menu', () => {
+      const s = placed()
+      expect(hudModel(s, defaultConfig, { ...view, active: s.possession.shooter, blocked: true }).refundable).toBe(false)
+    })
     it('are not refundable for the other seat, in ball-in-hand, mid-shot or in Siege', () => {
       const s = placed()
       const shooter = s.possession.shooter
