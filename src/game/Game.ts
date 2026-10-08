@@ -433,8 +433,8 @@ export class Game implements Sink {
     if (this.viewCam() === mapCam) mapCam.draw(ctx, camera.children, camera.shakeNow)
     else camera.draw(ctx)
     this.fog.draw(ctx)
-    // Fog covers the world, so in a blind build the Pallets are drawn once more over it.
-    if (this.fog.blind) this.viewCam().through(ctx, this.camera.shakeNow, () => this.pallets.draw(ctx))
+    // Fog covers the world, so in a blind build the Pallets are drawn once more over the covered half.
+    this.fog.drawOver(ctx, this.pallets)
     this.edgeFade.draw(ctx)
     if (this.mapOpen) {
       // The main view's frame: dashed, with solid corner brackets.
