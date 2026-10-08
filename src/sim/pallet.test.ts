@@ -220,21 +220,21 @@ describe('determinism', () => {
 })
 
 describe('steal inside a substepped tick', () => {
-  it('leaves the ball at rest once a Steal triggers', () => {
-    // Player 2's Steal tower inside the ring, short of the arm: the ball reaches it on a substepped tick before any swat (a Palleted ball would pierce it).
+  it('leaves the ball at rest once a Steal triggers mid-swing, with the arm about to reach it', () => {
+    // Player 2's Steal tower just beyond the pivot (cell x 10 to 12, y 32 to 34); the ball starts between, inside the arm's reach, and is hit by the swing a few substeps after it stops.
     // The ring is a no-build zone, so the tower goes down before the Pallet does.
-    const built = place({ kind: 'tower', owner: 2, power: 'steal', at: { gx: 3, gy: 16 } }, playState(1)).state
-    const placed = { ...built, pallets: initialPallets([PIVOT], 1) }
-    let s = live(placed, { x: 7, y: 45 }, { x: 0, y: -40 })
+    const built = place({ kind: 'tower', owner: 2, power: 'steal', at: { gx: 5, gy: 16 } }, playState(1)).state
+    const placed = { ...built, pallets: initialPallets([PIVOT], 1).map((q) => ({ ...q, angle: -0.3, phase: 'swing' as const, dir: 1 as const, swept: 0, sweepNeed: 2.4 })) }
+    let s = live(placed, { x: 11.8, y: 30.6 }, { x: 0, y: 40 })
     expect(s.possession.shooter).toBe(1)
-    let stolen = false
-    for (let i = 0; i < 60 && !stolen; i++) {
-      const r = step(s, {}, config)
-      s = r.state
-      stolen = r.events.some((e) => e.type === 'steal-triggered')
-    }
-    expect(stolen).toBe(true)
-    expect(s.ball.vel).toEqual({ x: 0, y: 0 })
+    const r = step(s, {}, config)
+    // The Steal fires while the Pallet is still swinging, before the arm has met the ball.
+    expect(r.events.some((e) => e.type === 'steal-triggered')).toBe(true)
+    expect(r.events.some((e) => e.type === 'pallet-hit')).toBe(false)
+    expect(s.pallets[0].phase).toBe('swing')
+    expect(r.state.pallets[0].phase).toBe('swing')
+    expect(r.state.ball.vel).toEqual({ x: 0, y: 0 })
+    s = r.state
     const at = s.ball.pos
     for (let i = 0; i < 10; i++) {
       s = step(s, {}, config).state

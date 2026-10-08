@@ -253,5 +253,5 @@ The circle around a Pallet's pivot inside which it tracks the ball. It is drawn 
 _Avoid_: Pallet radius, range
 
 **Palleted ball**:
-A ball a Pallet has just swatted. It carries 2 pierces: each Wall segment or tower it touches, either player's, breaks or is destroyed outright and uses up one pierce, and the ball keeps its speed. A destroyed Repulsor or Steal does not fire. Bouncing off the boards keeps the pierces. The state ends when both are spent or the ball comes to rest, and a new swat resets it to 2. Not the same as Charged.
+A ball a Pallet has just swatted. It carries 2 pierces: each Wall segment or tower it touches, either player's, breaks or is destroyed outright and uses up one pierce, and the ball keeps its speed. A destroyed Repulsor or Steal does not fire. Bouncing off the boards keeps the pierces. A Joint between two segments is one touch, not two. The state ends when both are spent, the ball comes to rest or the shot ends, and a new swat resets it to 2. A Breaker shot that is swatted spends its Breaker first and keeps the 2 pierces, so it breaks 3 pieces in all. Not the same as Charged.
 _Avoid_: Charged, swatted, super ball
