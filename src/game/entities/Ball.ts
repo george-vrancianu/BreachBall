@@ -9,7 +9,6 @@ import type { AimView } from '../input/InputController'
 import { tierColor } from './Aim'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
-import { palleted } from './palletLook'
 import { clearOf, Tracer } from './Tracer'
 
 /** Disc with the Tracer behind it (its glowing tail, sparks and bounce flashes) and a dot that rolls with the distance travelled. */
@@ -162,7 +161,7 @@ export class Ball extends Entity {
       this.drawDisc(ctx, { pos: { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k }, vel: { x: 0, y: 0 }, rolled: this.state.rolled }, 1 - k)
     } else this.drawDisc(ctx, this.state, 1)
     if (this.charge && !this.stealing) this.drawCharge(ctx, this.charge)
-    if (palleted(this.pierces) && !this.stealing) this.drawPalleted(ctx)
+    if (this.pierces > 0 && !this.stealing) this.drawPalleted(ctx)
     if (this.armed) {
       const { radius, swing, periodMs, width } = visual.ball.armed
       ctx.beginPath()

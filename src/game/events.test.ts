@@ -19,7 +19,7 @@ const wall: Structure = { id: 1, kind: 'wall', owner: 1, ...hseg(10, 40), segmen
 const tower: Structure = { id: 2, kind: 'tower', owner: 2, power: 'repulsor', at: { gx: 5, gy: 10 }, hp: 3 }
 
 function setup(objects: Structure[]) {
-  const t = { camera: new Camera(54), structures: new Structures(), ball: new Ball(), aim: new Aim(), pitch: new Pitch(), pallets: new Pallets(() => new Camera(54), () => ({ x: 0, y: 0 })), vibrate: vi.fn() }
+  const t = { camera: new Camera(54), structures: new Structures(), ball: new Ball(), aim: new Aim(), pitch: new Pitch(), pallets: new Pallets(), vibrate: vi.fn() }
   t.structures.sync(objects)
   t.aim.sync({ ...playState(), ball: t.ball.state }, defaultConfig)
   const route = (events: SimEvent[], left: Structure[]) => routeEvents(events, t, left)

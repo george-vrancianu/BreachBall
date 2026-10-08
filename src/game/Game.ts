@@ -129,8 +129,8 @@ export class Game implements Sink {
   readonly ball = new Ball()
   readonly aim = new Aim()
   readonly fog = new Fog(() => this.viewCam(), () => this.camera.shakeNow)
-  /** Top-level like the fog and drawn after it, so the Pallets show through a blind build's fog. */
-  readonly pallets = new Pallets(() => this.viewCam(), () => this.camera.shakeNow)
+  /** In the camera tree under the ball; a blind build draws it again over the fog. */
+  readonly pallets = new Pallets()
   readonly edgeFade = new EdgeFade(() => this.viewCam())
   readonly actions: GameActions
   state!: SimState
@@ -163,6 +163,7 @@ export class Game implements Sink {
     this.ctx = canvas.getContext('2d')!
     this.camera.add(this.pitch)
     this.camera.add(this.structures)
+    this.camera.add(this.pallets)
     this.camera.add(this.gauge)
     this.camera.add(this.ball)
     this.camera.add(this.aim)
@@ -365,7 +366,6 @@ export class Game implements Sink {
     this.resize()
     // Clocks advance before the sim ticks, so an effect the tick starts is drawn at age 0.
     this.camera.update(dt)
-    this.pallets.update(dt)
     this.driver.update(dt)
     this.announce([])
     // The Side menu is the HUD's: it must not turn under the finger, so a mid-match change of Tabletop mode waits for it to close.
@@ -411,6 +411,7 @@ export class Game implements Sink {
     this.pitch.builder = builder ?? (input.item ? builderNow(state) ?? undefined : undefined)
     this.pitch.charge = this.ball.charge = state.charge
     this.pallets.pallets = state.pallets
+    this.pallets.buildRing = this.pitch.builder !== undefined
     this.ball.pierces = state.pierces
     this.ball.radius = this.config.ballRadius
     this.ball.tracer.pxPerUnit = this.camera.view(this.canvas).sy / this.dpr
@@ -432,7 +433,8 @@ export class Game implements Sink {
     if (this.viewCam() === mapCam) mapCam.draw(ctx, camera.children, camera.shakeNow)
     else camera.draw(ctx)
     this.fog.draw(ctx)
-    this.pallets.draw(ctx)
+    // Fog covers the world, so in a blind build the Pallets are drawn once more over it.
+    if (this.fog.blind) this.viewCam().through(ctx, this.camera.shakeNow, () => this.pallets.draw(ctx))
     this.edgeFade.draw(ctx)
     if (this.mapOpen) {
       // The main view's frame: dashed, with solid corner brackets.

@@ -115,17 +115,25 @@ describe('Ball hold ring', () => {
 })
 
 describe('Ball Palleted look', () => {
-  it('draws a halo and a ring only while it has pierces left', () => {
-    const rings = (pierces: number) => {
+  it('draws a halo and a ring in the Pallets\' colour only while it has pierces left', () => {
+    const drawn = (pierces: number) => {
       const b = new Ball()
       b.pierces = pierces
-      const arcs: unknown[][] = []
-      const ctx = new Proxy({}, { get: (_t, k: string) => (k === 'arc' ? (...a: unknown[]) => void arcs.push(a) : k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : () => {}), set: () => true }) as unknown as CanvasRenderingContext2D
+      const ringArcs: unknown[][] = []
+      const strokes: unknown[] = []
+      const gradients: unknown[][] = []
+      let style: unknown
+      const ctx = new Proxy({}, {
+        get: (_t, k: string) => (k === 'arc' ? (...a: unknown[]) => void ringArcs.push(a) : k === 'stroke' ? () => void strokes.push(style) : k === 'createRadialGradient' ? (...a: unknown[]) => (gradients.push(a), { addColorStop() {} }) : () => {}),
+        set: (_t, k: string, v) => (k === 'strokeStyle' && (style = v), true),
+      }) as unknown as CanvasRenderingContext2D
       b.draw(ctx)
-      return arcs.filter((a) => a[2] === b.radius + visual.pallet.palleted.ring.offset).length
+      return { colored: strokes.filter((c) => c === visual.pallet.color).length, rings: ringArcs.filter((a) => a[2] === b.radius + visual.pallet.palleted.ring.offset), halos: gradients.filter((g) => g[5] === b.radius * visual.pallet.palleted.halo.radius) }
     }
-    expect(rings(2)).toBe(1)
-    expect(rings(0)).toBe(0)
+    expect(drawn(2).rings).toHaveLength(1)
+    expect(drawn(2).colored).toBe(1)
+    expect(drawn(2).halos).toHaveLength(1)
+    expect(drawn(0)).toEqual({ colored: 0, rings: [], halos: [] })
   })
 
   it('clears its pierces on a new match', () => {

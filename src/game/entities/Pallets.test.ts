@@ -2,15 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import { initialPallets, type Pallet } from '../../sim/pallet'
-import { Camera } from './Camera'
 import { Pallets } from './Pallets'
 
-type Call = { fn: string; alpha: unknown; dash: number[]; args: unknown[] }
+type Call = { fn: string; alpha: unknown; dash: number[]; width: unknown; args: unknown[] }
 
-/** A canvas context that records the arcs, strokes and fills with the alpha and dash at the time. */
+/** A canvas context that records the arcs, strokes, fills and rotations with the alpha, dash and line width at the time. */
 function recorder() {
   const calls: Call[] = []
-  const state: Record<string, unknown> = { globalAlpha: 1, canvas: { width: 400, height: 640 } }
+  const state: Record<string, unknown> = { globalAlpha: 1 }
   let dash: number[] = []
   const ctx = new Proxy(
     {},
@@ -18,7 +17,7 @@ function recorder() {
       get: (_t, k: string) => {
         if (k === 'setLineDash') return (d: number[]) => void (dash = d)
         if (k === 'createRadialGradient') return () => ({ addColorStop: () => {} })
-        if (['stroke', 'fill', 'arc'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, alpha: state.globalAlpha, dash, args })
+        if (['stroke', 'fill', 'arc', 'rotate'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, alpha: state.globalAlpha, dash, width: state.lineWidth, args })
         return state[k] ?? (() => {})
       },
       set: (_t, k: string, v) => ((state[k] = v), true),
@@ -29,11 +28,13 @@ function recorder() {
 
 const spots = [{ x: 6, y: 54 }, { x: 34, y: 54 }]
 const made = (phases: Pallet['phase'][] = ['idle', 'idle'], swept = 0) => {
-  const p = new Pallets(() => new Camera(54), () => ({ x: 0, y: 0 }))
+  const p = new Pallets()
   p.pallets = initialPallets(spots, 1).map((a, i) => ({ ...a, phase: phases[i], swept }))
   return p
 }
 const arcsOf = (calls: Call[], radius: number) => calls.filter((c) => c.fn === 'arc' && c.args[2] === radius)
+/** The arm's own outline stroke, which follows its fill. */
+const outlines = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.width === visual.pallet.outlineWidth)
 
 describe('Pallets', () => {
   it('draws each Activation ring dashed like the build-time ring, bright only for the tracking Pallet', () => {
@@ -45,19 +46,49 @@ describe('Pallets', () => {
     expect(arcsOf(calls, rules.pallet.ringRadius).map((c) => [c.args[0], c.args[1]])).toEqual([[6, 54], [34, 54]])
   })
 
-  it('draws an arm and a pivot for every Pallet', () => {
+  it('leaves its rings to the Pitch while a build ring is up', () => {
     const { ctx, calls } = recorder()
-    made().draw(ctx)
+    const p = made()
+    p.buildRing = true
+    p.draw(ctx)
+    expect(arcsOf(calls, rules.pallet.ringRadius)).toHaveLength(0)
     expect(arcsOf(calls, visual.pallet.pivot.radius)).toHaveLength(2)
-    expect(arcsOf(calls, rules.pallet.tipRadius)).toHaveLength(2)
   })
 
-  it('adds the swing ghosts only for a swinging Pallet', () => {
+  it('turns each arm to its Pallet\'s angle and fills it at fillAlpha', () => {
+    const { ctx, calls } = recorder()
+    const p = made()
+    p.draw(ctx)
+    expect(calls.filter((c) => c.fn === 'rotate').map((c) => c.args[0])).toEqual(p.pallets.map((a) => a.angle))
+    const fills = calls.filter((c) => c.fn === 'fill' && c.alpha === visual.pallet.fillAlpha)
+    expect(fills).toHaveLength(2)
+    expect(arcsOf(calls, visual.pallet.pivot.radius)).toHaveLength(2)
+  })
+
+  it('adds the swing ghosts, each turned behind the arm, only for a swinging Pallet', () => {
     const rest = recorder()
     made().draw(rest.ctx)
     const swing = recorder()
-    made(['swing', 'idle'], 10).draw(swing.ctx)
+    const p = made(['swing', 'idle'], 10)
+    p.draw(swing.ctx)
     expect(arcsOf(swing.calls, rules.pallet.tipRadius).length - arcsOf(rest.calls, rules.pallet.tipRadius).length).toBe(visual.pallet.ghosts)
+    const turns = swing.calls.filter((c) => c.fn === 'rotate').map((c) => c.args[0] as number)
+    expect(turns).toHaveLength(visual.pallet.ghosts + 2)
+    expect(turns).toContain(p.pallets[0].angle)
+  })
+
+  it('widens only the swatted Pallet\'s arm stroke while it flashes', () => {
+    const calm = recorder()
+    made().draw(calm.ctx)
+    const hit = recorder()
+    const p = made()
+    p.hit(1, { x: 33, y: 54 })
+    p.draw(hit.ctx)
+    const glows = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.width === visual.pallet.flash.armGlow && c.alpha === visual.pallet.flash.armGlowAlpha)
+    expect(glows(calm.calls)).toHaveLength(0)
+    expect(glows(hit.calls)).toHaveLength(1)
+    // Every arm still gets its outline.
+    expect(outlines(hit.calls)).toHaveLength(2)
   })
 
   it('flashes a swat for flash.ms and then lets it go', () => {

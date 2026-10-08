@@ -278,19 +278,24 @@ describe('Game', () => {
     expect(game.fog.blind).toBeUndefined()
   })
 
-  it('draws the Pallets after the fog, so they stay in view through a blind build, and gives them the sim\'s Pallets', () => {
+  it('draws the Pallets under the ball, and once more over the fog in a blind build only', () => {
     const game = make()
-    game.actions.start(withMode({ ...defaultSettings, palletsOn: true }, 'siege'))
-    expect(game.fog.blind).toBeDefined()
+    expect(game.camera.children.indexOf(game.pallets)).toBeLessThan(game.camera.children.indexOf(game.ball))
     const order: string[] = []
     for (const [e, tag] of [[game.camera, 'camera'], [game.fog, 'fog'], [game.pallets, 'pallets'], [game.edgeFade, 'edgeFade']] as const) {
       const orig = e.draw.bind(e)
       e.draw = (ctx: CanvasRenderingContext2D) => (order.push(tag), orig(ctx))
     }
+    game.actions.start(withMode({ ...defaultSettings, palletsOn: true }, 'siege'))
+    expect(game.fog.blind).toBeDefined()
+    order.length = 0
     frame(performance.now())
-    expect(order).toEqual(['camera', 'fog', 'pallets', 'edgeFade'])
     expect(game.pallets.pallets).toHaveLength(rules.pallet.spots.length)
-    expect(game.pallets.pallets).toBe(game.state.pallets)
+    expect(order).toEqual(['camera', 'pallets', 'fog', 'pallets', 'edgeFade'])
+    game.actions.start(withMode({ ...defaultSettings, palletsOn: true }, 'rounds'))
+    order.length = 0
+    frame(performance.now())
+    expect(order).toEqual(['camera', 'pallets', 'fog', 'edgeFade'])
   })
 
   it('gives the ball the sim\'s pierces, so a Palleted ball wears its look', () => {
