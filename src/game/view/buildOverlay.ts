@@ -43,7 +43,7 @@ export type BuildOverlay = {
   readonly movable: readonly number[]
 }
 
-/** Nothing to draw: no build turn, no selection, or a new match. Shared by every holder, so it is read-only all the way down. */
+/** Nothing to draw: no build turn, no selection, or a new match. Shared by every holder, so its type is read-only throughout (nothing freezes it at runtime). */
 export const noOverlay: BuildOverlay = { hidden: [], movable: [] }
 
 /**
