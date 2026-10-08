@@ -10,5 +10,6 @@ The client splits into a game renderer and a React HUD. The renderer is OOP: a `
 ## Consequences
 
 - `Game` routes `SimEvent`s to entity methods (`hit()`, `shatter()`, `shake()`); entities never see sim events, so they stay reusable outside a match.
+- Entities may take pure view models from `game/view` as input (the Build overlay from `buildOverlay`), still never sim events: the rules stay in the view model, the entity only draws them.
 - `Game` and the HUD share a parent React component. `Game` pushes a HUD view up through a callback (only when it changes) into the parent's state; the HUD drives the game through an imperative actions handle. `Game` never reads that state back: the sim and `Game` stay the source of truth.
 - Rendering stays on Canvas 2D, but entities follow a scene graph (parent, children, local transform), so a later move to a WebGL library such as PixiJS maps one entity to one container.
