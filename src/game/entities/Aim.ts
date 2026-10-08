@@ -58,8 +58,8 @@ export class Aim extends Entity {
   private state?: SimState
   private config?: SimConfig
   private rings: { origin: Point; radius: number; born: number }[] = []
-  // The last prediction, redone only when the aim or what it depends on changes, not every frame.
-  private predicted?: { key: string; objects: SimState['objects']; path: Path }
+  // The last prediction, redone only when the aim or what it depends on changes: the objects, or the Pallets, whose arms spin on every tick (the Ghost holds them frozen at their current angle).
+  private predicted?: { key: string; objects: SimState['objects']; pallets: SimState['pallets']; path: Path }
 
   sync(state: SimState, config: SimConfig): void {
     this.state = state
@@ -141,7 +141,7 @@ export class Aim extends Entity {
 
   /**
    * The prediction for the aim in progress, from the ball through the stretch under the Comet and then as far as its tier's Ghost
-   * reaches past the Comet's tip; bounces under the Comet count toward the cap. Redone only when the aim or what it depends on changes.
+   * reaches past the Comet's tip; bounces under the Comet count toward the cap. Redone only when the aim or what it depends on changes, which with Pallets is every tick.
    */
   private get path(): Path | undefined {
     const { aim, state, config, comet } = this
@@ -149,10 +149,10 @@ export class Aim extends Entity {
     const { tier, dir, power, ghost } = aim
     const key = JSON.stringify([tier, dir, power, ghost, comet.span, state.ball.pos, state.possession.shooter, state.charge])
     const p = this.predicted
-    if (p?.key === key && p.objects === state.objects) return p.path
+    if (p?.key === key && p.objects === state.objects && p.pallets === state.pallets) return p.path
     const limit = { maxBounces: ghost.maxBounces, maxLength: comet.span + reachOf(tier, power, ghost) }
     const path = predictPath(state, { player: state.possession.shooter, tier, dir, power }, config, limit)
-    this.predicted = { key, objects: state.objects, path }
+    this.predicted = { key, objects: state.objects, pallets: state.pallets, path }
     return path
   }
 
@@ -161,7 +161,7 @@ export class Aim extends Entity {
     return this.path?.points
   }
 
-  /** Where the Ghost bounces, each marked with a ring: ink off a structure, the tier's colour off a board, grey while cancel is armed. */
+  /** Where the Ghost bounces or ends on a Pallet's arm, each marked with a ring: ink off a structure, the tier's colour off a board or an arm, grey while cancel is armed. */
   get ghostBounces(): (Contact & { color: string })[] {
     const { path, aim } = this
     if (!path || !aim) return []
@@ -307,14 +307,20 @@ export class Aim extends Entity {
         ctx.arc(at.x, at.y, radius, 0, Math.PI * 2)
         ctx.fill()
       }
-      const { radius, width, alpha } = visual.aim.ghost.bounce
+      const { radius, width, alpha, armDot } = visual.aim.ghost.bounce
       ctx.globalAlpha = alpha
       ctx.lineWidth = width
-      for (const { at, color } of this.ghostBounces) {
+      for (const { at, color, kind } of this.ghostBounces) {
         ctx.strokeStyle = color
         ctx.beginPath()
         ctx.arc(at.x, at.y, radius, 0, Math.PI * 2)
         ctx.stroke()
+        if (kind === 'pallet') {
+          ctx.fillStyle = color
+          ctx.beginPath()
+          ctx.arc(at.x, at.y, armDot, 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
       ctx.globalAlpha = 1
       // A Charged ball's Ghost carries its factor at the tip, past the last point along the path's end direction.

@@ -42,7 +42,7 @@ type Body = { pos: Point; vel: Point }
 
 const distToPivot = (p: Pallet, at: Point) => Math.hypot(at.x - p.pivot.x, at.y - p.pivot.y)
 /** How close the ball's centre must come for a Pallet to notice it. */
-const ringReach = (c: SimConfig) => P.ringRadius + c.ballRadius
+export const ringReach = (c: SimConfig) => P.ringRadius + c.ballRadius
 
 const wrap = (a: number) => {
   a = (a + Math.PI) % TAU
@@ -134,16 +134,22 @@ function updatePallet(p: Pallet, c: SimConfig, h: number, ball: Body | null): Pa
   return { ...p, angle, omega: wrap(angle - prev) / h, phase, dir, swept, sweepNeed, cooldown }
 }
 
-/** Tapered capsule against the ball, with the arm's surface velocity (ω×r); a contact faster than `hitSpeed` (relative, arm included) is a swat that clamps the exit speed; a slower one is a plain bounce. */
-function collide(p: Pallet, b: Body, c: SimConfig): { ball: Body; hit?: { speed: number; at: Point } } {
+/** The arm's tapered capsule seen from `at`: its nearest axis point, the radius there, and the vector and distance from that point to `at`. */
+function nearestOnArm(p: Pallet, at: Point) {
   const L = P.length
   const [ux, uy] = [Math.cos(p.angle), Math.sin(p.angle)]
-  const [rx, ry] = [b.pos.x - p.pivot.x, b.pos.y - p.pivot.y]
-  const t = clamp(rx * ux + ry * uy, 0, L)
+  const t = clamp((at.x - p.pivot.x) * ux + (at.y - p.pivot.y) * uy, 0, L)
   const [cx, cy] = [p.pivot.x + ux * t, p.pivot.y + uy * t]
   const pr = P.rootRadius + (P.tipRadius - P.rootRadius) * (t / L)
-  let [dx, dy] = [b.pos.x - cx, b.pos.y - cy]
-  let d = Math.hypot(dx, dy)
+  const [dx, dy] = [at.x - cx, at.y - cy]
+  return { ux, uy, cx, cy, pr, dx, dy, d: Math.hypot(dx, dy) }
+}
+
+/** Tapered capsule against the ball, with the arm's surface velocity (ω×r); a contact faster than `hitSpeed` (relative, arm included) is a swat that clamps the exit speed; a slower one is a plain bounce. */
+function collide(p: Pallet, b: Body, c: SimConfig): { ball: Body; hit?: { speed: number; at: Point } } {
+  const near = nearestOnArm(p, b.pos)
+  const { ux, uy, cx, cy, pr } = near
+  let { dx, dy, d } = near
   if (d >= pr + c.ballRadius) return { ball: b }
   if (d < 1e-6) [dx, dy, d] = [-uy * p.dir, ux * p.dir, 1]
   const [nx, ny] = [dx / d, dy / d]
@@ -201,4 +207,44 @@ export function rollWithPallets(
     }
   }
   return { ball, objects, pallets, events, breaker }
+}
+
+/**
+ * For the Ghost (ADR-0009): where a ball centre moving straight from `from` to `to` first meets a Pallet's arm, held as it is, or leaves its Activation ring
+ * without having touched it; null when neither happens on this stretch. `t` is how far along (0-1), `arm` whether it was the arm (else the ring).
+ * Only the stretch inside a ring is searched, at the sim's substep spacing and then bisected. Allocates only for a result.
+ */
+export function frozenArmStop(pallets: readonly Pallet[], from: Point, to: Point, c: SimConfig): { t: number; arm: boolean } | null {
+  const [vx, vy] = [to.x - from.x, to.y - from.y]
+  const vv = vx * vx + vy * vy
+  const reach = ringReach(c)
+  let best = Infinity
+  let arm = false
+  const clear = (p: Pallet, t: number) => {
+    const n = nearestOnArm(p, { x: from.x + vx * t, y: from.y + vy * t })
+    return n.d - n.pr - c.ballRadius
+  }
+  for (const p of pallets) {
+    // The stretch of the segment within the ring: t in [t0, t1].
+    const [rx, ry] = [from.x - p.pivot.x, from.y - p.pivot.y]
+    const disc = ((rx * vx + ry * vy) / vv) ** 2 - (rx * rx + ry * ry - reach * reach) / vv
+    if (vv < 1e-12 || disc < 0) continue
+    const mid = -(rx * vx + ry * vy) / vv
+    const [t0, t1] = [Math.max(0, mid - Math.sqrt(disc)), Math.min(1, mid + Math.sqrt(disc))]
+    if (t0 > t1) continue
+    let [lo, hi] = [-1, -1]
+    for (let i = 0; i <= P.substeps; i++) {
+      const t = t0 + ((t1 - t0) * i) / P.substeps
+      if (clear(p, t) < 0) {
+        hi = t
+        break
+      }
+      lo = t
+    }
+    if (hi >= 0) {
+      if (lo >= 0) for (let i = 0; i < 12; i++) [lo, hi] = clear(p, (lo + hi) / 2) < 0 ? [lo, (lo + hi) / 2] : [(lo + hi) / 2, hi]
+      if (hi < best) [best, arm] = [hi, true]
+    } else if (mid + Math.sqrt(disc) < 1 && t1 < best) [best, arm] = [t1, false]
+  }
+  return best === Infinity ? null : { t: best, arm }
 }
