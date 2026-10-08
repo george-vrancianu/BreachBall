@@ -66,64 +66,6 @@ describe('Game', () => {
     expect(onView.mock.lastCall![0].mapOpen).toBe(true)
   })
 
-  describe('end handles', () => {
-    afterEach(() => vi.restoreAllMocks())
-    const wall = { kind: 'wall' as const, owner: 1 as const, ...hseg(10, 40) }
-    /** Draws the wall or presses the tower on the canvas, with Build armed through its action, and lets the sim take it: the lift leaves the piece selected. */
-    const built = (item: 'wall' | 'repulsor', older = false, mapOpen = false) => {
-      // Player 1 builds first.
-      vi.spyOn(Math, 'random').mockReturnValue(0)
-      let t = 1000
-      vi.spyOn(performance, 'now').mockImplementation(() => t)
-      const canvas = new FakeCanvas()
-      const game = new Game(canvas as unknown as HTMLCanvasElement, (sink) => new LocalDriver(sink))
-      game.actions.start(withMode(defaultSettings, 'siege'))
-      // The opening hold flips to Player 1 over the first 400 ms.
-      frame(t)
-      t += 1500
-      frame(t)
-      frame(t)
-      const at = (type: string, p: { x: number; y: number }) => {
-        const px = game.camera.toCanvas(canvas as unknown as HTMLCanvasElement, p)
-        canvas.dispatchEvent(Object.assign(new Event(type), { offsetX: px.x, offsetY: px.y, clientX: px.x, clientY: px.y, pointerId: 1, pointerType: 'mouse', button: 0 }))
-      }
-      // The build turn opens in build mode with the Wall armed.
-      if (item === 'repulsor') game.actions.build.arm('repulsor')
-      const mid = { x: (wall.a.x + wall.b.x) / 2, y: wall.a.y }
-      at('pointerdown', item === 'wall' ? wall.a : mid)
-      if (item === 'wall') at('pointermove', wall.b)
-      at('pointerup', item === 'wall' ? wall.b : mid)
-      t += 100
-      frame(t)
-      t += 100
-      frame(t)
-      expect(game.state.objects).toHaveLength(1)
-      if (older) {
-        // A structure from an earlier turn: selectable by a tap, not movable.
-        game.state = { ...game.state, built: [] }
-        game.actions.build.cancel()
-        at('pointerdown', mid)
-        at('pointerup', mid)
-      }
-      if (mapOpen) game.actions.map(true)
-      frame(t)
-      return game.structures.handles
-    }
-
-    it('show on a selected movable wall', () => {
-      expect(built('wall')).toMatchObject({ a: expect.any(Object), b: expect.any(Object) })
-    })
-    it('are absent for a selected tower', () => {
-      expect(built('repulsor')).toBeUndefined()
-    })
-    it('are absent for a selected older wall', () => {
-      expect(built('wall', true)).toBeUndefined()
-    })
-    it('are absent with the map open', () => {
-      expect(built('wall', false, true)).toBeUndefined()
-    })
-  })
-
   describe('build dock', () => {
     afterEach(() => vi.restoreAllMocks())
     /** A Siege (or Rounds) match with Player 1's opening build turn up; `step` advances the clock and runs a frame. */

@@ -3,6 +3,7 @@ import { visual } from '../../config/visual'
 import { defaultConfig } from '../../sim/step'
 import { playState, hseg } from '../../sim/testkit'
 import type { Structure } from '../../sim/wall'
+import { noOverlay } from '../view/buildOverlay'
 import { costLabelAt, Structures } from './Structures'
 import { Tower } from './Tower'
 import { Wall } from './Wall'
@@ -60,8 +61,7 @@ describe('Structures', () => {
   it('applies the build overlays to the children it owns', () => {
     const s = new Structures()
     s.sync([wall(1), wall(2)])
-    s.hidden = [1]
-    s.movable = [2]
+    s.overlay = { hidden: [1], movable: [2] }
     s.mark()
     expect([s.get(1)?.hidden, s.get(2)?.hidden, s.get(1)?.movable, s.get(2)?.movable]).toEqual([true, false, false, true])
   })
@@ -118,7 +118,8 @@ describe('draw order', () => {
 describe('end handles', () => {
   const arcs = (s: Structures) => {
     const calls: number[][] = []
-    const rec = new Proxy({}, { get: (_, k) => (k === 'arc' ? (...a: number[]) => calls.push(a) : () => {}), set: () => true }) as unknown as CanvasRenderingContext2D
+    // The build piece is drawn too, so the context hands back a gradient and a transform; only the arcs are recorded.
+    const rec = new Proxy({}, { get: (_, k) => (k === 'arc' ? (...a: number[]) => calls.push(a) : k === 'getTransform' ? () => ({ a: 10, b: 0 }) : () => ({ addColorStop: () => {} })), set: () => true }) as unknown as CanvasRenderingContext2D
     s.drawPieces(rec)
     return calls
   }
@@ -126,7 +127,8 @@ describe('end handles', () => {
   it('draws a circle on each end of the selected wall, and none without one', () => {
     const s = new Structures()
     expect(arcs(s)).toEqual([])
-    s.handles = { a: { x: 10, y: 80 }, b: { x: 18, y: 80 } }
+    const ends = { a: { x: 10, y: 80 }, b: { x: 18, y: 80 } }
+    s.overlay = { ...noOverlay, piece: { spec: { kind: 'wall', owner: 1, ...ends }, blocked: false, handles: ends } }
     expect(arcs(s)).toEqual([
       [10, 80, visual.wall.handle.radius, 0, Math.PI * 2],
       [18, 80, visual.wall.handle.radius, 0, Math.PI * 2],
@@ -154,9 +156,9 @@ describe('Structures reset', () => {
     s.shatter(1, from)
     s.burst(from, 'red', 3)
     expect(s.particleCount).toBeGreaterThanOrEqual(3)
-    s.buildPiece = wall(3)
+    s.overlay = { ...noOverlay, piece: { spec: wall(3), blocked: false } }
     s.reset()
-    expect([s.count, s.children.length, s.buildPiece]).toEqual([0, 0, undefined])
+    expect([s.count, s.children.length, s.overlay]).toEqual([0, 0, noOverlay])
     s.sync([tower(1)])
     expect(s.get(1)).toBeInstanceOf(Tower)
     expect(s.particleCount).toBe(0)
