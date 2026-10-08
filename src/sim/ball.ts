@@ -3,7 +3,7 @@ import { type PlayerId, type Point } from './pitch'
 import type { SimConfig, SimEvent } from './step'
 import { damageSegment, segmentAt, standingPieces, type Segment, type Structure } from './wall'
 
-export type Ball = { pos: Point; vel: Point; /** Distance travelled, drives the rolling dot. */ rolled: number; /** The wall a pierce just broke a segment of, while the ball still touches it: its other segments are the same contact (a Joint is no second hit) until a roll passes without touching it. */ through?: number }
+export type Ball = { pos: Point; vel: Point; /** Distance travelled, drives the rolling dot. */ rolled: number; /** The wall a pierce just broke a segment of, while the ball still touches it: its other segments are the same contact (a Joint is no second hit) until a roll passes without touching it. Set by the last pierce too, so a ball with none left still passes the neighbour's end at that Joint rather than bouncing off it. */ through?: number }
 
 const seg = (x1: number, y1: number, x2: number, y2: number): Segment => ({ a: { x: x1, y: y1 }, b: { x: x2, y: y2 } })
 const NET = rules.netDepth + rules.board
@@ -45,11 +45,11 @@ function sweep(p: Point, d: Point, { a, b }: Segment, r: number): { t: number; n
   return best
 }
 
-/** One tick of ball motion: friction, then swept movement with bounces; walls hit hard enough lose hp. */
 /** What shapes a roll: the Breaker still armed, the Palleted ball's pierces left, and whose shot it is. */
 export type RollOptions = { breaker: boolean; pierces: number; shooter: PlayerId }
 
 /**
+ * One tick of ball motion: friction, then swept movement with bounces; walls hit hard enough lose hp.
  * With `breaker`, the first structure touched is destroyed outright and the ball keeps its speed. A Palleted ball does the same for each of its `pierces`, one per structure, and is marked apart from the Breaker.
  * `dt` is the seconds the call covers (a tick by default).
  */
