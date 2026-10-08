@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { visual } from '../../config/visual'
 import type { OverlayView } from '../../game/view/transition'
 
-/** The one interstitial layer: GOAL banner, BUILD/PLAY/REPAIRED sweep and the REVEAL and "Opponent is choosing" labels (pinned to the top, no band, so the pitch stays visible). The top labels clear the Defence bar and, when `resourceBar` is set, the Resource bar under it. Mount inside the rotating stage; no view renders nothing. */
+/** The one interstitial layer: GOAL banner, BUILD/PLAY/REPAIRED sweep and the REVEAL and "Opponent is choosing" labels (pinned to the top, no band, so the pitch stays visible). The top labels clear the Defence bar and, when `resourceBar` is set, the Resource bar under it. A sweep may carry its own `turn` within the HUD layer (see `OverlayView.turn`). Mount inside the rotating stage; no view renders nothing. */
 export function Overlay({ view: v, flipped = false, resourceBar = false, className, style, children }: { view?: OverlayView; /** Seat 2 is at the bottom, so the Defence bar (and the top labels' clearance) is on the stage's bottom edge. */ flipped?: boolean; /** The Resource bar sits under the Defence bar, so the top labels clear it too. */ resourceBar?: boolean; className?: string; style?: CSSProperties; children?: ReactNode }) {
   if (!v) return null
   const top = v.placement === 'top'

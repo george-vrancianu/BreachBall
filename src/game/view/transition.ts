@@ -113,5 +113,7 @@ const sweepTurn = (t: Transition): number => (t.flip?.swapMs !== undefined ? (ro
 export function overlayView(t: Transition, now: number, notice?: Notice): OverlayView | undefined {
   const o = t.overlay
   if (!o) return notice && { kind: 'notice' as const, placement: 'top' as const, band: false, text: notice.text, color: visual.player.colors[notice.player], progress: 1, turn: 0, fades: true }
-  return { kind: o.kind, placement: o.kind === 'reveal' ? ('top' as const) : ('center' as const), band: o.kind === 'goal' || o.kind === 'sweep', text: o.text, color: visual.player.colors[o.player], progress: Math.min(1, (now - o.at) / o.ms), turn: o.kind === 'sweep' ? sweepTurn(t) : 0, fades: o.kind !== 'sweep' }
+  // Only a sweep that began with or after the slide is turned and kept from fading; one already running when it began carries on as it was.
+  const withSlide = o.kind === 'sweep' && t.flip?.swapMs !== undefined && o.at >= t.flip.at
+  return { kind: o.kind, placement: o.kind === 'reveal' ? ('top' as const) : ('center' as const), band: o.kind === 'goal' || o.kind === 'sweep', text: o.text, color: visual.player.colors[o.player], progress: Math.min(1, (now - o.at) / o.ms), turn: withSlide ? sweepTurn(t) : 0, fades: !withSlide }
 }

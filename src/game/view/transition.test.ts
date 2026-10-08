@@ -426,6 +426,12 @@ describe('Tabletop handover slide', () => {
       expect(slideAt(t, swapAt).chrome).toBe(0)
       expect(overlayView(t, swapAt)!.fades).toBe(false)
     })
+    it('is left alone when it was already running as the slide began: no jump, still fading with the chrome', () => {
+      const early = go(go(go(go(newTransition(1, true), tt({ phase: 'Play' })), tt({ now: 400, phase: 'Play' })), tt({ now: 1500, phase: 'Build' })), tt({ now: 2000, active: 2, phase: 'Build' }))
+      expect(early.overlay).toMatchObject({ kind: 'sweep', at: 1500 })
+      expect(early.flip).toBeDefined()
+      expect(overlayView(early, 2000)).toMatchObject({ turn: 0, fades: true })
+    })
     it('needs no turn without a slide: at rest, and in the whole-stage flip', () => {
       expect(overlayView(go(go(go(fresh(1), {}), { now: 400 }), { now: 2000, phase: 'Build' }), 2000)!.turn).toBe(0)
       const flipping = go(go(go(fresh(1), { phase: 'Build' }), { now: 400, phase: 'Build' }), { now: 2000, active: 2, phase: 'Play' })

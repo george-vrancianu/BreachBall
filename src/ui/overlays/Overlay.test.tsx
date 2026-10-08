@@ -26,7 +26,7 @@ it('lets taps through sweeps and the choosing notice', () => {
   expect(screen.getByText('Opponent is choosing')).toBeTruthy()
 })
 
-it('sweeps in the incoming seat\'s direction when turned, and the other way when not', () => {
+it('prefixes a rotate to the sweep\'s translate when turned', () => {
   const { container, rerender } = render(<Overlay view={view({ kind: 'sweep', progress: 0.25 })} />)
   expect((container.firstChild as HTMLElement).style.transform).toBe('translateX(50%)')
   rerender(<Overlay view={view({ kind: 'sweep', progress: 0.25, turn: 180 })} />)
