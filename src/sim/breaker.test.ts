@@ -131,7 +131,7 @@ describe('breaker on a wall segment', () => {
   })
   it('at a Joint breaks one segment and bounces off the neighbour\'s end', () => {
     // Aimed straight at the Joint (x = 18) of the 2-segment wall x 10 to 26.
-    let t = flying({ ...two(), ball: { ...two().ball, pos: { x: 18, y: 70 } } }, -40, 70)
+    let t = flying(two(), -40, 70)
     t = { ...t, ball: { ...t.ball, pos: { x: 18, y: 70 } } }
     const events = []
     for (let i = 0; i < 60; i++) {
