@@ -14,6 +14,7 @@ import { Ball } from './entities/Ball'
 import { anchorY, Camera, hudReserve, screenDown, viewOutline } from './entities/Camera'
 import { EdgeFade } from './entities/EdgeFade'
 import { Fog } from './entities/Fog'
+import { Pallets } from './entities/Pallets'
 import { Pitch } from './entities/Pitch'
 import { Structures } from './entities/Structures'
 import { routeEvents } from './events'
@@ -128,6 +129,8 @@ export class Game implements Sink {
   readonly ball = new Ball()
   readonly aim = new Aim()
   readonly fog = new Fog(() => this.viewCam(), () => this.camera.shakeNow)
+  /** In the camera tree under the ball; a blind build draws it again over the fog. */
+  readonly pallets = new Pallets()
   readonly edgeFade = new EdgeFade(() => this.viewCam())
   readonly actions: GameActions
   state!: SimState
@@ -160,6 +163,7 @@ export class Game implements Sink {
     this.ctx = canvas.getContext('2d')!
     this.camera.add(this.pitch)
     this.camera.add(this.structures)
+    this.camera.add(this.pallets)
     this.camera.add(this.gauge)
     this.camera.add(this.ball)
     this.camera.add(this.aim)
@@ -291,7 +295,7 @@ export class Game implements Sink {
     }
     this.announce(events)
     this.aim.sync(state, this.config)
-    routeEvents(events, { camera, structures: this.structures, ball: this.ball, aim: this.aim, pitch: this.pitch, vibrate: (p) => navigator.vibrate?.(p) }, state.objects)
+    routeEvents(events, { camera, structures: this.structures, ball: this.ball, aim: this.aim, pitch: this.pitch, pallets: this.pallets, vibrate: (p) => navigator.vibrate?.(p) }, state.objects)
     this.structures.sync(state.objects)
     const queue = this.strategyQueue
     if (queue && (state.match.builder !== queue.builder || !queue.inputs.length)) this.strategyQueue = undefined
@@ -302,7 +306,7 @@ export class Game implements Sink {
   private newMatch(seed = (Math.random() * 2 ** 31) | 0): void {
     const s = this.driver.start(this.config, seed)
     // Sim ids restart, so the last match's visual state must not leak into this one.
-    for (const e of [this.camera, this.structures, this.gauge, this.ball, this.aim, this.pitch]) e.reset()
+    for (const e of [this.camera, this.structures, this.gauge, this.ball, this.aim, this.pitch, this.pallets]) e.reset()
     this.pitch.pallets = this.config.pallets
     this.input.resetBuild()
     this.menuOpen = false
@@ -406,6 +410,9 @@ export class Game implements Sink {
     // The snap grid and build edge show for an in-play build too, while an item is armed.
     this.pitch.builder = builder ?? (input.item ? builderNow(state) ?? undefined : undefined)
     this.pitch.charge = this.ball.charge = state.charge
+    this.pallets.pallets = state.pallets
+    this.pallets.buildRing = this.pitch.builder !== undefined
+    this.ball.pierces = state.pierces
     this.ball.radius = this.config.ballRadius
     this.ball.tracer.pxPerUnit = this.camera.view(this.canvas).sy / this.dpr
     this.pitch.flipped = this.ball.flipped = this.aim.flipped = this.gauge.flipped = this.viewerTurned()
@@ -426,6 +433,8 @@ export class Game implements Sink {
     if (this.viewCam() === mapCam) mapCam.draw(ctx, camera.children, camera.shakeNow)
     else camera.draw(ctx)
     this.fog.draw(ctx)
+    // Fog covers the world, so in a blind build the Pallets are drawn once more over the covered half.
+    this.fog.drawOver(ctx, this.pallets)
     this.edgeFade.draw(ctx)
     if (this.mapOpen) {
       // The main view's frame: dashed, with solid corner brackets.

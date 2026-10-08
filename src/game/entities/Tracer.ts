@@ -9,7 +9,7 @@ type Flash = { x: number; y: number; t: number; color: string }
 
 const between = ([lo, hi]: readonly [number, number]): number => lo + Math.random() * (hi - lo)
 // A `#rrggbb` colour made fully transparent, for a gradient that fades out tinted rather than through black.
-const clearOf = (color: string): string => `${color}00`
+export const clearOf = (color: string): string => `${color}00`
 
 /**
  * The Tracer: the glowing tail behind a shot, the sparks it sheds and the flashes at its bounces, in the colour of the tier that fired.

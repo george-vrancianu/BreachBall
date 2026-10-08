@@ -9,7 +9,7 @@ import type { AimView } from '../input/InputController'
 import { tierColor } from './Aim'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
-import { Tracer } from './Tracer'
+import { clearOf, Tracer } from './Tracer'
 
 /** Disc with the Tracer behind it (its glowing tail, sparks and bounce flashes) and a dot that rolls with the distance travelled. */
 export class Ball extends Entity {
@@ -26,6 +26,8 @@ export class Ball extends Entity {
   charge: Charge | null = null
   /** Boxes (world units) the badge keeps clear of besides the zone labels: the game sets the Gauge's end label (at most one) each frame. */
   avoid: Rect[] = []
+  /** Pierces a Palleted ball has left; while above 0 it wears a halo and a ring in the Pallets' colour. */
+  pierces = 0
   /** The ball's radius in world units. */
   radius = defaultConfig.ballRadius
   /** Turns the badge upright for Player 2's view. */
@@ -136,6 +138,7 @@ export class Ball extends Entity {
   reset(): void {
     this.pulsedAt = this.sinking = this.placement = this.armed = this.aim = this.lastAim = this.reachedAt = this.poppedAt = undefined
     this.charge = null
+    this.pierces = 0
     this.launched = false
     this.tracer.clear()
   }
@@ -158,6 +161,7 @@ export class Ball extends Entity {
       this.drawDisc(ctx, { pos: { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k }, vel: { x: 0, y: 0 }, rolled: this.state.rolled }, 1 - k)
     } else this.drawDisc(ctx, this.state, 1)
     if (this.charge && !this.stealing) this.drawCharge(ctx, this.charge)
+    if (this.pierces > 0 && !this.stealing) this.drawPalleted(ctx)
     if (this.armed) {
       const { radius, swing, periodMs, width } = visual.ball.armed
       ctx.beginPath()
@@ -190,6 +194,27 @@ export class Ball extends Entity {
       ctx.fill()
       ctx.globalAlpha = 1
     }
+  }
+
+  /** The Palleted ball's pulsing halo and the ring just past its edge, in the Pallets' colour. */
+  private drawPalleted(ctx: CanvasRenderingContext2D): void {
+    const { halo, ring } = visual.pallet.palleted
+    const { x, y } = this.state.pos
+    const color = visual.pallet.color
+    const g = ctx.createRadialGradient(x, y, this.radius * visual.ball.tracer.halo.inner, x, y, this.radius * halo.radius)
+    g.addColorStop(0, color)
+    g.addColorStop(1, clearOf(color))
+    ctx.globalAlpha = halo.alpha * (1 + halo.swing * Math.sin((2 * Math.PI * this.clock) / halo.periodMs))
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.arc(x, y, this.radius * halo.radius, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.globalAlpha = 1
+    ctx.beginPath()
+    ctx.arc(x, y, this.radius + ring.offset, 0, Math.PI * 2)
+    ctx.strokeStyle = color
+    ctx.lineWidth = ring.width
+    ctx.stroke()
   }
 
   /** The Charged ball's glow ring (pulsing) and its badge above. */
