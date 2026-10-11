@@ -2,14 +2,13 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import type { Point } from '../../sim/pitch'
 import { tierColor } from './Aim'
+import { clearOf } from './paint'
 
 type Mark = { x: number; y: number; t: number }
 type Spark = { x: number; y: number; vx: number; vy: number; age: number; life: number; r: number; color: string }
 type Flash = { x: number; y: number; t: number; color: string }
 
 const between = ([lo, hi]: readonly [number, number]): number => lo + Math.random() * (hi - lo)
-// A `#rrggbb` colour made fully transparent, for a gradient that fades out tinted rather than through black.
-export const clearOf = (color: string): string => `${color}00`
 
 /**
  * The Tracer: the glowing tail behind a shot, the sparks it sheds and the flashes at its bounces, in the colour of the tier that fired.

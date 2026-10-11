@@ -28,10 +28,10 @@ describe('blind fog', () => {
         log.push(['probe'])
       }
     })()
-    fog(undefined).drawOver(ctx, probe)
+    fog(undefined).drawOver(ctx, (c) => probe.draw(c))
     expect(drawn).toBe(0)
     const { top, bottom } = fogOf(2)
-    fog(2).drawOver(ctx, probe)
+    fog(2).drawOver(ctx, (c) => probe.draw(c))
     const clip = log.findIndex((l) => l[0] === 'clip')
     expect(log.filter((l) => l[0] === 'rect').at(-1)).toEqual(['rect', -visual.fog.bleed, top, rules.pitchWidth + 2 * visual.fog.bleed, bottom - top])
     expect(clip).toBeGreaterThan(-1)

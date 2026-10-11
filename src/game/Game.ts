@@ -413,7 +413,7 @@ export class Game implements Sink {
     this.pitch.builder = builder ?? (input.item ? builderNow(state) ?? undefined : undefined)
     this.pitch.charge = this.ball.charge = state.charge
     this.pallets.pallets = state.pallets
-    this.pallets.buildRing = this.pitch.builder !== undefined
+    this.pallets.buildRing = this.pitch.drawsPalletRings
     this.ball.pierces = state.pierces
     this.ball.radius = this.config.ballRadius
     this.ball.tracer.pxPerUnit = this.camera.view(this.canvas).sy / this.dpr
@@ -436,7 +436,7 @@ export class Game implements Sink {
     else camera.draw(ctx)
     this.fog.draw(ctx)
     // Fog covers the world, so in a blind build the Pallets are drawn once more over the covered half.
-    this.fog.drawOver(ctx, this.pallets)
+    this.fog.drawOver(ctx, (c) => this.pallets.drawOverFog(c))
     this.edgeFade.draw(ctx)
     if (this.mapOpen) {
       // The main view's frame: dashed, with solid corner brackets.

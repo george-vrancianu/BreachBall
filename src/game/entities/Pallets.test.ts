@@ -55,6 +55,17 @@ describe('Pallets', () => {
     expect(arcsOf(calls, visual.pallet.pivot.radius)).toHaveLength(2)
   })
 
+  it('draws its rings in the fog\'s second pass even while a build ring is up', () => {
+    const { ctx, calls } = recorder()
+    const p = made()
+    p.buildRing = true
+    p.drawOverFog(ctx)
+    expect(arcsOf(calls, rules.pallet.ringRadius)).toHaveLength(2)
+    const again = recorder()
+    p.draw(again.ctx)
+    expect(arcsOf(again.calls, rules.pallet.ringRadius)).toHaveLength(0)
+  })
+
   it('turns each arm to its Pallet\'s angle and fills it at fillAlpha', () => {
     const { ctx, calls } = recorder()
     const p = made()

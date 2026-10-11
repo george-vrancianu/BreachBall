@@ -5,24 +5,13 @@ import { centreSpot, halfSpan, type BoostZone, type Charge, type PlayerId } from
 import { boostColor, boostZones as zones, zoneLabels } from '../boost'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
+import { dashed, withDash } from './paint'
 
 /** One goal end: its line's y, the direction into the pitch (+1 down the canvas) and the owner. P2 defends the top, P1 the bottom. */
 const ends = [
   { y: 0, into: 1, owner: 2 },
   { y: rules.pitchHeight, into: -1, owner: 1 },
 ] as const
-
-/** A dash pattern in reference px, scaled to world units. */
-const dashed = (dashPx: readonly number[]): number[] => dashPx.map((d) => d * visual.pitch.unit)
-
-/** Runs `strokes` with a `style` dash and width in `color`, then clears the dash: the keep-out arc and the Activation rings (here, and each Pallet's own). */
-export function withDash(ctx: CanvasRenderingContext2D, style: { widthPx: number; dashPx: readonly number[] }, color: string, strokes: () => void): void {
-  ctx.setLineDash(dashed(style.dashPx))
-  ctx.strokeStyle = color
-  ctx.lineWidth = style.widthPx * visual.pitch.unit
-  strokes()
-  ctx.setLineDash([])
-}
 
 /** The ground, markings, goal mouths and nets; during a build turn also the snap grid on the builder's half, the build-zone edge on the halfway line and each Activation ring, in the builder's colour. */
 export class Pitch extends Entity {
@@ -34,6 +23,10 @@ export class Pitch extends Entity {
   flipped = false
   /** The map's Pallet pivots, whose Activation rings are drawn during a build. */
   pallets: readonly PalletSpot[] = []
+  /** The build ring is up: the Pitch draws each Activation ring in the builder's colour, so the Pallets leave theirs out (bar over the fog). */
+  get drawsPalletRings(): boolean {
+    return this.builder !== undefined
+  }
   private arrivals: { zone: BoostZone; born: number }[] = []
   private credits: { player: PlayerId; credits: number; born: number }[] = []
 
@@ -132,10 +125,8 @@ export class Pitch extends Entity {
       ctx.stroke()
     }
 
-    if (this.builder) {
-      this.drawBuildEdge(ctx, this.builder)
-      this.drawPalletRings(ctx, this.builder)
-    }
+    if (this.builder) this.drawBuildEdge(ctx, this.builder)
+    if (this.drawsPalletRings) this.drawPalletRings(ctx, this.builder!)
   }
 
   /** The alpha of the `zone` tint: steady, pulsing slowly, stronger while it holds a Charged ball, flashing on an arrival. */

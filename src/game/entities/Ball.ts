@@ -9,7 +9,8 @@ import type { AimView } from '../input/InputController'
 import { tierColor } from './Aim'
 import { Entity } from './Entity'
 import { drawLabel } from './label'
-import { clearOf, Tracer } from './Tracer'
+import { clearOf } from './paint'
+import { Tracer } from './Tracer'
 
 /** Disc with the Tracer behind it (its glowing tail, sparks and bounce flashes) and a dot that rolls with the distance travelled. */
 export class Ball extends Entity {

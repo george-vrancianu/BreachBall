@@ -255,6 +255,7 @@ export const visual = {
    * A Palleted ball wears a pulsing halo (`radius` in ball radii, `alpha`, and the pulse's `swing` and `periodMs`) and a ring `offset` past its edge, until its pierces run out.
    */
   pallet: {
+    // The ring stroke is `pitch.palletRing` itself (see `Pallets.drawRing`), so the build ring and the Pallet's ring overlay exactly.
     color: '#a78bfa',
     fillAlpha: 0.85,
     outline: white,

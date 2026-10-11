@@ -27,8 +27,8 @@ export class Fog extends Entity {
     if (this.blind) cam.through(ctx, this.shake(), () => this.cover(ctx, this.covered!))
   }
 
-  /** Draws `entity` again over the fog, clipped to the covered rect, so it shows through the fog without stacking on its own first draw anywhere else. Nothing when nothing is covered. */
-  drawOver(ctx: CanvasRenderingContext2D, entity: Entity): void {
+  /** Runs `draw` again over the fog, clipped to the covered rect, so it shows through the fog without stacking on its own first draw anywhere else. Nothing when nothing is covered. */
+  drawOver(ctx: CanvasRenderingContext2D, draw: (ctx: CanvasRenderingContext2D) => void): void {
     const covered = this.covered
     if (!covered) return
     const { bleed } = visual.fog
@@ -37,7 +37,7 @@ export class Fog extends Entity {
       ctx.beginPath()
       ctx.rect(-bleed, covered.top, rules.pitchWidth + 2 * bleed, covered.bottom - covered.top)
       ctx.clip()
-      entity.draw(ctx)
+      draw(ctx)
       ctx.restore()
     })
   }
