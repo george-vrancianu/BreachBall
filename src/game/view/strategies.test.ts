@@ -14,7 +14,7 @@ describe('Strategies', () => {
     for (const owner of [1, 2] as const) {
       const placed: ReturnType<typeof piecesFor> = []
       for (const p of piecesFor(st, owner)) {
-        expect(isLegal(p, placed)).toBe(true)
+        expect(isLegal(p, placed, [])).toBe(true)
         placed.push(p)
       }
     }
