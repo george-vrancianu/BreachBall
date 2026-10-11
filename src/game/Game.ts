@@ -189,14 +189,14 @@ export class Game implements Sink {
       refund: (count) => {
         // Only the device that plays the shooter's seat refunds for it, as only it may aim.
         const { shooter } = this.state.possession
-        if (!mine(shooter) || this.inputBlocked()) return
+        if (!this.canAct(shooter)) return
         if (count >= 1) this.act({ refund: { player: shooter, count } })
         else navigator.vibrate?.([...visual.hud.refund.denied])
       },
       subterfuge: (item) => {
         // Whoever acts (the builder, else the shooter) buys it, on the device that plays their seat.
         const player = whoActs(this.state)
-        if (mine(player) && !this.inputBlocked()) this.act({ subterfuge: { player, item } })
+        if (this.canAct(player)) this.act({ subterfuge: { player, item } })
       },
       confirmBall: this.input.confirmBall,
       menu: (open) => this.toggleMenu(open),
@@ -215,7 +215,7 @@ export class Game implements Sink {
         apply: (id) => {
           const { builder } = this.state.match
           const strategy = STRATEGIES.find((st) => st.id === id)
-          if (!strategy || !builder || !mine(builder) || this.inputBlocked() || this.strategyQueue) return
+          if (!strategy || !builder || !this.canAct(builder) || this.strategyQueue) return
           const { inputs, placed } = planStrategy(this.state, builder, strategy, this.config)
           if (!placed) return
           this.input.build.cancel()
@@ -250,6 +250,8 @@ export class Game implements Sink {
 
   /** Whether the board ignores input: behind a blocking hold or the Side menu, online or not. */
   private inputBlocked = () => blocking(this.transition) || this.menuOpen
+  /** This device plays that seat and no hold or the Side menu is up. */
+  private canAct = (player: PlayerId) => mine(player) && !this.inputBlocked()
 
   /** Whether only the HUD turns at a handover, the pitch staying put: the player's Tabletop mode in hot-seat; online never turns the stage. */
   private pitchStaysPut = () => !hotSeat() || this.tabletop
@@ -452,7 +454,7 @@ export class Game implements Sink {
     const { inHand } = state.possession
     const placing = placingOf(input.selection)
     const view: HudView = {
-      hud: hudModel(state, this.config, { blocked, active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: this.act, choosable: !blocked, unplaced: !!placing }), viewer: this.viewer(), placing, acted: this.acted || (!!transition.flip && transition.flip.swapMs === undefined) || this.leaving(), destroyed: this.destroyed, bullseyes: this.bullseyes }),
+      hud: hudModel(state, this.config, { blocked, active: transition.hudSeat, buttons: phaseButtons(state, this.config, { mine, current: () => this.state, send: this.act, blocked: this.inputBlocked, unplaced: !!placing }), viewer: this.viewer(), placing, acted: this.acted || (!!transition.flip && transition.flip.swapMs === undefined) || this.leaving(), destroyed: this.destroyed, bullseyes: this.bullseyes }),
       offence: offenceCircle(state, this.viewer(), { armed: input.armed, blocked: blocked || this.mapOpen, mine }),
       defence: defenceCircle(state, this.viewer(), { item: input.item, selection: input.selection, blocked: blocked || this.mapOpen, mine }, input.build),
       subterfuge: subterfugeCircle(state, this.viewer(), { blocked: blocked || this.mapOpen, mine }),

@@ -164,6 +164,23 @@ describe('Game', () => {
       attempt()
     })
 
+    it.each([
+      ['GOAL', 'goal', visual.transition.goalMs],
+      ['REVEAL', 'reveal', visual.transition.revealMs],
+    ] as const)('a Subterfuge buy sent behind the %s hold is ignored, and nothing is spent', (text, kind, ms) => {
+      const { game, step } = opened('rounds')
+      const send = vi.spyOn((game as unknown as { driver: Driver }).driver, 'send')
+      ;(game as unknown as { transition: Transition }).transition.overlay = { kind, at: performance.now(), player: 1, text, ms }
+      step()
+      const credits = game.state.credits
+      send.mockClear()
+      game.actions.subterfuge('jam')
+      step()
+      expect(send).not.toHaveBeenCalled()
+      expect(game.state.credits).toEqual(credits)
+      expect(game.state.subterfuge.queued).toEqual({ 1: null, 2: null })
+    })
+
     it('Done and the Refund tile are inert behind a hold, and the buttons say so', () => {
       const { game, step, view } = opened('rounds')
       const send = vi.spyOn((game as unknown as { driver: Driver }).driver, 'send')

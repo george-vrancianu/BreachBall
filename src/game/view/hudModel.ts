@@ -35,7 +35,7 @@ export type HudModel = {
   /** Move points: left, and per possession. */
   shotsLeft: number
   shotsMax: number
-  /** The active player may tap a Move point dot to refund it now (not behind a hold or the Side menu). */
+  /** The active player may tap the Refund tile to refund a Move point now (not behind a hold or the Side menu). */
   refundable: boolean
   /** The score as `2–1`, the active player's first; null in modes without rounds, which show a structure count instead. */
   score: string | null
