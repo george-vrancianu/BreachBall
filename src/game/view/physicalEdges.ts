@@ -10,5 +10,5 @@ const OPPOSITE: Record<Edge, Edge> = { top: 'bottom', right: 'left', bottom: 'to
 export function physicalEdges(hudAngle: number): Record<Edge, Edge> {
   const a = ((hudAngle % 360) + 360) % 360
   const turned = a > 90 && a < 270
-  return Object.fromEntries(EDGES.map((s) => [s, turned ? OPPOSITE[s] : s])) as Record<Edge, Edge>
+  return Object.fromEntries(EDGES.map((e) => [e, turned ? OPPOSITE[e] : e])) as Record<Edge, Edge>
 }

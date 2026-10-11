@@ -12,7 +12,7 @@ it('keeps the canvas layer still and turns only the HUD layer to its seat in Tab
   expect(stageLayers({ tabletop: true, stageAngle: 0, seatAngle: 180 })).toEqual({ canvasAngle: 0, hudAngle: 180 })
 })
 
-it('reads the safe-area edges from the HUD layer own turn in Tabletop mode', () => {
+it('reads the safe-area edges from the turn of the HUD layer itself in Tabletop mode', () => {
   expect(safeAngle({ tabletop: true, hudAngle: 97.5, flipped: false })).toBe(97.5)
   expect(safeAngle({ tabletop: true, hudAngle: 180, flipped: true })).toBe(180)
 })

@@ -5,7 +5,7 @@ import { EDGES, physicalEdges, type Edge } from '../../game/view/physicalEdges'
 /** The custom properties the HUD layer sets: `--safe-top` and the rest hold the device inset of the physical edge that HUD side sits on (read them with `safeInset`). */
 export function safeAreaVars(hudAngle: number): Record<`--safe-${Edge}`, string> {
   const edge = physicalEdges(hudAngle)
-  return Object.fromEntries(EDGES.map((s) => [`--safe-${s}`, `env(safe-area-inset-${edge[s]}, 0px)`])) as Record<`--safe-${Edge}`, string>
+  return Object.fromEntries(EDGES.map((e) => [`--safe-${e}`, `env(safe-area-inset-${edge[e]}, 0px)`])) as Record<`--safe-${Edge}`, string>
 }
 
 /** A HUD side's safe-area inset, as the CSS reference to the variable the HUD layer sets (0 where no layer sets it). */
