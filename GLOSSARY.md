@@ -249,7 +249,7 @@ A neutral rotating bat that is part of the map: it is not built, has no owner an
 _Avoid_: Palette, bat, deflector, flipper
 
 **Activation ring**:
-The circle around a Pallet's pivot inside which it tracks the ball. It is drawn as a faint dashed ring that brightens while tracking, and it is a no-build zone, ball-in-hand included; during a build it is dashed in the builder's colour, like the Keep-out arc. While aiming, the Ghost treats the Pallet arm as frozen at its current angle and ends at the arm or where it leaves the ring.
+The circle around a Pallet's pivot inside which it tracks the ball. It is drawn as a faint dashed ring that brightens while the Pallet tracks or swings, and it is a no-build zone, ball-in-hand included; during a build it is dashed in the builder's colour, like the Keep-out arc. While aiming, the Ghost treats the Pallet arm as frozen at its current angle and ends at the arm or where it leaves the ring.
 _Avoid_: Pallet radius, range
 
 **Palleted ball**:
