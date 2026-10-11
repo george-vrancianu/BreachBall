@@ -113,8 +113,7 @@ const sweepTurn = (t: Transition, incoming: PlayerId): number => (rot(incoming) 
 export function overlayView(t: Transition, now: number, notice?: Notice): OverlayView | undefined {
   const o = t.overlay
   if (!o) return notice && { kind: 'notice' as const, placement: 'top' as const, band: false, text: notice.text, color: visual.player.colors[notice.player], progress: 1, turn: 0, fades: true }
-  // Only a sweep that began with or after the slide is turned and kept from fading; one already running when it began carries on as it was.
-  // `o.at >= flip.at` relies on the phase change and the active-seat change arriving on the same advance frame, so a sweep that began with the slide is stamped no earlier than it.
+  // Only a sweep stamped no earlier than the slide (`o.at >= flip.at`) is turned and kept from fading; one already running carries on as it was. This relies on the phase change and the active-seat change arriving on the same advance frame.
   const slide = o.kind === 'sweep' && t.flip?.swapMs !== undefined && o.at >= t.flip.at ? t.flip : undefined
   return { kind: o.kind, placement: o.kind === 'reveal' ? ('top' as const) : ('center' as const), band: o.kind === 'goal' || o.kind === 'sweep', text: o.text, color: visual.player.colors[o.player], progress: Math.min(1, (now - o.at) / o.ms), turn: slide ? sweepTurn(t, slide.hudSeat) : 0, fades: !slide }
 }
