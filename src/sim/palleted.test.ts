@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { rules } from '../config/rules'
 import { defaultConfig, step, type SimConfig, type SimEvent, type SimState } from './step'
 import { hseg, place, playState } from './testkit'
-import type { Point } from './pitch'
-import type { TowerSpec, Wall } from './wall'
+import type { PlayerId, Point } from './pitch'
+import type { TowerPower, TowerSpec, Wall } from './wall'
 
 const c = defaultConfig
 const full = rules.pallet.pierces
@@ -20,9 +20,9 @@ const roll = (s: SimState, done: (t: SimState) => boolean, max = 300, config: Si
   return { s, events }
 }
 /** A 2-segment wall at grid row gy, 8 units wide from x = 10, so a ball at x = 14 crosses its first segment, x = 18 its second. */
-const wallAt = (id: number, gy: number, owner: 1 | 2 = 2, segments = [3, 3]): Wall => ({ kind: 'wall', owner, ...hseg(5, gy, 2), id, segments })
+const wallAt = (id: number, gy: number, owner: PlayerId = 2, segments = [3, 3]): Wall => ({ kind: 'wall', owner, ...hseg(5, gy, 2), id, segments })
 const withObjects = (s: SimState, objects: SimState['objects']): SimState => ({ ...s, objects, nextId: 10 })
-const tower = (owner: 1 | 2, power: 'repulsor' | 'steal'): TowerSpec => ({ kind: 'tower', owner, power, at: { gx: 10, gy: owner === 1 ? 40 : 14 } })
+const tower = (owner: PlayerId, power: TowerPower): TowerSpec => ({ kind: 'tower', owner, power, at: { gx: 10, gy: owner === 1 ? 40 : 14 } })
 
 describe('palleted ball', () => {
   it('starts with no pierces', () => {
@@ -101,6 +101,13 @@ describe('palleted ball', () => {
     expect(s.objects.find((o) => o.id === 4)).toBeDefined()
   })
 
+  it('spends the Breaker alone at a Joint, leaving both pierces', () => {
+    const { s, events } = roll({ ...palleted(withObjects(playState(), [wallAt(1, 30)]), full, -40, { x: 18, y: 70 }), breaker: true }, (t) => !t.breaker)
+    expect(events.filter((e) => e.type === 'segment-broken' || e.type === 'wall-destroyed')).toHaveLength(1)
+    expect(s.pierces).toBe(full)
+    expect((s.objects[0] as Wall).segments.filter((h) => h === 0)).toHaveLength(1)
+  })
+
   it('keeps its pierces through a board bounce', () => {
     const { s, events } = roll(palleted(playState(), full, -40, { x: 5, y: 6 }), (t) => t.ball.vel.y > 0)
     expect(events.some((e) => e.type === 'ball-hit-board')).toBe(true)
@@ -138,13 +145,12 @@ describe('a Pallet swat', () => {
   const swat = (s: SimState) => roll(s, () => false, 200, config)
 
   it('makes a Palleted ball with rules.pallet.pierces, announced by palleted-started', () => {
-    expect(rules.pallet.pierces).toBe(2)
     const { events } = swat(aimed())
     const hit = events.findIndex((e) => e.type === 'pallet-hit')
     const started = events.filter((e) => e.type === 'palleted-started')
     expect(hit).toBeGreaterThanOrEqual(0)
     expect(started).toHaveLength(1)
-    expect(started[0]).toMatchObject({ pallet: 0, pierces: 2 })
+    expect(started[0]).toMatchObject({ pallet: 0, pierces: full })
     expect(events.findIndex((e) => e.type === 'palleted-started')).toBeGreaterThan(hit)
   })
 
@@ -157,7 +163,7 @@ describe('a Pallet swat', () => {
   it('resets a partly spent count to 2 on a second swat', () => {
     let s = aimed(1)
     const seen: number[] = []
-    for (let i = 0; i < 200 && s.pierces !== 2; i++) {
+    for (let i = 0; i < 200 && s.pierces !== full; i++) {
       s = step(s, {}, config).state
       seen.push(s.pierces)
     }

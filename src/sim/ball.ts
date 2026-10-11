@@ -3,7 +3,7 @@ import { type PlayerId, type Point } from './pitch'
 import type { SimConfig, SimEvent } from './step'
 import { damageSegment, segmentAt, standingPieces, type Segment, type Structure } from './wall'
 
-export type Ball = { pos: Point; vel: Point; /** Distance travelled, drives the rolling dot. */ rolled: number; /** The wall a pierce just broke a segment of, while the ball still touches it: its other segments are the same contact (a Joint is no second hit) until a roll passes without touching it. Set by the last pierce too, so a ball with none left still passes the neighbour's end at that Joint rather than bouncing off it. */ through?: number }
+export type Ball = { pos: Point; vel: Point; /** Distance travelled, drives the rolling dot. */ rolled: number; /** The wall just pierced, while the ball still touches it: a Joint is one contact. */ piercedWall?: number }
 
 const seg = (x1: number, y1: number, x2: number, y2: number): Segment => ({ a: { x: x1, y: y1 }, b: { x: x2, y: y2 } })
 const NET = rules.netDepth + rules.board
@@ -50,12 +50,12 @@ export type RollOptions = { breaker: boolean; pierces: number; shooter: PlayerId
 
 /**
  * One tick of ball motion: friction, then swept movement with bounces; walls hit hard enough lose hp.
- * With `breaker`, the first structure touched is destroyed outright and the ball keeps its speed. A Palleted ball does the same for each of its `pierces`, one per structure, and is marked apart from the Breaker.
+ * With `breaker`, the first structure touched is destroyed outright and the ball keeps its speed. A Palleted ball does the same for each of its `pierces`, one per structure, and, unlike the Breaker, leaves its events unmarked.
  * `dt` is the seconds the call covers (a tick by default).
  */
 export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, { breaker = false, pierces = 0, shooter = 1 }: Partial<RollOptions> = {}, dt = 1 / c.tickHz): { ball: Ball; objects: Structure[]; events: SimEvent[]; breaker: boolean; pierces: number } {
   const decay = 0.5 ** (dt / c.halfLife)
-  let { pos, vel, rolled, through } = ball
+  let { pos, vel, rolled, piercedWall } = ball
   vel = { x: vel.x * decay, y: vel.y * decay }
   if (Math.hypot(vel.x, vel.y) < c.restSpeed) vel = { x: 0, y: 0 }
   const events: SimEvent[] = []
@@ -70,7 +70,7 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, { break
     const candidates: [Segment, Structure?, number?][] = [...boards.map((s): [Segment] => [s]), ...objects.flatMap((w) => standingPieces(w).map(({ seg, index }): [Segment, Structure, number?] => [seg, w, index]))]
     for (const [s, wall, segment] of candidates) {
       const h = sweep(pos, d, s, c.ballRadius)
-      if (h && wall && wall.id === through) touching = true
+      if (h && wall && wall.id === piercedWall) touching = true
       else if (h && (!best || h.t < best.t)) best = { ...h, wall, segment }
     }
     const len = Math.hypot(d.x, d.y)
@@ -101,8 +101,8 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, { break
           objects = r.objects
           events.push(...r.events.map((e) => (e.type === 'wall-destroyed' || e.type === 'segment-broken' ? { ...e, ...mark } : e)))
         }
-        // Only a pierce skips the neighbour: the Breaker's one structure is spent, and it bounces off the next segment's end as it always has.
-        if (!mark.breaker) [through, touching] = [best.wall.id, true]
+        // A pierce, or a Breaker with pierces left, skips the neighbour at a Joint; a lone Breaker bounces off the next segment's end as it always has.
+        if (!mark.breaker || pierces > 0) [piercedWall, touching] = [best.wall.id, true]
         continue
       }
       if (best.wall.kind === 'tower' && best.wall.power === 'steal' && best.wall.owner !== shooter) {
@@ -133,5 +133,5 @@ export function rollBall(ball: Ball, objects: Structure[], c: SimConfig, { break
       events.push({ type: 'repulsor-fired', tower: t.id, at: pos })
     }
   }
-  return { ball: touching ? { pos, vel, rolled, through } : { pos, vel, rolled }, objects, events, breaker, pierces }
+  return { ball: touching ? { pos, vel, rolled, piercedWall } : { pos, vel, rolled }, objects, events, breaker, pierces }
 }

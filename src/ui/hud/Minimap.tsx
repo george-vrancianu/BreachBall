@@ -1,9 +1,7 @@
 import type { CSSProperties } from 'react'
 import { visual } from '../../config/visual'
 import type { Band, MinimapView } from '../../game/view/minimap'
-
-/** How far in from the far edge the minimap chip (top-left) and the ☰ button (top-right) sit: just inside the Defence bar, and the Resource bar when it is shown. */
-export const underBars = (resourceBar: boolean): number => visual.hud.bar.heightPx + (resourceBar ? visual.hud.bar.resourceRowPx : 0) + visual.sideMenu.buttonInsetPx
+import { cornerPos } from './safeArea'
 
 /** How much of the stage's left edge the minimap chip takes, inset included: what the queued Subterfuge icons keep clear of. */
 export const chipClear = (): number => visual.sideMenu.buttonInsetPx + visual.hud.minimap.hitPx
@@ -21,7 +19,7 @@ export function Minimap({ minimap, open, color, flipped, resourceBar = false, on
       aria-label={open ? 'Close map' : 'Map'}
       aria-expanded={open}
       onClick={onToggle}
-      style={{ position: 'absolute', [flipped ? 'bottom' : 'top']: underBars(resourceBar), left: visual.sideMenu.buttonInsetPx, width: hitPx, height: chipH, padding: 0, border: 0, background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', zIndex: visual.sideMenu.buttonZ, ...style }}
+      style={{ position: 'absolute', ...cornerPos(flipped, resourceBar, 'left'), width: hitPx, height: chipH, padding: 0, border: 0, background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', zIndex: visual.sideMenu.buttonZ, ...style }}
     >
       <span style={{ boxSizing: 'border-box', width: chipW, height: chipH, borderRadius: radiusPx, border: `${borderPx}px solid ${open ? color : tokens.ghostBorder}`, background: open ? color : visual.hud.dock.fill, boxShadow: `0 4px 12px ${visual.hud.shadow}`, color: visual.hud.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: fontPx, lineHeight: 1 }}>
         {open ? (
