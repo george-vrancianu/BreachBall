@@ -21,10 +21,10 @@ describe('DefenceBar', () => {
   it('sits at the stage top, or its bottom when flipped, and never takes pointer input', () => {
     const { container, rerender } = render(<DefenceBar bar={bar} flipped={false} />)
     const el = container.firstElementChild as HTMLElement
-    expect(el.style.top).toBe('0px')
+    expect(el.style.top).toBe('calc(var(--safe-top, 0px) + 0px)')
     expect(el.style.pointerEvents).toBe('none')
     rerender(<DefenceBar bar={bar} flipped />)
-    expect((container.firstElementChild as HTMLElement).style.bottom).toBe('0px')
+    expect((container.firstElementChild as HTMLElement).style.bottom).toBe('calc(var(--safe-bottom, 0px) + 0px)')
   })
   it('draws Player 2 striped and Player 1 solid', () => {
     const { container } = render(<DefenceBar bar={{ 1: { count: '1', segments: [true] }, 2: { count: '1', segments: [true] } }} flipped={false} />)
