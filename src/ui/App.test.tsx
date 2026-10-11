@@ -75,7 +75,7 @@ it('a sweep that began with the slide keeps full opacity while the chrome is fad
   fireEvent.click(screen.getByText('Start'))
   const sweep = { kind: 'sweep' as const, placement: 'center' as const, band: true, text: 'PLAY', color: '#fff', progress: 0.5, turn: 180 }
   act(() => games[0]!.onView(view({ slide: { dock: 1, chrome: 0 }, overlay: { ...sweep, fades: false } })))
-  expect(screen.getByText('PLAY').closest('[style*="rotate"]')).toBeTruthy()
+  expect((screen.getByText('PLAY').parentElement as HTMLElement).style.transform).toMatch(/^rotate\(180deg\)/)
   expect(screen.getByRole('button', { name: 'Menu' }).style.opacity).toBe('0')
   expect((screen.getByText('PLAY').parentElement as HTMLElement).style.opacity).toBe('')
   act(() => games[0]!.onView(view({ slide: { dock: 1, chrome: 0 }, overlay: { ...sweep, turn: 0, fades: true } })))
