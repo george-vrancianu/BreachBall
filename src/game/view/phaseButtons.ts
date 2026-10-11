@@ -8,8 +8,8 @@ export type PhaseSeam = {
   /** The live state. Handlers read it at click time: the HUD keeps a button row while its labels are unchanged, so a handler must never carry the player it was created for. */
   current(): SimState
   send(input: SimInput): void
-  /** False while an overlay (the GOAL banner, the REVEAL hold) hides the board: the defence choice, Repair and Rearrange alike, is offered only when it is not. Default true. */
-  choosable?: boolean
+  /** True while a blocking hold (the handover flip, the GOAL banner, the REVEAL hold, the REPAIRED sweep) or the Side menu hides or covers the board: Done and the defence choice, Repair and Rearrange alike, are not offered. Read live, like `current`. Default false. */
+  blocked?(): boolean
   /** The builder holds a piece not yet in the sim (being drawn, or red): Done waits until it is placed or cancelled. */
   unplaced?: boolean
 }
@@ -20,14 +20,14 @@ export function phaseButtons(s: SimState, config: SimConfig, h: PhaseSeam): Butt
   if (builder && h.mine(builder)) {
     return [{
       label: 'Done',
-      disabled: !canFinishBuild(s, config) || !!h.unplaced,
+      disabled: !canFinishBuild(s, config) || !!h.unplaced || !!h.blocked?.(),
       onClick: () => {
         const b = h.current().match.builder
-        if (b && h.mine(b)) h.send({ done: b })
+        if (b && h.mine(b) && !h.blocked?.()) h.send({ done: b })
       },
     }]
   }
-  if (choosing && h.mine(choosing) && h.choosable !== false) {
+  if (choosing && h.mine(choosing) && !h.blocked?.()) {
     return (['repair', 'rearrange'] as const).map((choice) => ({
       label: choice === 'repair' ? 'Repair' : 'Rearrange',
       onClick: () => {

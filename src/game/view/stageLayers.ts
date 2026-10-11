@@ -7,3 +7,8 @@ export type StageLayers = { canvasAngle: number; hudAngle: number }
  */
 export const stageLayers = ({ tabletop, stageAngle, seatAngle }: { tabletop: boolean; stageAngle: number; seatAngle: number }): StageLayers =>
   tabletop ? { canvasAngle: 0, hudAngle: seatAngle } : { canvasAngle: stageAngle, hudAngle: stageAngle }
+
+/**
+ * The angle `physicalEdges` reads, where the layout has put the Dock. Tabletop mode on: the HUD layer's own turn (`hudAngle`), so the swap is in the slide's hidden beat. Off: the settled layout (`flipped`), which changes at the flip's end together with the layout, not at the half turn.
+ */
+export const safeAngle = ({ tabletop, hudAngle, flipped }: { tabletop: boolean; hudAngle: number; flipped: boolean }): number => (tabletop ? hudAngle : flipped ? 180 : 0)

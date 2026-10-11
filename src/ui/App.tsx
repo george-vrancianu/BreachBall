@@ -5,12 +5,13 @@ import { Game, type HudView } from '../game/Game'
 import { showConnectScreen } from '../net/connectScreen'
 import { defaultSettings, type Settings } from '../game/view/settings'
 import { loadTabletop } from '../game/deviceSettings'
-import { stageLayers } from '../game/view/stageLayers'
+import { safeAngle, stageLayers } from '../game/view/stageLayers'
 import { DefenceBar } from './hud/DefenceBar'
 import { ResourceBar } from './hud/ResourceBar'
 import { Shell } from './hud/Shell'
 import { Minimap } from './hud/Minimap'
 import { SideMenu, SideMenuButton } from './hud/SideMenu'
+import { safeAreaVars } from './hud/safeArea'
 import { QueuedIcons } from './hud/QueuedIcons'
 import { Overlay } from './overlays/Overlay'
 import { TabletopToggle } from './ButtonRow'
@@ -54,11 +55,11 @@ export function App() {
       <div data-testid="canvas-layer" style={layerStyle(canvasAngle)}>
         <canvas ref={canvas} />
       </div>
-      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. The overlay goes under the shell so the controls stay tappable during a hold. In Tabletop mode only this layer turns at a handover, to face the active player; with it off both layers turn together. */}
-      <div data-testid="hud-layer" style={layerStyle(hudAngle, { pointerEvents: 'none' })}>
+      {/* The HUD layer sits over the canvas and passes pointer input through; its controls opt back in. It sets the safe-area insets as variables by the physical edge each of its sides is on, swapping at `safeAngle`. The overlay goes under the shell so the controls stay tappable during a hold. In Tabletop mode only this layer turns at a handover, to face the active player; with it off both layers turn together. */}
+      <div data-testid="hud-layer" style={layerStyle(hudAngle, { pointerEvents: 'none', ...safeAreaVars(safeAngle({ tabletop, hudAngle, flipped: view?.flipped ?? false })) })}>
         {view && (
           <>
-            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} style={fade(view.slide.chrome)} />
+            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} style={view.overlay?.fades ? fade(view.slide.chrome) : undefined} />
             <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} style={fade(view.slide.chrome)} />
             {view.hud.resourceBar && <ResourceBar bar={view.hud.resourceBar} flipped={view.flipped} style={fade(view.slide.chrome)} />}
             {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} style={fade(view.slide.chrome)} />}

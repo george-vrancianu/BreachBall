@@ -105,10 +105,15 @@ export type Notice = { player: PlayerId; text: string }
 /** A label for the peer waiting on the scorer's defence choice (online only: `mine` is false for the chooser's seat), else undefined. The pitch stays visible and the sim keeps running. */
 export const choosingNotice = (m: Match, mine: (p: PlayerId | null | undefined) => boolean): Notice | undefined => (m.choosing && !mine(m.choosing) ? { player: m.choosing, text: 'Opponent is choosing' } : undefined)
 
-export type OverlayView = { kind: Overlay['kind'] | 'notice'; placement: 'top' | 'center'; band: boolean; text: string; color: string; progress: number }
+export type OverlayView = { kind: Overlay['kind'] | 'notice'; placement: 'top' | 'center'; band: boolean; text: string; color: string; progress: number; /** Sweeps only. Degrees the Overlay turns within the HUD layer: a sweep that begins with a Tabletop handover slide already faces the incoming seat, so it does not come back mirrored when the layer turns at the swap. */ turn: number; /** Whether the Overlay fades with the edge strips and corner chips during the slide (a sweep that began with the slide does not; one already running fades like the rest). */ fades: boolean }
+
+/** The sweep's own turn inside the HUD layer during a Tabletop slide: until the swap the layer still faces the outgoing seat, so the sweep is turned to the incoming one. */
+const sweepTurn = (t: Transition, incoming: PlayerId): number => (rot(incoming) - rot(t.hudSeat) + 360) % 360
 
 export function overlayView(t: Transition, now: number, notice?: Notice): OverlayView | undefined {
   const o = t.overlay
-  if (!o) return notice && { kind: 'notice' as const, placement: 'top' as const, band: false, text: notice.text, color: visual.player.colors[notice.player], progress: 1 }
-  return { kind: o.kind, placement: o.kind === 'reveal' ? ('top' as const) : ('center' as const), band: o.kind === 'goal' || o.kind === 'sweep', text: o.text, color: visual.player.colors[o.player], progress: Math.min(1, (now - o.at) / o.ms) }
+  if (!o) return notice && { kind: 'notice' as const, placement: 'top' as const, band: false, text: notice.text, color: visual.player.colors[notice.player], progress: 1, turn: 0, fades: true }
+  // Only a sweep stamped no earlier than the slide (`o.at >= flip.at`) is turned and kept from fading; one already running carries on as it was. This relies on the phase change and the active-seat change arriving on the same advance frame.
+  const slide = o.kind === 'sweep' && t.flip?.swapMs !== undefined && o.at >= t.flip.at ? t.flip : undefined
+  return { kind: o.kind, placement: o.kind === 'reveal' ? ('top' as const) : ('center' as const), band: o.kind === 'goal' || o.kind === 'sweep', text: o.text, color: visual.player.colors[o.player], progress: Math.min(1, (now - o.at) / o.ms), turn: slide ? sweepTurn(t, slide.hudSeat) : 0, fades: !slide }
 }

@@ -13,15 +13,15 @@ describe('QueuedIcons', () => {
   })
   it('sits under the targeted half of the Defence bar, below the Resource bar row, on the far edge', () => {
     const { bar, queued } = visual.hud
-    const offset = `${bar.heightPx + bar.resourceRowPx + queued.edgePx}px`
+    const offset = bar.heightPx + bar.resourceRowPx + queued.edgePx
     const { container, rerender } = render(<QueuedIcons queued={[{ item: 'jam', by: 1, against: 2 }]} flipped={false} />)
     const root = container.firstChild as HTMLElement
-    expect(root.style.top).toBe(offset)
+    expect(root.style.top).toBe(`calc(var(--safe-top, 0px) + ${offset}px)`)
     expect(root.children[0]!.querySelector('[role=img]')).toBeNull()
     expect(root.children[1]!.querySelector('[role=img]')).toBeTruthy()
     rerender(<QueuedIcons queued={[{ item: 'jam', by: 2, against: 1 }]} flipped />)
     const flipped = container.firstChild as HTMLElement
-    expect(flipped.style.bottom).toBe(offset)
+    expect(flipped.style.bottom).toBe(`calc(var(--safe-bottom, 0px) + ${offset}px)`)
     expect(flipped.children[0]!.querySelector('[role=img]')).toBeTruthy()
   })
   it('shows nothing when nothing is queued', () => {
