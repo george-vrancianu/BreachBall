@@ -29,6 +29,9 @@ export type Pallet = {
 /** A Pallet's pivot spot on the map. */
 export type PalletSpot = Point
 
+/** Whether something lies within `clearance` of an Activation ring at any of `spots`: the one no-build rule. `dist` measures it from a spot (a point, a wall's centreline, a tower's cell). */
+export const inActivationRing = (spots: readonly PalletSpot[], dist: (spot: PalletSpot) => number, clearance = 0): boolean => spots.some((s) => dist(s) <= P.ringRadius + clearance)
+
 /** Seeded, deterministic: a Pallet's starting angle in [-π, π). */
 export const startAngle = (seed: number, index: number): number => (seedHash(seed, index + 1) / 2 ** 32) * TAU - Math.PI
 

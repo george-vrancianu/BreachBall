@@ -3,20 +3,26 @@ import { rules } from '../../config/rules'
 import { visual } from '../../config/visual'
 import { Pitch } from './Pitch'
 
-type Call = { fn: string; fillStyle: unknown; strokeStyle: unknown; dash: number[]; alpha: unknown; args: unknown[] }
+type Call = { arcR?: unknown; fn: string; fillStyle: unknown; strokeStyle: unknown; dash: number[]; alpha: unknown; args: unknown[] }
 
 /** A canvas context that records every draw call with the style state at the time. */
 function recorder() {
   const calls: Call[] = []
   const state: Record<string, unknown> = { fillStyle: '', strokeStyle: '', globalAlpha: 1 }
   let dash: number[] = []
+  let arcR: unknown
   const ctx = new Proxy(
     {},
     {
       get: (_t, k: string) => {
         if (k === 'setLineDash') return (d: number[]) => void (dash = d)
         if (k === 'measureText') return (t: string) => ({ width: t.length })
-        if (['stroke', 'fill', 'fillRect', 'arc', 'fillText', 'translate'].includes(k)) return (...args: unknown[]) => void calls.push({ fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
+        if (['stroke', 'fill', 'fillRect', 'arc', 'fillText', 'translate'].includes(k))
+          return (...args: unknown[]) => {
+            if (k === 'arc') arcR = args[2]
+            calls.push({ arcR: k === 'stroke' ? arcR : undefined, fn: k, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, dash, alpha: state.globalAlpha, args })
+            if (k === 'stroke') arcR = undefined
+          }
         return state[k] ?? (() => {})
       },
       set: (_t, k: string, v) => ((state[k] = v), true),
@@ -26,7 +32,10 @@ function recorder() {
 }
 
 const { unit } = visual.pitch
-const keepOut = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.keepOut.dashPx[0] * unit)
+// The keep-out arc and the Activation ring share one stroke, so tell them apart by the radius of the arc just drawn.
+const arcStrokes = (calls: Call[], radius: number) => calls.filter((c) => c.fn === 'stroke' && c.arcR === radius)
+const keepOut = (calls: Call[]) => arcStrokes(calls, rules.noBuildRadius)
+const rings = (calls: Call[]) => arcStrokes(calls, rules.pallet.ringRadius)
 const buildEdges = (calls: Call[]) => calls.filter((c) => c.fn === 'stroke' && c.dash[0] === visual.pitch.buildEdge.dashPx[0] * unit)
 const snapDots = (calls: Call[]) => calls.filter((c) => c.fn === 'fillRect' && c.alpha === visual.pitch.snapGrid.alpha && c.args[2] === visual.pitch.snapGrid.dotPx * unit)
 
@@ -49,6 +58,19 @@ describe('Pitch markings', () => {
     expect(edges).toHaveLength(1)
     expect(edges[0].strokeStyle).toBe(visual.player.colors[1])
     expect(edges[0].alpha).toBe(visual.pitch.buildEdge.alpha)
+  })
+
+  it('draws each Activation ring, dashed in the builder\'s colour, during a build only', () => {
+    const pitch = new Pitch()
+    pitch.pallets = rules.pallet.spots
+    const idle = recorder()
+    pitch.draw(idle.ctx)
+    expect(rings(idle.calls)).toHaveLength(0)
+    pitch.builder = 2
+    const { ctx, calls } = recorder()
+    pitch.draw(ctx)
+    expect(rings(calls).map((c) => c.strokeStyle)).toEqual([visual.player.colors[2], visual.player.colors[2]])
+    expect(calls.filter((c) => c.fn === 'arc' && c.args[2] === rules.pallet.ringRadius).map((c) => c.args.slice(0, 2))).toEqual(rules.pallet.spots.map((p) => [p.x, p.y]))
   })
 
   it('draws a goal line across each mouth', () => {

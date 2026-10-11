@@ -2,6 +2,7 @@ import { rules } from '../config/rules'
 import { kickoffSpot, type PlayerId, type Point } from './pitch'
 import { coinFlip, firstBuilder, startingPossession, type GameModeName, type Match, type RoundsMatch, type SiegeMatch } from './match'
 import { opponent, type Possession } from './possession'
+import type { PalletSpot } from './pallet'
 import type { SimConfig, SimEvent } from './step'
 import { maxHp, structureCost, structuresOf, type Structure, type StructureSpec } from './wall'
 
@@ -30,6 +31,8 @@ export type BuildTurn = { credits: number; built: number[] }
  * and calls `winner` whenever a shot is consumed or a goal is scored.
  */
 export type GameMode<M extends Match = Match> = {
+  /** Where the mode's Pallets go when the Pallets setting is on (ADR-0009). */
+  pallets: readonly PalletSpot[]
   /** Fresh match state and the opening possession. */
   start(seed: number, c: SimConfig): { match: M; possession: Possession }
   /** A shot was fired or burned by the shot clock. */
@@ -82,6 +85,7 @@ function endRound(m: RoundsMatch, scorer: PlayerId | null, c: SimConfig): ModeRe
 }
 
 export const rounds: GameMode<RoundsMatch> = {
+  pallets: rules.pallet.spots,
   start: (seed, c) => ({
     match: { mode: 'rounds', seed, round: 1, score: { 1: 0, 2: 0 }, roundShots: 0, winner: null, builder: firstBuilder(seed, 1), choosing: null },
     possession: startingPossession(coinFlip(seed, 1), c),
@@ -109,6 +113,7 @@ export const rounds: GameMode<RoundsMatch> = {
 
 /** Siege: one opening build (Rounds ordering), no score, no shot cap; a goal hands the conceder a Kick-off after the defence turn; a player with no structures left loses. */
 export const siege: GameMode<SiegeMatch> = {
+  pallets: rules.pallet.spots,
   start: (seed, c) => ({ match: { mode: 'siege', seed, winner: null, builder: firstBuilder(seed, 1), choosing: null, opening: true }, possession: startingPossession(coinFlip(seed, 1), c) }),
   onShotFired: (m) => m,
   onShotConsumed: () => null,

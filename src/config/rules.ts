@@ -92,6 +92,8 @@ const tiers: readonly Tier[] = [
 
 const mapTop = -base.board - base.netDepth
 const mapHeight = base.pitchHeight + 2 * (base.board + base.netDepth)
+/** A default Pallet's distance from its side board: its Activation ring plus a 1-unit margin, so the ring sits fully inside the pitch. */
+const palletInset = base.pallet.ringRadius + 1
 
 /** The wall settings the geometry helpers read; `rules` by default, so tests and tools can pass their own. */
 export type WallRules = { /** Half a wall's thickness, world units. */ wallHalf: number; wall: { unit: number; units: readonly number[]; angles: readonly number[]; unitCost: number; shapeTol: number } }
@@ -113,4 +115,6 @@ export const rules = {
   mapHeight,
   mapY: mapTop + mapHeight / 2,
   shot: { tiers },
+  /** `spots`: the default Pallet pivots both modes use, on the halfway line, one near each side board. */
+  pallet: { ...base.pallet, spots: [{ x: palletInset, y: base.pitchHeight / 2 }, { x: base.pitchWidth - palletInset, y: base.pitchHeight / 2 }] },
 } as const

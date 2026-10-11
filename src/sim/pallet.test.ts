@@ -222,7 +222,9 @@ describe('determinism', () => {
 describe('steal inside a substepped tick', () => {
   it('leaves the ball at rest once a Steal triggers', () => {
     // Player 2's Steal tower beside the arm's sweep, inside the ring: the ball reaches it on a substepped tick, with the arm still in reach.
-    const placed = place({ kind: 'tower', owner: 2, power: 'steal', at: { gx: 3, gy: 16 } }, playState(1, config)).state
+    // The ring is a no-build zone, so the tower goes down before the Pallet does.
+    const built = place({ kind: 'tower', owner: 2, power: 'steal', at: { gx: 3, gy: 16 } }, playState(1)).state
+    const placed = { ...built, pallets: initialPallets([PIVOT], 1) }
     let s = live(placed, { x: 10, y: 45 }, { x: 0, y: -40 })
     expect(s.possession.shooter).toBe(1)
     let stolen = false

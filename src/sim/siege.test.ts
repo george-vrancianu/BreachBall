@@ -347,8 +347,8 @@ describe('Siege build timeout', () => {
       expect([a.length, b.length]).toEqual([1, 1])
       expect(a[0].kind).toBe(openingCredits === 0 ? 'tower' : 'wall')
       const [p1, p2] = first === 1 ? [a[0], b[0]] : [b[0], a[0]]
-      expect(isLegal(p1, [])).toBe(true)
-      expect(isLegal(p2, [])).toBe(true)
+      expect(isLegal(p1, [], [])).toBe(true)
+      expect(isLegal(p2, [], [])).toBe(true)
       if (p1.kind === 'wall' && p2.kind === 'wall') {
         // A 1-unit horizontal wall centred left-right, just in front of the no-build zone; the seats mirror across the halfway line.
         expect(p1).toMatchObject({ a: { x: 16, y: 92 }, b: { x: 24, y: 92 } })
