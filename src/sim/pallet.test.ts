@@ -291,10 +291,10 @@ describe('frozenArmStop', () => {
 
   it('catches a graze shorter than the substep spacing on a long segment', () => {
     const x = tip.x + 0.2
-    expect(frozenArmStop([arm], { x, y: 36 }, { x, y: 24 }, small)?.arm).toBe(true)
+    expect(frozenArmStop([arm], { x, y: 36 }, { x, y: 24 }, small)?.kind).toBe('arm')
   })
   it('lets the same segment pass just outside the tip, leaving the ring instead', () => {
     const x = tip.x + 0.6
-    expect(frozenArmStop([arm], { x, y: 36 }, { x, y: 24 }, small)?.arm).toBe(false)
+    expect(frozenArmStop([arm], { x, y: 36 }, { x, y: 24 }, small)?.kind).toBe('ring')
   })
 })

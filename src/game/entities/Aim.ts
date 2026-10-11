@@ -161,8 +161,8 @@ export class Aim extends Entity {
     return this.path?.points
   }
 
-  /** Where the Ghost bounces or ends on a Pallet's arm, each marked with a ring: ink off a structure, the tier's colour off a board or an arm, grey while cancel is armed. */
-  get ghostBounces(): (Contact & { color: string })[] {
+  /** The marks on the Ghost: a ring at each bounce, and at the end where it meets a Pallet's arm (the path stops there, so that is not a bounce). Ink off a structure, the tier's colour off a board or an arm, grey while cancel is armed. */
+  get ghostMarks(): (Contact & { color: string })[] {
     const { path, aim } = this
     if (!path || !aim) return []
     const ring = (kind: Contact['kind']) => (aim.cancel ? visual.aim.cancel.color : kind === 'wall' ? visual.aim.ghost.bounce.wallColor : tierColor(aim.tier))
@@ -307,10 +307,11 @@ export class Aim extends Entity {
         ctx.arc(at.x, at.y, radius, 0, Math.PI * 2)
         ctx.fill()
       }
-      const { radius, width, alpha, armDot } = visual.aim.ghost.bounce
+      const { radius, width, alpha } = visual.aim.ghost.bounce
+      const { dot } = visual.aim.ghost.arm
       ctx.globalAlpha = alpha
       ctx.lineWidth = width
-      for (const { at, color, kind } of this.ghostBounces) {
+      for (const { at, color, kind } of this.ghostMarks) {
         ctx.strokeStyle = color
         ctx.beginPath()
         ctx.arc(at.x, at.y, radius, 0, Math.PI * 2)
@@ -318,7 +319,7 @@ export class Aim extends Entity {
         if (kind === 'pallet') {
           ctx.fillStyle = color
           ctx.beginPath()
-          ctx.arc(at.x, at.y, armDot, 0, Math.PI * 2)
+          ctx.arc(at.x, at.y, dot, 0, Math.PI * 2)
           ctx.fill()
         }
       }

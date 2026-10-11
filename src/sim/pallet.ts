@@ -7,6 +7,8 @@ import type { Structure } from './wall'
 
 const P = rules.pallet
 const TAU = Math.PI * 2
+/** Halvings that pin down where the frozen arm is first touched. */
+const BISECTIONS = 12
 
 /** A neutral rotating arm (ADR-0009). Plain data: it holds no reference to the ball. */
 export type Pallet = {
@@ -211,15 +213,16 @@ export function rollWithPallets(
 
 /**
  * For the Ghost (ADR-0009): where a ball centre moving straight from `from` to `to` first meets a Pallet's arm, held as it is, or leaves its Activation ring
- * without having touched it; null when neither happens on this stretch. `t` is how far along (0-1), `arm` whether it was the arm (else the ring).
+ * without having touched it; null when neither happens on this stretch. `t` is how far along (0-1), `kind` whether it was the `arm` or the `ring`.
  * Only the stretch inside a ring is searched, at least as finely as the sim's substeps and never coarser than the arm is thick, then bisected. Cheap but not allocation-free (a point per sample); it runs only for balls with Pallets on the map.
  */
-export function frozenArmStop(pallets: readonly Pallet[], from: Point, to: Point, c: SimConfig): { t: number; arm: boolean } | null {
+export function frozenArmStop(pallets: readonly Pallet[], from: Point, to: Point, c: SimConfig): { t: number; kind: 'arm' | 'ring' } | null {
   const [vx, vy] = [to.x - from.x, to.y - from.y]
   const vv = vx * vx + vy * vy
+  if (vv < 1e-12) return null
   const reach = ringReach(c)
   let best = Infinity
-  let arm = false
+  let kind: 'arm' | 'ring' = 'ring'
   const clear = (p: Pallet, t: number) => {
     const n = nearestOnArm(p, { x: from.x + vx * t, y: from.y + vy * t })
     return n.d - n.pr - c.ballRadius
@@ -228,9 +231,11 @@ export function frozenArmStop(pallets: readonly Pallet[], from: Point, to: Point
     // The stretch of the segment within the ring: t in [t0, t1].
     const [rx, ry] = [from.x - p.pivot.x, from.y - p.pivot.y]
     const disc = ((rx * vx + ry * vy) / vv) ** 2 - (rx * rx + ry * ry - reach * reach) / vv
-    if (vv < 1e-12 || disc < 0) continue
+    if (disc < 0) continue
+    const root = Math.sqrt(disc)
     const mid = -(rx * vx + ry * vy) / vv
-    const [t0, t1] = [Math.max(0, mid - Math.sqrt(disc)), Math.min(1, mid + Math.sqrt(disc))]
+    const exits = mid + root < 1 // the ray leaves the ring inside the segment, untruncated
+    const [t0, t1] = [Math.max(0, mid - root), Math.min(1, mid + root)]
     if (t0 > t1) continue
     let [lo, hi] = [-1, -1]
     const n = Math.max(P.substeps, Math.ceil((Math.sqrt(vv) * (t1 - t0)) / (P.tipRadius + c.ballRadius)))
@@ -243,9 +248,9 @@ export function frozenArmStop(pallets: readonly Pallet[], from: Point, to: Point
       lo = t
     }
     if (hi >= 0) {
-      if (lo >= 0) for (let i = 0; i < 12; i++) [lo, hi] = clear(p, (lo + hi) / 2) < 0 ? [lo, (lo + hi) / 2] : [(lo + hi) / 2, hi]
-      if (hi < best) [best, arm] = [hi, true]
-    } else if (mid + Math.sqrt(disc) < 1 && t1 < best) [best, arm] = [t1, false]
+      if (lo >= 0) for (let i = 0; i < BISECTIONS; i++) [lo, hi] = clear(p, (lo + hi) / 2) < 0 ? [lo, (lo + hi) / 2] : [(lo + hi) / 2, hi]
+      if (hi < best) [best, kind] = [hi, 'arm']
+    } else if (exits && t1 < best) [best, kind] = [t1, 'ring']
   }
-  return best === Infinity ? null : { t: best, arm }
+  return best === Infinity ? null : { t: best, kind }
 }

@@ -9,7 +9,7 @@ Until now every collider in the sim was static and every piece of the map had an
 - **Deterministic chaos, no RNG.** Each Pallet's starting angle is a hash of `match.seed`. The idle spin runs every tick, including while the ball is at rest between shots, so the shooter can time the release against the spin. There is no other jitter.
 - **Inert between shots.** The arm keeps spinning, but it only collides while the shot is live, so it never restarts a ball at rest.
 - **Exit speed** is clamped to [`maxSpeed`, 2 × `maxSpeed`].
-- **Frozen-arm Ghost.** `predictPath` runs the real `step`, so a straight replay would give away exactly where the swat sends the ball. While aiming, the Ghost is recomputed every frame with the arm treated as a static bat at its current angle: no tracking, no swing. The Ghost ends at the first contact with the arm, or where it leaves the ring. It helps with timing without revealing the result.
+- **Frozen-arm Ghost.** `predictPath` runs the real `step`, so a straight replay would give away exactly where the swat sends the ball. While aiming, the Ghost is recomputed every tick with the arm treated as a static bat at its current angle: no tracking, no swing. The Ghost ends at the first contact with the arm, or where it leaves the ring. It helps with timing without revealing the result.
 
 ## Considered Options
 

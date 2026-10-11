@@ -34,7 +34,7 @@ export function predictPath(state: SimState, shot: NonNullable<SimInput['shot']>
     if (d <= left) {
       points.push(p)
       left -= d
-      if (stop?.arm) contacts.push({ at: p, kind: 'pallet' })
+      if (stop?.kind === 'arm') contacts.push({ at: p, kind: 'pallet' })
       return !stop
     }
     if (left > 0) points.push({ x: last.x + ((p.x - last.x) * left) / d, y: last.y + ((p.y - last.y) * left) / d })

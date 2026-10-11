@@ -110,13 +110,13 @@ describe('predictPath with Pallets (frozen arm, ADR-0009)', () => {
   /** A shot from (x, 60) up the pitch with the Pallet's arm frozen at `angle`. */
   const withArm = (x: number, angle: number, extra: Partial<SimState['pallets'][number]> = {}): SimState => {
     const s = at({ x, y: 60 })
-    return { ...s, pallets: [{ ...s.pallets[0] ?? initialPallets([pivot], 1)[0], angle, ...extra }] }
+    return { ...s, pallets: [{ ...initialPallets([pivot], 1)[0], angle, ...extra }] }
   }
-  const up_ = -Math.PI / 2
+  const armUp = -Math.PI / 2
 
   it('ends at its first contact with the frozen arm, with a pallet contact there', () => {
     // The arm points up the line of fire; the ball meets its root first: pivot + root radius + ball radius from below.
-    const p = predictPath(withArm(10, up_), fast, pc, unlimited)
+    const p = predictPath(withArm(10, armUp), fast, pc, unlimited)
     expect(p.contacts).toHaveLength(1)
     expect(p.contacts[0].kind).toBe('pallet')
     expect(p.contacts[0].at.x).toBeCloseTo(10)
@@ -132,22 +132,22 @@ describe('predictPath with Pallets (frozen arm, ADR-0009)', () => {
   })
   it('ends where the path leaves the Activation ring when it never touches the arm', () => {
     // Up x = 14, clear of the arm (length 2.5): inside the ring while |y - 30| <= sqrt((5 + 1)² - 4²).
-    const p = predictPath(withArm(14, up_), fast, pc, unlimited)
+    const p = predictPath(withArm(14, armUp), fast, pc, unlimited)
     expect(p.contacts).toEqual([])
     expect(p.points.at(-1)!.x).toBeCloseTo(14)
     expect(p.points.at(-1)!.y).toBeCloseTo(pivot.y - Math.sqrt((rules.pallet.ringRadius + c.ballRadius) ** 2 - 16), 2)
   })
   it('ignores the arm: tracking, swinging and spin do not change the prediction', () => {
-    const rest = predictPath(withArm(10, up_), fast, pc, unlimited)
-    const busy = predictPath(withArm(10, up_, { phase: 'swing', omega: 20, dir: -1, swept: 1, sweepNeed: 3 }), fast, pc, unlimited)
+    const rest = predictPath(withArm(10, armUp), fast, pc, unlimited)
+    const busy = predictPath(withArm(10, armUp, { phase: 'swing', omega: 20, dir: -1, swept: 1, sweepNeed: 3 }), fast, pc, unlimited)
     expect(busy).toEqual(rest)
   })
   it('follows the arm as it spins: the same shot meets it at one angle and clears it at another', () => {
     expect(predictPath(withArm(12, 0), fast, pc, unlimited).contacts.map((k) => k.kind)).toEqual(['pallet'])
-    expect(predictPath(withArm(12, up_), fast, pc, unlimited).contacts).toEqual([])
+    expect(predictPath(withArm(12, armUp), fast, pc, unlimited).contacts).toEqual([])
   })
   it('still caps by reach before the ring and by bounces outside it', () => {
-    const short = predictPath(withArm(10, up_), fast, pc, { maxBounces: 3, maxLength: 5 })
+    const short = predictPath(withArm(10, armUp), fast, pc, { maxBounces: 3, maxLength: 5 })
     expect(lengthOf(short.points)).toBeCloseTo(5)
     expect(short.contacts).toEqual([])
     // Away from the ring, a Pallet changes nothing.
@@ -159,7 +159,7 @@ describe('predictPath with Pallets (frozen arm, ADR-0009)', () => {
   describe('on the default map', () => {
     const dc = { ...c, pallets: rules.pallet.spots }
     const reach = rules.pallet.ringRadius + c.ballRadius
-    const mapAt = (pos: Point, angle = up_, extra: Partial<SimState> = {}): SimState => ({ ...at(pos), pallets: initialPallets(dc.pallets, 1).map((p) => ({ ...p, angle })), ...extra })
+    const mapAt = (pos: Point, angle = armUp, extra: Partial<SimState> = {}): SimState => ({ ...at(pos), pallets: initialPallets(dc.pallets, 1).map((p) => ({ ...p, angle })), ...extra })
     const right: NonNullable<SimInput['shot']> = { ...fast, dir: { x: 1, y: 0 } }
     const left: NonNullable<SimInput['shot']> = { ...fast, dir: { x: -1, y: 0 } }
 
@@ -193,9 +193,26 @@ describe('predictPath with Pallets (frozen arm, ADR-0009)', () => {
     })
   })
   it('leaves the Pallets of the input state unchanged', () => {
-    const s = withArm(10, up_)
+    const s = withArm(10, armUp)
     const before = structuredClone(s)
     predictPath(s, fast, pc, unlimited)
     expect(s).toEqual(before)
+  })
+  it('recomputes fast enough to run every tick while aiming (60 fps)', () => {
+    // Worst case: a slow ball, so a long stretch of ticks, with a generous reach, past a Pallet whose arm is missed (the path runs on).
+    const slow: NonNullable<SimInput['shot']> = { ...up, power: 0.3 }
+    const s = withArm(14, 0)
+    const runs = 200
+    predictPath(s, slow, pc, { maxBounces: 8, maxLength: 400 })
+    const times: number[] = []
+    for (let i = 0; i < runs; i++) {
+      const t0 = performance.now()
+      predictPath(s, slow, pc, { maxBounces: 8, maxLength: 400 })
+      times.push(performance.now() - t0)
+    }
+    expect(predictPath(s, slow, pc, { maxBounces: 8, maxLength: 400 }).points.length).toBeGreaterThan(100) // a long path, not a refused shot
+    const mean = times.reduce((a, b) => a + b, 0) / runs
+    console.info(`predictPath with a Pallet: mean ${mean.toFixed(3)} ms, max ${Math.max(...times).toFixed(3)} ms over ${runs} calls`)
+    expect(mean).toBeLessThan(4)
   })
 })
