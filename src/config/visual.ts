@@ -285,6 +285,8 @@ export const visual = {
       drift: { speed: 2.5, perPower: 4 },
       /** The ring marking each bounce on the path: its radius, line width and alpha; `wallColor` (ink) for a structure, a board's ring takes the tier's colour. */
       bounce: { radius: 0.6, width: 0.2, alpha: 0.8, wallColor: ink },
+      /** Where the path ends on a Pallet's arm: the same ring in the tier's colour, holding a filled dot of radius `dot`. */
+      arm: { dot: 0.25 },
       /** A Charged ball's Ghost: dots this many times larger, with its "x1.5" / "x2" badge at the tip (size and distance past it). */
       chargedScale: 2,
       badge: { size: 1.6, offset: 1.6, weight: 700 },

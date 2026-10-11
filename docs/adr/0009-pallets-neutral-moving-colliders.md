@@ -9,7 +9,7 @@ Until now every collider in the sim was static and every piece of the map had an
 - **Deterministic chaos, no RNG.** Each Pallet's starting angle is a hash of `match.seed`. The idle spin runs every tick, including while the ball is at rest between shots, so the shooter can time the release against the spin. There is no other jitter.
 - **Inert between shots.** The arm keeps spinning, but it only collides while the shot is live, so it never restarts a ball at rest.
 - **Exit speed** is clamped to [`maxSpeed`, 2 × `maxSpeed`].
-- **Frozen-arm Ghost.** `predictPath` runs the real `step`, so a straight replay would give away exactly where the swat sends the ball. While aiming, the Ghost is recomputed every frame with the arm treated as a static bat at its current angle: no tracking, no swing. The Ghost ends at the first contact with the arm, or where it leaves the ring. It helps with timing without revealing the result.
+- **Frozen-arm Ghost.** `predictPath` runs the real `step`, so a straight replay would give away exactly where the swat sends the ball. While aiming, the Ghost is recomputed every tick with the arm treated as a static bat at its current angle: no tracking, no swing. The Ghost ends at the first contact with the arm, or where it leaves the ring. It helps with timing without revealing the result.
 
 ## Considered Options
 
@@ -24,6 +24,6 @@ Until now every collider in the sim was static and every piece of the map had an
 - **Config:** `SimConfig.pallets: readonly PalletSpot[]`, with a default per game mode (`GameMode.pallets`). Both Rounds and Siege default to two spots on the halfway line at (6, 54) and (34, 54) (`rules.pallet.spots`): Activation ring radius 5, arm length 2.5 (the ring must cover the arm, its tip and a ball on each side), swing and idle tunables in `rules`. A Settings toggle (`palletsOn`, on by default) turns Pallets off, leaving `SimConfig.pallets` empty.
 - **Build rules:** each Activation ring is a no-build zone, like the Centre zone: a wall's body and a tower's cell must stay outside it. This covers ball-in-hand placement too, where the whole ball must stay outside. One rule, `inActivationRing`, serves both.
 - **Palleted ball:** a Pallet hit sets 2 pierces. While pierces remain, each touched Wall segment breaks fully and each tower is destroyed outright, either player's, with no speed threshold. The ball keeps its speed, as with the Breaker. A destroyed Repulsor or Steal does not fire. Bouncing off the boards keeps the pierces. A Joint between two segments is one touch, so it spends one pierce. The state ends when both pierces are spent, the ball comes to rest or the shot ends. A new Pallet hit resets it to 2. A swatted Breaker shot spends its Breaker first and keeps the 2 pierces (3 pieces in all).
-- **Ghost cost:** one `predictPath` per frame while aiming.
+- **Ghost cost:** one `predictPath` per tick while aiming.
 - **Rendering:** a faint dashed ring that brightens while tracking and swinging, swing ghosts and a hit flash, always visible through Fog. During a build each ring is dashed in the builder's colour, like the Keep-out arc. Pallets are not drawn on the Minimap chip.
 - **Determinism:** the substeps are fixed-count and float-only, the same as the rest of the sim. Determinism tests must cover a Pallet swat.

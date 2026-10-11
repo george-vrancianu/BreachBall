@@ -5,6 +5,7 @@ import { defaultConfig, step, type SimState } from '../../sim/step'
 import { buildState, playState, hseg } from '../../sim/testkit'
 import type { Point } from '../../sim/pitch'
 import type { WallSpec } from '../../sim/wall'
+import { initialPallets } from '../../sim/pallet'
 import { splashOf } from '../../sim/splash'
 import { Aim, tierColor, type AimLine } from './Aim'
 
@@ -75,8 +76,8 @@ describe('Aim Ghost', () => {
     a.sync(shooting(), defaultConfig)
     a.aim = { tier: 1, ghost: { ...far, maxBounces: 2 }, dir: { x: -0.6, y: -0.8 }, power: 1, pxPerUnit: 10 }
     expect(a.ghost!.at(-1)!.y).toBeCloseTo(1)
-    expect(a.ghostBounces).toHaveLength(2)
-    expect(a.ghostBounces[0].at.x).toBeCloseTo(1)
+    expect(a.ghostMarks).toHaveLength(2)
+    expect(a.ghostMarks[0].at.x).toBeCloseTo(1)
   })
   it('rings a wall bounce in ink and a board bounce in the tier\'s colour, both grey while cancel is armed', () => {
     // Off the left board, then up into a wall across x 6-14 at y = 20.
@@ -84,9 +85,9 @@ describe('Aim Ghost', () => {
     const a = new Aim()
     a.sync({ ...shooting({ x: 10, y: 40 }), objects: walled.objects }, defaultConfig)
     a.aim = { tier: 1, ghost: { ...far, maxBounces: 2 }, dir: { x: -0.6, y: -0.8 }, power: 1, pxPerUnit: 10 }
-    expect(a.ghostBounces.map((b) => [b.kind, b.color])).toEqual([['board', tierColor(1)], ['wall', visual.aim.ghost.bounce.wallColor]])
+    expect(a.ghostMarks.map((b) => [b.kind, b.color])).toEqual([['board', tierColor(1)], ['wall', visual.aim.ghost.bounce.wallColor]])
     a.aim = { ...a.aim, cancel: true }
-    expect(a.ghostBounces.map((b) => b.color)).toEqual([visual.aim.cancel.color, visual.aim.cancel.color])
+    expect(a.ghostMarks.map((b) => b.color)).toEqual([visual.aim.cancel.color, visual.aim.cancel.color])
   })
   it('reaches from its min to its max by where the power sits in the tier\'s range', () => {
     // Power runs 0.5-1: its weakest shot reaches 10 units, the middle 20, its strongest 30.
@@ -109,7 +110,7 @@ describe('Aim Ghost', () => {
     const a = new Aim()
     a.sync(shooting({ x: 10, y: 4 }), defaultConfig)
     a.aim = { tier: 1, ghost: rules.shot.tiers[1].ghost, dir: { x: 0, y: -1 }, power: 1, pxPerUnit: 10 }
-    expect(a.ghostBounces).toHaveLength(1)
+    expect(a.ghostMarks).toHaveLength(1)
     expect(a.ghostDots).toEqual([])
   })
   it('reaches as far from a Charged ball as from a plain one', () => {
@@ -121,6 +122,42 @@ describe('Aim Ghost', () => {
   })
   it('shows no Ghost before the drag', () => {
     expect(ghostOf(far, {})).toBeUndefined()
+  })
+  it('reuses the prediction across ticks when the map has no Pallets', () => {
+    const a = new Aim()
+    const s = { ...shooting(), pallets: [] }
+    a.sync(s, defaultConfig)
+    a.aim = { tier: 0, ghost: far, dir: { x: 0, y: -1 }, power: 0.45, pxPerUnit: 10 }
+    const first = a.ghost
+    // Every tick maps the (empty) Pallets into a new array.
+    a.sync({ ...s, tick: s.tick + 1, pallets: s.pallets.map((p) => p) }, defaultConfig)
+    expect(a.ghost).toBe(first)
+  })
+  describe('with a Pallet', () => {
+    const pivot = { x: 10, y: 30 }
+    const config = { ...defaultConfig, pallets: [pivot] }
+    const armed = (angle: number): SimState => ({ ...shooting({ x: 10, y: 60 }), pallets: initialPallets([pivot], 1).map((p) => ({ ...p, angle })) })
+    const ghost = { maxBounces: 3, reach: [1000, 1000] } as const
+    const aim: AimLine = { tier: 1, ghost, dir: { x: 0, y: -1 }, power: 1, pxPerUnit: 10 }
+
+    it('ends on the arm with a marker in the tier\'s colour, grey while cancel is armed', () => {
+      const a = new Aim()
+      a.sync(armed(-Math.PI / 2), config)
+      a.aim = aim
+      expect(a.ghostMarks.map((b) => [b.kind, b.color])).toEqual([['pallet', tierColor(1)]])
+      expect(a.ghost!.at(-1)).toEqual(a.ghostMarks[0].at)
+      a.aim = { ...aim, cancel: true }
+      expect(a.ghostMarks.map((b) => b.color)).toEqual([visual.aim.cancel.color])
+    })
+    it('is recomputed as the arm spins, even with the aim unchanged', () => {
+      const a = new Aim()
+      a.sync({ ...armed(-Math.PI / 2), ball: { pos: { x: 12, y: 60 }, vel: { x: 0, y: 0 }, rolled: 0 } }, config)
+      a.aim = aim
+      expect(a.ghostMarks).toEqual([])
+      // The arm has turned to cross the line of fire, in a new state as every tick brings.
+      a.sync({ ...armed(0), ball: { pos: { x: 12, y: 60 }, vel: { x: 0, y: 0 }, rolled: 0 } }, config)
+      expect(a.ghostMarks.map((b) => b.kind)).toEqual(['pallet'])
+    })
   })
 })
 

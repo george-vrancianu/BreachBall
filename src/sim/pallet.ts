@@ -7,6 +7,8 @@ import type { Structure } from './wall'
 
 const P = rules.pallet
 const TAU = Math.PI * 2
+/** Halvings that pin down where the frozen arm is first touched. */
+const BISECTIONS = 12
 
 /** A neutral rotating arm (ADR-0009). Plain data: it holds no reference to the ball. */
 export type Pallet = {
@@ -134,16 +136,22 @@ function updatePallet(p: Pallet, c: SimConfig, h: number, ball: Body | null): Pa
   return { ...p, angle, omega: wrap(angle - prev) / h, phase, dir, swept, sweepNeed, cooldown }
 }
 
-/** Tapered capsule against the ball, with the arm's surface velocity (ω×r); a contact faster than `hitSpeed` (relative, arm included) is a swat that clamps the exit speed; a slower one is a plain bounce. */
-function collide(p: Pallet, b: Body, c: SimConfig): { ball: Body; hit?: { speed: number; at: Point } } {
+/** The arm's tapered capsule seen from `at`: its nearest axis point, the radius there, and the vector and distance from that point to `at`. */
+function nearestOnArm(p: Pallet, at: Point) {
   const L = P.length
   const [ux, uy] = [Math.cos(p.angle), Math.sin(p.angle)]
-  const [rx, ry] = [b.pos.x - p.pivot.x, b.pos.y - p.pivot.y]
-  const t = clamp(rx * ux + ry * uy, 0, L)
+  const t = clamp((at.x - p.pivot.x) * ux + (at.y - p.pivot.y) * uy, 0, L)
   const [cx, cy] = [p.pivot.x + ux * t, p.pivot.y + uy * t]
   const pr = P.rootRadius + (P.tipRadius - P.rootRadius) * (t / L)
-  let [dx, dy] = [b.pos.x - cx, b.pos.y - cy]
-  let d = Math.hypot(dx, dy)
+  const [dx, dy] = [at.x - cx, at.y - cy]
+  return { ux, uy, cx, cy, pr, dx, dy, d: Math.hypot(dx, dy) }
+}
+
+/** Tapered capsule against the ball, with the arm's surface velocity (ω×r); a contact faster than `hitSpeed` (relative, arm included) is a swat that clamps the exit speed; a slower one is a plain bounce. */
+function collide(p: Pallet, b: Body, c: SimConfig): { ball: Body; hit?: { speed: number; at: Point } } {
+  const near = nearestOnArm(p, b.pos)
+  const { ux, uy, cx, cy, pr } = near
+  let { dx, dy, d } = near
   if (d >= pr + c.ballRadius) return { ball: b }
   if (d < 1e-6) [dx, dy, d] = [-uy * p.dir, ux * p.dir, 1]
   const [nx, ny] = [dx / d, dy / d]
@@ -204,4 +212,48 @@ export function rollWithPallets(
     }
   }
   return { ball, objects, pallets, events, breaker, pierces }
+}
+
+/**
+ * For the Ghost (ADR-0009): where a ball centre moving straight from `from` to `to` first meets a Pallet's arm, held as it is, or leaves its Activation ring
+ * without having touched it; null when neither happens on this stretch. `t` is how far along (0-1), `kind` whether it was the `arm` or the `ring`.
+ * Only the stretch inside a ring is searched, at least as finely as the sim's substeps and never coarser than the arm is thick, then bisected. Cheap but not allocation-free (a point per sample); it runs only for balls with Pallets on the map.
+ */
+export function frozenArmStop(pallets: readonly Pallet[], from: Point, to: Point, c: SimConfig): { t: number; kind: 'arm' | 'ring' } | null {
+  const [vx, vy] = [to.x - from.x, to.y - from.y]
+  const vv = vx * vx + vy * vy
+  if (vv < 1e-12) return null
+  const reach = ringReach(c)
+  let best = Infinity
+  let kind: 'arm' | 'ring' = 'ring'
+  const clear = (p: Pallet, t: number) => {
+    const n = nearestOnArm(p, { x: from.x + vx * t, y: from.y + vy * t })
+    return n.d - n.pr - c.ballRadius
+  }
+  for (const p of pallets) {
+    // The stretch of the segment within the ring: t in [t0, t1].
+    const [rx, ry] = [from.x - p.pivot.x, from.y - p.pivot.y]
+    const disc = ((rx * vx + ry * vy) / vv) ** 2 - (rx * rx + ry * ry - reach * reach) / vv
+    if (disc < 0) continue
+    const root = Math.sqrt(disc)
+    const mid = -(rx * vx + ry * vy) / vv
+    const exits = mid + root < 1 // the ray leaves the ring inside the segment, untruncated
+    const [t0, t1] = [Math.max(0, mid - root), Math.min(1, mid + root)]
+    if (t0 > t1) continue
+    let [lo, hi] = [-1, -1]
+    const n = Math.max(P.substeps, Math.ceil((Math.sqrt(vv) * (t1 - t0)) / (P.tipRadius + c.ballRadius)))
+    for (let i = 0; i <= n; i++) {
+      const t = t0 + ((t1 - t0) * i) / n
+      if (clear(p, t) < 0) {
+        hi = t
+        break
+      }
+      lo = t
+    }
+    if (hi >= 0) {
+      if (lo >= 0) for (let i = 0; i < BISECTIONS; i++) [lo, hi] = clear(p, (lo + hi) / 2) < 0 ? [lo, (lo + hi) / 2] : [(lo + hi) / 2, hi]
+      if (hi < best) [best, kind] = [hi, 'arm']
+    } else if (exits && t1 < best) [best, kind] = [t1, 'ring']
+  }
+  return best === Infinity ? null : { t: best, kind }
 }
