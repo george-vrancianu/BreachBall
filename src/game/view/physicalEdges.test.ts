@@ -9,7 +9,7 @@ it('swaps every side to the opposite physical edge while the HUD layer is turned
   expect(physicalEdges(180)).toEqual({ top: 'bottom', right: 'left', bottom: 'top', left: 'right' })
 })
 
-it('swaps at the half turn of a whole-stage flip, in either direction, and never before or after', () => {
+it('swaps at the half turn, turning either way, and never before or after', () => {
   expect(physicalEdges(89).top).toBe('top')
   expect(physicalEdges(91).top).toBe('bottom')
   expect(physicalEdges(269).top).toBe('bottom')

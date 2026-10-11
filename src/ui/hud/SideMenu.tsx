@@ -2,9 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { visual } from '../../config/visual'
 import type { SideMenuView } from '../../game/view/sideMenu'
 import { Button, FONT, ghostCircle } from '../ButtonRow'
-import type { Side } from '../../game/view/physicalEdges'
-import { cornerPos } from './Minimap'
-import { safeInset } from './safeArea'
+import type { Edge } from '../../game/view/physicalEdges'
+import { cornerPos, safePad } from './safeArea'
 
 const { sideMenu, tokens } = visual
 
@@ -46,7 +45,7 @@ export function SideMenu({ menu, onResume, onHelp, onRestart, onQuit, className,
   if (!menu.open) return null
   const confirm = (which: 'restart' | 'quit', label: string, go: () => void) => ({ label: armed === which ? `${label}? Tap again` : label, onClick: () => (armed === which ? go() : setArmed(which)) })
   // The panel is as tall as the HUD layer and starts at its left edge, so it clears whatever notch the layer's turn puts on those sides.
-  const safe = (side: Side) => `max(${sideMenu.panelPadPx}px, ${safeInset(side)})`
+  const safe = (side: Edge) => safePad(sideMenu.panelPadPx, side)
   const wide: CSSProperties = { width: '100%' }
   return (
     <div className={className} style={{ ...FONT, position: 'absolute', inset: 0, zIndex: sideMenu.z, display: 'flex', pointerEvents: 'auto', ...style }}>

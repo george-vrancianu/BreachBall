@@ -199,13 +199,6 @@ it('the Title screen opens the connect overlay, settings, and help and back', ()
 })
 
 describe('Side menu', () => {
-  it('pads the panel by the safe-area insets on its top, bottom and screen-edge sides', () => {
-    inMatch({ open: true })
-    const nav = screen.getByRole('navigation', { name: 'Side menu' })
-    const pad = visual.sideMenu.panelPadPx
-    expect([nav.style.paddingTop, nav.style.paddingBottom, nav.style.paddingLeft, nav.style.paddingRight]).toEqual([`max(${pad}px, var(--safe-top, 0px))`, `max(${pad}px, var(--safe-bottom, 0px))`, `max(${pad}px, var(--safe-left, 0px))`, `${pad}px`])
-  })
-
   const inMatch = (menu: Partial<HudView['menu']> = {}) => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Play' }))
@@ -213,6 +206,13 @@ describe('Side menu', () => {
     act(() => games[0]!.onView(view({ menu: { ...freshView().menu, ...menu } })))
     return games[0]!
   }
+
+  it('pads the panel by the safe-area insets on its top, bottom and screen-edge sides', () => {
+    inMatch({ open: true })
+    const nav = screen.getByRole('navigation', { name: 'Side menu' })
+    const pad = visual.sideMenu.panelPadPx
+    expect([nav.style.paddingTop, nav.style.paddingBottom, nav.style.paddingLeft, nav.style.paddingRight]).toEqual([`max(${pad}px, var(--safe-top, 0px))`, `max(${pad}px, var(--safe-bottom, 0px))`, `max(${pad}px, var(--safe-left, 0px))`, `${pad}px`])
+  })
 
   it('the ☰ button opens it, and Title screens have none', () => {
     render(<App />)
