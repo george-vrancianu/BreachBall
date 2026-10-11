@@ -198,21 +198,40 @@ describe('predictPath with Pallets (frozen arm, ADR-0009)', () => {
     predictPath(s, fast, pc, unlimited)
     expect(s).toEqual(before)
   })
-  it('recomputes fast enough to run every tick while aiming (60 fps)', () => {
-    // Worst case: a slow ball, so a long stretch of ticks, with a generous reach, past a Pallet whose arm is missed (the path runs on).
+  describe('recomputes fast enough to run every tick while aiming (60 fps)', () => {
+    // Worst case: a slow ball, so many ticks, fired from just outside the Activation ring and rolling through it, so the stretch inside is sampled.
     const slow: NonNullable<SimInput['shot']> = { ...up, power: 0.3 }
-    const s = withArm(14, 0)
-    const runs = 200
-    predictPath(s, slow, pc, { maxBounces: 8, maxLength: 400 })
-    const times: number[] = []
-    for (let i = 0; i < runs; i++) {
-      const t0 = performance.now()
-      predictPath(s, slow, pc, { maxBounces: 8, maxLength: 400 })
-      times.push(performance.now() - t0)
+    const limit = { maxBounces: 8, maxLength: 400 }
+    const time = (s: SimState) => {
+      const runs = 200
+      predictPath(s, slow, pc, limit)
+      const times: number[] = []
+      for (let i = 0; i < runs; i++) {
+        const t0 = performance.now()
+        predictPath(s, slow, pc, limit)
+        times.push(performance.now() - t0)
+      }
+      return { mean: times.reduce((a, b) => a + b, 0) / runs, max: Math.max(...times) }
     }
-    expect(predictPath(s, slow, pc, { maxBounces: 8, maxLength: 400 }).points.length).toBeGreaterThan(100) // a long path, not a refused shot
-    const mean = times.reduce((a, b) => a + b, 0) / runs
-    console.info(`predictPath with a Pallet: mean ${mean.toFixed(3)} ms, max ${Math.max(...times).toFixed(3)} ms over ${runs} calls`)
-    expect(mean).toBeLessThan(4)
+    const from = (x: number): SimState => ({ ...withArm(x, 0), ball: { pos: { x, y: 45 }, vel: { x: 0, y: 0 }, rolled: 0 } })
+
+    it('when the arm is missed, the path ends at the ring exit', () => {
+      const s = from(14)
+      const path = predictPath(s, slow, pc, limit)
+      const end = path.points.at(-1)!
+      expect(path.contacts).toEqual([])
+      expect(Math.hypot(end.x - pivot.x, end.y - pivot.y)).toBeCloseTo(rules.pallet.ringRadius + c.ballRadius, 1)
+      expect(path.points.length).toBeGreaterThan(50)
+      const { mean, max } = time(s)
+      expect(mean, `mean ${mean}ms max ${max}ms`).toBeLessThan(4)
+    })
+    it('when the arm is hit, the contact is bisected', () => {
+      const s = from(11.5)
+      const path = predictPath(s, slow, pc, limit)
+      expect(path.contacts.map((k) => k.kind)).toEqual(['pallet'])
+      expect(path.points.at(-1)).toEqual(path.contacts[0].at)
+      const { mean, max } = time(s)
+      expect(mean, `mean ${mean}ms max ${max}ms`).toBeLessThan(4)
+    })
   })
 })
