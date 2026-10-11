@@ -125,8 +125,11 @@ export class Pitch extends Entity {
       ctx.stroke()
     }
 
-    if (this.builder) this.drawBuildEdge(ctx, this.builder)
-    if (this.drawsPalletRings) this.drawPalletRings(ctx, this.builder!)
+    // `drawsPalletRings` is this same gate, read by Game for the Pallets entity.
+    if (this.builder) {
+      this.drawBuildEdge(ctx, this.builder)
+      this.drawPalletRings(ctx, this.builder)
+    }
   }
 
   /** The alpha of the `zone` tint: steady, pulsing slowly, stronger while it holds a Charged ball, flashing on an arrival. */

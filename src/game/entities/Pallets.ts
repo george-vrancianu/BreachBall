@@ -48,8 +48,11 @@ export class Pallets extends Entity {
   /** The fog's second pass: draws as usual but always with the Activation rings, since the Pitch's own sits under the fog. */
   drawOverFog(ctx: CanvasRenderingContext2D): void {
     this.overFog = true
-    this.draw(ctx)
-    this.overFog = false
+    try {
+      this.draw(ctx)
+    } finally {
+      this.overFog = false
+    }
   }
 
   protected override render(ctx: CanvasRenderingContext2D): void {
