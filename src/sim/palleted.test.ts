@@ -19,7 +19,7 @@ const roll = (s: SimState, done: (t: SimState) => boolean, max = 300, config: Si
   }
   return { s, events }
 }
-/** A 2-segment wall at grid row gy, 8 units wide from x = 10, so a ball at x = 14 crosses its first segment, x = 18 its second. */
+/** A 2-segment wall at grid row gy, 16 units wide from x = 10 with its Joint at x = 18, so a ball at x = 14 crosses its first segment and x = 22 its second. */
 const wallAt = (id: number, gy: number, owner: PlayerId = 2, segments = [3, 3]): Wall => ({ kind: 'wall', owner, ...hseg(5, gy, 2), id, segments })
 const withObjects = (s: SimState, objects: SimState['objects']): SimState => ({ ...s, objects, nextId: 10 })
 const tower = (owner: PlayerId, power: TowerPower): TowerSpec => ({ kind: 'tower', owner, power, at: { gx: 10, gy: owner === 1 ? 40 : 14 } })
