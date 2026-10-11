@@ -129,4 +129,18 @@ describe('breaker on a wall segment', () => {
     expect(t.objects).toEqual([])
     expect(events.find((e) => e.type === 'wall-destroyed')).toMatchObject({ breaker: true, segment: 1 })
   })
+  it('at a Joint breaks one segment and bounces off the neighbour\'s end', () => {
+    // Aimed straight at the Joint (x = 18) of the 2-segment wall x 10 to 26.
+    let t = flying(two(), -40, 70)
+    t = { ...t, ball: { ...t.ball, pos: { x: 18, y: 70 } } }
+    const events = []
+    for (let i = 0; i < 60; i++) {
+      const r = run(t)
+      t = r.state
+      events.push(...r.events)
+    }
+    expect(events.filter((e) => e.type === 'segment-broken')).toHaveLength(1)
+    expect(events.some((e) => e.type === 'wall-destroyed')).toBe(false)
+    expect((t.objects[0] as Wall).segments.filter((h) => h === 0)).toHaveLength(1)
+  })
 })
