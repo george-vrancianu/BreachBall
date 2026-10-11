@@ -26,16 +26,16 @@ describe('tower shape', () => {
 
 describe('tower placement', () => {
   it('follows the half rule', () => {
-    expect(isLegal(tower(5, 40))).toBe(true)
-    expect(isLegal(tower(5, 10))).toBe(false)
-    expect(isLegal(tower(5, 10, 2))).toBe(true)
+    expect(isLegal(tower(5, 40), [], [])).toBe(true)
+    expect(isLegal(tower(5, 10), [], [])).toBe(false)
+    expect(isLegal(tower(5, 10, 2), [], [])).toBe(true)
   })
   it('refuses a cell straddling the halfway line', () => {
-    expect(isLegal(tower(5, 26))).toBe(false)
-    expect(isLegal(tower(5, 27))).toBe(true)
+    expect(isLegal(tower(5, 26), [], [])).toBe(false)
+    expect(isLegal(tower(5, 27), [], [])).toBe(true)
   })
   it('refuses the own no-build zone', () => {
-    expect(isLegal(tower(10, 52))).toBe(false)
+    expect(isLegal(tower(10, 52), [], [])).toBe(false)
   })
   it('places through step with rules.towerHp and its Credit price, refuses illegal ones', () => {
     const r = run(buildState(1), { placeWall: tower(5, 40) })
@@ -48,17 +48,17 @@ describe('tower placement', () => {
 describe('tower as obstacle', () => {
   it('a wall may not pass through a tower\'s cell, but may touch its edge or end on it', () => {
     const t = [tower(10, 40)] // x 20..22, y 80..82
-    expect(isLegal(straight(8, 40.5), t)).toBe(false) // runs through it
-    expect(isLegal(straight(8, 41), t)).toBe(true) // clear below
-    expect(isLegal({ kind: 'wall', owner: 1, a: { x: 12, y: 80 }, b: { x: 20, y: 80 } }, t)).toBe(true) // ends on its corner
-    expect(isLegal({ kind: 'wall', owner: 1, a: { x: 20, y: 80 }, b: { x: 28, y: 80 } }, t)).toBe(true) // along its top edge
-    expect(isLegal({ kind: 'wall', owner: 1, a: { x: 17, y: 85 }, b: { x: 17 + 8 * Math.SQRT1_2, y: 85 - 8 * Math.SQRT1_2 } }, t)).toBe(false) // a diagonal across it
-    expect(isLegal({ kind: 'wall', owner: 1, a: { x: 16, y: 84 }, b: { x: 16 + 8 * Math.SQRT1_2, y: 84 - 8 * Math.SQRT1_2 } }, t)).toBe(true) // a diagonal that only grazes its corner
+    expect(isLegal(straight(8, 40.5), t, [])).toBe(false) // runs through it
+    expect(isLegal(straight(8, 41), t, [])).toBe(true) // clear below
+    expect(isLegal({ kind: 'wall', owner: 1, a: { x: 12, y: 80 }, b: { x: 20, y: 80 } }, t, [])).toBe(true) // ends on its corner
+    expect(isLegal({ kind: 'wall', owner: 1, a: { x: 20, y: 80 }, b: { x: 28, y: 80 } }, t, [])).toBe(true) // along its top edge
+    expect(isLegal({ kind: 'wall', owner: 1, a: { x: 17, y: 85 }, b: { x: 17 + 8 * Math.SQRT1_2, y: 85 - 8 * Math.SQRT1_2 } }, t, [])).toBe(false) // a diagonal across it
+    expect(isLegal({ kind: 'wall', owner: 1, a: { x: 16, y: 84 }, b: { x: 16 + 8 * Math.SQRT1_2, y: 84 - 8 * Math.SQRT1_2 } }, t, [])).toBe(true) // a diagonal that only grazes its corner
   })
   it('a tower may not sit on a wall or on another tower', () => {
-    expect(isLegal(tower(10, 40), [straight(8, 40.5)])).toBe(false)
-    expect(isLegal(tower(10, 40), [tower(10, 40)])).toBe(false)
-    expect(isLegal(tower(11, 40), [tower(10, 40)])).toBe(true)
+    expect(isLegal(tower(10, 40), [straight(8, 40.5)], [])).toBe(false)
+    expect(isLegal(tower(10, 40), [tower(10, 40)], [])).toBe(false)
+    expect(isLegal(tower(11, 40), [tower(10, 40)], [])).toBe(true)
   })
 })
 

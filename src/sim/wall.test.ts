@@ -191,13 +191,13 @@ describe('isLegal', () => {
   /** Asserts the wall is a drawable shape first, so a failure below is down to the rule under test. */
   const illegal = (w: WallSpec) => {
     expect(isDrawable(w)).toBe(true)
-    expect(isLegal(w)).toBe(false)
+    expect(isLegal(w, [], [])).toBe(false)
   }
   it('allows a wall on the owner half, and refuses the opponent half', () => {
-    expect(isLegal(wall(1, ...ends(2, 40)))).toBe(true)
-    expect(isLegal(wall(2, ...ends(2, 10)))).toBe(true)
-    expect(isLegal(wall(1, ...ends(2, 10)))).toBe(false)
-    expect(isLegal(wall(2, ...ends(2, 40)))).toBe(false)
+    expect(isLegal(wall(1, ...ends(2, 40)), [], [])).toBe(true)
+    expect(isLegal(wall(2, ...ends(2, 10)), [], [])).toBe(true)
+    expect(isLegal(wall(1, ...ends(2, 10)), [], [])).toBe(false)
+    expect(isLegal(wall(2, ...ends(2, 40)), [], [])).toBe(false)
   })
   it('refuses a wall with any part off the owner half, even if its ends are on it', () => {
     illegal(wall(1, p(4, 58), p(4, 50))) // a vertical unit stepping over the halfway line
@@ -206,30 +206,30 @@ describe('isLegal', () => {
     illegal(wall(2, p(4, 52), p(4 + D, 52 + D)))
   })
   it('refuses a wall lying on the halfway line, allows one touching it from the owner side', () => {
-    expect(isLegal(wall(1, p(4, 54), p(12, 54)))).toBe(false)
-    expect(isLegal(wall(2, p(4, 54), p(12, 54)))).toBe(false)
-    expect(isLegal(wall(1, p(4, 54), p(4, 62)))).toBe(true)
-    expect(isLegal(wall(2, p(4, 54), p(4, 46)))).toBe(true)
+    expect(isLegal(wall(1, p(4, 54), p(12, 54)), [], [])).toBe(false)
+    expect(isLegal(wall(2, p(4, 54), p(12, 54)), [], [])).toBe(false)
+    expect(isLegal(wall(1, p(4, 54), p(4, 62)), [], [])).toBe(true)
+    expect(isLegal(wall(2, p(4, 54), p(4, 46)), [], [])).toBe(true)
   })
   it('keeps the whole segment inside the pitch', () => {
-    expect(isLegal(wall(1, p(-1, 80), p(7, 80)))).toBe(false)
-    expect(isLegal(wall(1, p(34, 80), p(42, 80)))).toBe(false)
-    expect(isLegal(wall(1, p(32, 80), p(40, 80)))).toBe(true)
-    expect(isLegal(wall(1, p(0, 80), p(8, 80)))).toBe(true)
+    expect(isLegal(wall(1, p(-1, 80), p(7, 80)), [], [])).toBe(false)
+    expect(isLegal(wall(1, p(34, 80), p(42, 80)), [], [])).toBe(false)
+    expect(isLegal(wall(1, p(32, 80), p(40, 80)), [], [])).toBe(true)
+    expect(isLegal(wall(1, p(0, 80), p(8, 80)), [], [])).toBe(true)
     illegal(wall(1, p(2, 104), p(2, 112))) // past the goal line
   })
   it('refuses a wall inside the own goal no-build semicircle, by distance to the whole segment', () => {
-    expect(isLegal(wall(2, ...ends(8, 2)))).toBe(false)
-    expect(isLegal(wall(1, ...ends(8, 52)))).toBe(false)
+    expect(isLegal(wall(2, ...ends(8, 2)), [], [])).toBe(false)
+    expect(isLegal(wall(1, ...ends(8, 52)), [], [])).toBe(false)
     // Radius 15 around (20, 0), inclusive. A vertical wall on x=20 from y=14 is 14 away; from y=16, 16.
-    expect(isLegal(wall(2, p(20, 14), p(20, 22)))).toBe(false)
-    expect(isLegal(wall(2, p(20, 16), p(20, 24)))).toBe(true)
+    expect(isLegal(wall(2, p(20, 14), p(20, 22)), [], [])).toBe(false)
+    expect(isLegal(wall(2, p(20, 16), p(20, 24)), [], [])).toBe(true)
     // Horizontal on y=14 from x=14: the nearest point (20, 14) is inside.
-    expect(isLegal(wall(2, ...ends(7, 7)))).toBe(false)
-    expect(isLegal(wall(2, ...ends(1, 7)))).toBe(true)
+    expect(isLegal(wall(2, ...ends(7, 7)), [], [])).toBe(false)
+    expect(isLegal(wall(2, ...ends(1, 7)), [], [])).toBe(true)
     // A diagonal: one clear of the zone, one with its far end inside.
-    expect(isLegal(wall(2, p(2, 20), p(2 + D, 20 - D)))).toBe(true)
-    expect(isLegal(wall(2, p(10, 18), p(10 + D, 18 - D)))).toBe(false)
+    expect(isLegal(wall(2, p(2, 20), p(2 + D, 20 - D)), [], [])).toBe(true)
+    expect(isLegal(wall(2, p(10, 18), p(10 + D, 18 - D)), [], [])).toBe(false)
   })
   it('tests the goal zone against the segment, not just its ends', () => {
     const [clear, clipped] = [wall(2, p(12, 15.5), p(28, 15.5)), wall(2, p(12, 14.5), p(28, 14.5))]
@@ -237,37 +237,37 @@ describe('isLegal', () => {
     for (const w of [clear, clipped]) expect(Math.min(Math.hypot(w.a.x - 20, w.a.y), Math.hypot(w.b.x - 20, w.b.y))).toBeGreaterThan(rules.noBuildRadius)
     expect(isDrawable(clear)).toBe(true)
     expect(isDrawable(clipped)).toBe(true)
-    expect(isLegal(clear)).toBe(true)
-    expect(isLegal(clipped)).toBe(false)
+    expect(isLegal(clear, [], [])).toBe(true)
+    expect(isLegal(clipped, [], [])).toBe(false)
   })
   it('refuses a wall inside the Centre zone (radius 3 cells around the centre spot), by distance to the segment', () => {
     // Centre (20, 54). A vertical wall on x=20 from y=60 is 6 away (inside, inclusive).
     illegal(wall(1, p(20, 60), p(20, 68)))
-    expect(isLegal(wall(1, p(20, 60.5), p(20, 68.5)))).toBe(true)
+    expect(isLegal(wall(1, p(20, 60.5), p(20, 68.5)), [], [])).toBe(true)
     // Ends outside the circle but the middle passing through it.
     const [inside, clear] = [wall(1, p(14, 60), p(30, 60)), wall(1, p(14, 60.5), p(30, 60.5))]
     expect(Math.hypot(inside.a.x - 20, inside.a.y - 54)).toBeGreaterThan(rules.centreZoneRadius)
     illegal(inside)
     expect(isDrawable(clear)).toBe(true)
-    expect(isLegal(clear)).toBe(true)
+    expect(isLegal(clear, [], [])).toBe(true)
     illegal(wall(2, p(14, 48), p(30, 48)))
-    expect(isLegal(wall(2, p(14, 47.5), p(30, 47.5)))).toBe(true)
+    expect(isLegal(wall(2, p(14, 47.5), p(30, 47.5)), [], [])).toBe(true)
     // Far enough along the line.
-    expect(isLegal(wall(1, p(26.5, 56), p(34.5, 56)))).toBe(true)
+    expect(isLegal(wall(1, p(26.5, 56), p(34.5, 56)), [], [])).toBe(true)
   })
   it('refuses a tower inside the Centre zone and accepts one just outside', () => {
     const tower = (owner: 1 | 2, gx: number, gy: number): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx, gy } })
     // Centre (20, 54), radius 6: the cell at (24..26, 58..60) has its nearest corner 5.66 away; the one at (26..28, 58..60) 7.2.
-    expect(isLegal(tower(1, 12, 29))).toBe(false)
-    expect(isLegal(tower(1, 13, 29))).toBe(true)
-    expect(isLegal(tower(2, 12, 24))).toBe(false)
-    expect(isLegal(tower(2, 13, 24))).toBe(true)
+    expect(isLegal(tower(1, 12, 29), [], [])).toBe(false)
+    expect(isLegal(tower(1, 13, 29), [], [])).toBe(true)
+    expect(isLegal(tower(2, 12, 24), [], [])).toBe(false)
+    expect(isLegal(tower(2, 13, 24), [], [])).toBe(true)
   })
   it('refuses a wall or tower in an Activation ring, by distance to the segment or cell, and accepts one just outside', () => {
     const spots = rules.pallet.spots
     const tower = (owner: 1 | 2, gx: number, gy: number): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx, gy } })
     // Ring radius 5 around (6, 54). A horizontal wall on y=59 is 5 away (inside, inclusive); on y=59.5, clear. Neither is near the Centre zone.
-    expect(isLegal(wall(1, p(2, 59), p(10, 59)))).toBe(true)
+    expect(isLegal(wall(1, p(2, 59), p(10, 59)), [], [])).toBe(true)
     expect(isLegal(wall(1, p(2, 59), p(10, 59)), [], spots)).toBe(false)
     expect(isLegal(wall(1, p(2, 59.5), p(10, 59.5)), [], spots)).toBe(true)
     // The far ring, from the other half, ends outside it but the middle through it.
@@ -290,31 +290,31 @@ describe('isLegal', () => {
   it('judges a tower by its whole cell against the halfway line', () => {
     const tower = (owner: 1 | 2, gy: number): TowerSpec => ({ kind: 'tower', owner, power: 'repulsor', at: { gx: 2, gy } })
     // The halfway line is at grid row 27: a cell resting on it, wholly on the owner's side, is legal.
-    expect(isLegal(tower(1, 27))).toBe(true)
-    expect(isLegal(tower(2, 26))).toBe(true)
+    expect(isLegal(tower(1, 27), [], [])).toBe(true)
+    expect(isLegal(tower(2, 26), [], [])).toBe(true)
     // Wholly on the other half is not.
-    expect(isLegal(tower(1, 26))).toBe(false)
-    expect(isLegal(tower(2, 27))).toBe(false)
+    expect(isLegal(tower(1, 26), [], [])).toBe(false)
+    expect(isLegal(tower(2, 27), [], [])).toBe(false)
   })
   it('does not cross or overlap any existing wall, either owner\'s', () => {
     const existing = [wall(1, p(10, 80), p(18, 80)), wall(2, p(10, 20), p(18, 20))]
-    expect(isLegal(wall(1, p(14, 76), p(14, 84)), existing)).toBe(false) // a plus
-    expect(isLegal(wall(1, p(14, 86), p(14 + D, 86 - D)), existing)).toBe(true) // clear
-    expect(isLegal(wall(1, p(14, 80), p(22, 80)), existing)).toBe(false) // collinear overlap
-    expect(isLegal(wall(1, p(12, 76), p(12 + D, 76 + D)), existing)).toBe(false) // crossing at a slant
-    expect(isLegal(wall(2, p(14, 16), p(14, 24)), existing)).toBe(false)
+    expect(isLegal(wall(1, p(14, 76), p(14, 84)), existing, [])).toBe(false) // a plus
+    expect(isLegal(wall(1, p(14, 86), p(14 + D, 86 - D)), existing, [])).toBe(true) // clear
+    expect(isLegal(wall(1, p(14, 80), p(22, 80)), existing, [])).toBe(false) // collinear overlap
+    expect(isLegal(wall(1, p(12, 76), p(12 + D, 76 + D)), existing, [])).toBe(false) // crossing at a slant
+    expect(isLegal(wall(2, p(14, 16), p(14, 24)), existing, [])).toBe(false)
   })
   it('lets walls touch end to end and in a T', () => {
     const existing = [wall(1, p(10, 80), p(18, 80))]
-    expect(isLegal(wall(1, p(18, 80), p(26, 80)), existing)).toBe(true) // straight on
-    expect(isLegal(wall(1, p(18, 80), p(18 + D, 80 + D)), existing)).toBe(true) // a bend
-    expect(isLegal(wall(1, p(14, 80), p(14, 88)), existing)).toBe(true) // a T on the body
-    expect(isLegal(wall(1, p(14, 80), p(14 + D, 80 - D)), existing)).toBe(true) // a diagonal T
+    expect(isLegal(wall(1, p(18, 80), p(26, 80)), existing, [])).toBe(true) // straight on
+    expect(isLegal(wall(1, p(18, 80), p(18 + D, 80 + D)), existing, [])).toBe(true) // a bend
+    expect(isLegal(wall(1, p(14, 80), p(14, 88)), existing, [])).toBe(true) // a T on the body
+    expect(isLegal(wall(1, p(14, 80), p(14 + D, 80 - D)), existing, [])).toBe(true) // a diagonal T
   })
   it('ignores itself only when the caller leaves it out (a move)', () => {
     const w = wall(1, p(10, 80), p(18, 80))
-    expect(isLegal(w, [w])).toBe(false)
-    expect(isLegal(w, [])).toBe(true)
+    expect(isLegal(w, [w], [])).toBe(false)
+    expect(isLegal(w, [], [])).toBe(true)
   })
 })
 
@@ -326,12 +326,12 @@ function ends(gx: number, gy: number): [Point, Point] {
 
 describe('allowed shapes', () => {
   it('refuses a wall whose length or angle is not in the configured sets', () => {
-    expect(isLegal(wall(1, p(4, 80), p(4 + 12, 80)))).toBe(false) // 1.5 units
-    expect(isLegal(wall(1, p(4, 80), p(4 + 24, 80)))).toBe(false) // 3 units
-    expect(isLegal(wall(1, p(4, 80), p(4 + 8 * Math.cos(0.2), 80 + 8 * Math.sin(0.2))))).toBe(false) // an odd angle
-    expect(isLegal(wall(1, p(4, 80), p(4 + 16, 80)))).toBe(true)
-    expect(isLegal(wall(1, p(30, 80), p(30 - D, 80 - D)))).toBe(true) // 225 degrees is the 45 degree set
-    expect(isLegal(wall(1, p(30, 80), p(30 + D, 80 - D)))).toBe(true)
+    expect(isLegal(wall(1, p(4, 80), p(4 + 12, 80)), [], [])).toBe(false) // 1.5 units
+    expect(isLegal(wall(1, p(4, 80), p(4 + 24, 80)), [], [])).toBe(false) // 3 units
+    expect(isLegal(wall(1, p(4, 80), p(4 + 8 * Math.cos(0.2), 80 + 8 * Math.sin(0.2))), [], [])).toBe(false) // an odd angle
+    expect(isLegal(wall(1, p(4, 80), p(4 + 16, 80)), [], [])).toBe(true)
+    expect(isLegal(wall(1, p(30, 80), p(30 - D, 80 - D)), [], [])).toBe(true) // 225 degrees is the 45 degree set
+    expect(isLegal(wall(1, p(30, 80), p(30 + D, 80 - D)), [], [])).toBe(true)
   })
 })
 
@@ -389,7 +389,7 @@ describe('snapWallBetween', () => {
 describe('isLegal with custom wall rules', () => {
   it('reads the rules it is given: a three-unit wall is legal only where three units are allowed', () => {
     const w: WallSpec = { kind: 'wall', owner: 1, ...hseg(1, 40, 3) }
-    expect(isLegal(w)).toBe(false)
+    expect(isLegal(w, [], [])).toBe(false)
     expect(isLegal(w, [], [], { ...rules, wall: { ...rules.wall, units: [1, 2, 3] } })).toBe(true)
   })
 })
@@ -489,7 +489,7 @@ describe('placing over a Gap', () => {
   it('the wall\'s full footprint, Gaps included, still blocks placing', () => {
     const gapped = placed(p(0, 80), p(2 * U, 80), [0, 3])
     const over = wall(1, p(2, 80), p(2 + U, 80))
-    expect(isLegal(over, [gapped])).toBe(false)
-    expect(isLegal(wall(1, p(2, 76), p(2, 76 + U)), [gapped])).toBe(false) // crossing the Gap's footprint
+    expect(isLegal(over, [gapped], [])).toBe(false)
+    expect(isLegal(wall(1, p(2, 76), p(2, 76 + U)), [gapped], [])).toBe(false) // crossing the Gap's footprint
   })
 })
