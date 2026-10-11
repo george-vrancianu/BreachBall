@@ -69,6 +69,19 @@ it('the Tabletop slide moves the Dock off the layer bottom and fades the strips 
   expect(screen.getByRole('button', { name: 'Menu' }).style.opacity).toBe('')
 })
 
+it('a sweep that began with the slide keeps full opacity while the chrome is faded out', () => {
+  render(<App />)
+  fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+  fireEvent.click(screen.getByText('Start'))
+  const sweep = { kind: 'sweep' as const, placement: 'center' as const, band: true, text: 'PLAY', color: '#fff', progress: 0.5, turn: 180 }
+  act(() => games[0]!.onView(view({ slide: { dock: 1, chrome: 0 }, overlay: { ...sweep, fades: false } })))
+  expect((screen.getByText('PLAY').parentElement as HTMLElement).style.transform).toMatch(/^rotate\(180deg\)/)
+  expect(screen.getByRole('button', { name: 'Menu' }).style.opacity).toBe('0')
+  expect((screen.getByText('PLAY').parentElement as HTMLElement).style.opacity).toBe('')
+  act(() => games[0]!.onView(view({ slide: { dock: 1, chrome: 0 }, overlay: { ...sweep, turn: 0, fades: true } })))
+  expect((screen.getByText('PLAY').parentElement as HTMLElement).style.opacity).toBe('0')
+})
+
 it('keeps the HUD layer out of the pitch input, while its controls still take clicks', () => {
   render(<App />)
   fireEvent.click(screen.getByRole('button', { name: 'Play' }))
@@ -123,7 +136,7 @@ it('draws the overlay under the shell, so the controls stay tappable during a ho
   render(<App />)
   fireEvent.click(screen.getByRole('button', { name: 'Play' }))
   fireEvent.click(screen.getByText('Start'))
-  act(() => games[0]!.onView(view({ overlay: { kind: 'goal', placement: 'center', band: true, text: 'Player 2', color: '#fff', progress: 0 } })))
+  act(() => games[0]!.onView(view({ overlay: { kind: 'goal', placement: 'center', band: true, text: 'Player 2', color: '#fff', progress: 0, turn: 0, fades: true } })))
   const card = screen.getByText('Player 2').parentElement!
   const map = screen.getByRole('button', { name: 'Map' })
   expect(card.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

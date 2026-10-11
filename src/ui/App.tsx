@@ -58,7 +58,7 @@ export function App() {
       <div data-testid="hud-layer" style={layerStyle(hudAngle, { pointerEvents: 'none' })}>
         {view && (
           <>
-            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} style={fade(view.slide.chrome)} />
+            <Overlay view={view.overlay} flipped={view.flipped} resourceBar={!!view.hud.resourceBar} style={view.overlay?.fades ? fade(view.slide.chrome) : undefined} />
             <DefenceBar bar={view.hud.defenceBar} flipped={view.flipped} style={fade(view.slide.chrome)} />
             {view.hud.resourceBar && <ResourceBar bar={view.hud.resourceBar} flipped={view.flipped} style={fade(view.slide.chrome)} />}
             {view.subterfuge && <QueuedIcons queued={view.subterfuge.queued} flipped={view.flipped} style={fade(view.slide.chrome)} />}
